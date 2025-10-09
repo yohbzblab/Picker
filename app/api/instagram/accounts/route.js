@@ -20,6 +20,7 @@ export async function GET(request) {
       },
       select: {
         id: true,
+        instagramUserId: true,
         username: true,
         accountType: true,
         profilePictureUrl: true,

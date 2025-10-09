@@ -14,7 +14,7 @@ export async function GET(request) {
 
     // Instagram Business Login URL 생성 (정확한 엔드포인트)
     const scope =
-      "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages";
+      "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_comments,instagram_business_manage_messages,instagram_business_manage_insights";
     const state = Buffer.from(JSON.stringify({ userId })).toString("base64");
     console.log(process.env.INSTAGRAM_APP_ID);
     // Instagram Business Login 공식 엔드포인트
