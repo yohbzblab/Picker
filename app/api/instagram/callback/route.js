@@ -13,13 +13,13 @@ export async function GET(request) {
     if (error) {
       console.error('Instagram OAuth error:', error, errorDescription)
       return NextResponse.redirect(
-        new URL(`/settings?error=${encodeURIComponent(errorDescription || error)}`, request.url)
+        new URL(`/settings?error=${encodeURIComponent(errorDescription || error)}`, process.env.NEXT_PUBLIC_APP_URL)
       )
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        new URL('/settings?error=Missing authorization code', request.url)
+        new URL('/settings?error=Missing authorization code', process.env.NEXT_PUBLIC_APP_URL)
       )
     }
 
@@ -44,7 +44,7 @@ export async function GET(request) {
       const errorData = await tokenResponse.text()
       console.error('Failed to exchange token:', errorData)
       return NextResponse.redirect(
-        new URL('/settings?error=Failed to connect Instagram account', request.url)
+        new URL('/settings?error=Failed to connect Instagram account', process.env.NEXT_PUBLIC_APP_URL)
       )
     }
 
@@ -81,7 +81,7 @@ export async function GET(request) {
       const errorText = await userInfoResponse.text()
       console.error('Failed to fetch Instagram user info:', errorText)
       return NextResponse.redirect(
-        new URL('/settings?error=Failed to fetch Instagram profile', request.url)
+        new URL('/settings?error=Failed to fetch Instagram profile', process.env.NEXT_PUBLIC_APP_URL)
       )
     }
 
@@ -112,12 +112,12 @@ export async function GET(request) {
 
     // 성공 후 설정 페이지로 리다이렉트
     return NextResponse.redirect(
-      new URL('/settings?success=Instagram account connected successfully', request.url)
+      new URL('/settings?success=Instagram account connected successfully', process.env.NEXT_PUBLIC_APP_URL)
     )
   } catch (error) {
     console.error('Instagram callback error:', error)
     return NextResponse.redirect(
-      new URL('/settings?error=An error occurred while connecting Instagram', request.url)
+      new URL('/settings?error=An error occurred while connecting Instagram', process.env.NEXT_PUBLIC_APP_URL)
     )
   }
 }
