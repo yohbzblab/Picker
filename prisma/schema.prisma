@@ -25,6 +25,7 @@ model User {
   updatedAt       DateTime @updatedAt
 
   instagramAccounts InstagramAccount[]
+  influencers       Influencer[]
 
   @@map("users")
 }
@@ -56,4 +57,66 @@ model InstagramAccount {
 
   @@index([userId])
   @@map("instagram_accounts")
+}
+
+model InfluencerField {
+  id          Int       @id @default(autoincrement())
+  key         String    @unique  // 컬럼 키 (accountId, name 등)
+  label       String    // 표시명 (계정 ID, 인플루언서 이름 등)
+  tooltip     String?   // 툴팁 설명
+  fieldType   FieldType // 필드 타입
+  isRequired  Boolean   @default(false)  // 필수 여부
+  isFixed     Boolean   @default(false)  // 고정 컬럼 여부 (삭제/수정 불가)
+  sortOrder   Int       @default(0)      // 정렬 순서
+  isActive    Boolean   @default(true)   // 활성화 여부
+
+  // 선택형 필드를 위한 옵션들 (JSON)
+  options     Json?     // SELECT, RADIO 타입의 선택 옵션들
+
+  // 검증 규칙 (JSON)
+  validation  Json?     // min, max, pattern 등 검증 규칙
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("influencer_fields")
+}
+
+model Influencer {
+  id        Int      @id @default(autoincrement())
+  userId    Int      // 소유 사용자
+
+  // 고정 필드들
+  accountId String   // 계정 ID (항상 필요한 기본 식별자)
+
+  // 동적 필드 데이터 (JSON)
+  fieldData Json     // { "name": "김인플루", "followers": 125300, "categories": ["뷰티", "라이프스타일"] }
+
+  // 메타데이터
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([accountId])
+  @@map("influencers")
+}
+
+enum FieldType {
+  TEXT          // 짧은 텍스트
+  LONG_TEXT     // 장문 텍스트 (textarea)
+  NUMBER        // 숫자
+  URL           // URL 링크
+  EMAIL         // 이메일
+  PHONE         // 전화번호
+  BOOLEAN       // 체크박스 (true/false)
+  SELECT        // 드롭다운 선택 (단일)
+  MULTI_SELECT  // 다중 선택
+  TAGS          // 태그 입력
+  DATE          // 날짜
+  DATETIME      // 날짜시간
+  CURRENCY      // 통화/금액
+  PERCENTAGE    // 퍼센트
+  RATING        // 평점 (1-5)
 }

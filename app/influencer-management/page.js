@@ -5,44 +5,74 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
 export default function InfluencerManagement() {
-  const { user, dbUser, loading, signOut } = useAuth()
+  const { user, dbUser, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const [hoveredColumn, setHoveredColumn] = useState(null)
   const [visibleColumns, setVisibleColumns] = useState({})
   const [showColumnSelector, setShowColumnSelector] = useState(false)
+  const [fields, setFields] = useState([])
+  const [influencers, setInfluencers] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!loading && !user) {
+    if (!authLoading && !user) {
       router.push('/login')
     }
-  }, [user, loading, router])
+  }, [user, authLoading, router])
 
+  // 데이터 로드
   useEffect(() => {
-    const loadColumnPreferences = () => {
-      try {
-        const savedPreferences = localStorage.getItem('influencer-table-columns')
-        if (savedPreferences) {
-          const parsed = JSON.parse(savedPreferences)
-          setVisibleColumns(parsed)
-        } else {
-          const initialVisibility = {}
-          columnDefinitions.forEach(column => {
-            initialVisibility[column.key] = true
-          })
-          setVisibleColumns(initialVisibility)
-        }
-      } catch (error) {
-        console.error('Error loading column preferences:', error)
+    if (dbUser) {
+      loadData()
+    }
+  }, [dbUser])
+
+  const loadData = async () => {
+    try {
+      setLoading(true)
+
+      // 시드 데이터 생성 (필요한 경우)
+      await fetch('/api/influencer-fields/seed', { method: 'POST' })
+
+      // 인플루언서 데이터와 필드 정의 로드
+      const response = await fetch(`/api/influencers?userId=${dbUser.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setInfluencers(data.influencers)
+        setFields(data.fields)
+
+        // 컬럼 표시 설정 로드
+        loadColumnPreferences(data.fields)
+      }
+    } catch (error) {
+      console.error('Error loading data:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const loadColumnPreferences = (fieldsData) => {
+    try {
+      const savedPreferences = localStorage.getItem('influencer-table-columns')
+      if (savedPreferences) {
+        const parsed = JSON.parse(savedPreferences)
+        setVisibleColumns(parsed)
+      } else {
         const initialVisibility = {}
-        columnDefinitions.forEach(column => {
-          initialVisibility[column.key] = true
+        fieldsData.forEach(field => {
+          initialVisibility[field.key] = true
         })
         setVisibleColumns(initialVisibility)
       }
+    } catch (error) {
+      console.error('Error loading column preferences:', error)
+      const initialVisibility = {}
+      fieldsData.forEach(field => {
+        initialVisibility[field.key] = true
+      })
+      setVisibleColumns(initialVisibility)
     }
-
-    loadColumnPreferences()
-  }, [])
+  }
 
   const toggleColumnVisibility = (columnKey) => {
     setVisibleColumns(prev => {
@@ -63,9 +93,9 @@ export default function InfluencerManagement() {
 
   const setAllColumnsVisibility = (visible) => {
     const newVisibility = {}
-    columnDefinitions.forEach(column => {
-      if (!column.fixed) {
-        newVisibility[column.key] = visible
+    fields.forEach(field => {
+      if (!field.isFixed) {
+        newVisibility[field.key] = visible
       }
     })
 
@@ -81,95 +111,75 @@ export default function InfluencerManagement() {
     }))
   }
 
-  const columnDefinitions = [
-    { key: 'accountId', label: '계정 ID', tooltip: '인플루언서의 고유 계정 식별자입니다.', fixed: true },
-    { key: 'name', label: '인플루언서 이름', tooltip: '인플루언서의 실제 이름 또는 활동명입니다.' },
-    { key: 'bio', label: '프로필 소개', tooltip: '인플루언서 프로필에 작성된 자기소개 내용입니다.' },
-    { key: 'followers', label: '팔로워 수', tooltip: '현재 팔로워 수를 나타냅니다.' },
-    { key: 'ageGroup', label: '연령대', tooltip: '인플루언서의 추정 연령대입니다.' },
-    { key: 'profileLink', label: '프로필 링크', tooltip: '인스타그램 프로필 페이지로 이동하는 링크입니다.' },
-    { key: 'category', label: '카테고리', tooltip: '인플루언서의 주요 활동 분야 또는 카테고리입니다.' },
-    { key: 'hasLinks', label: '링크트리/유튜브', tooltip: '링크트리나 유튜브 채널 보유 여부를 표시합니다.' },
-    { key: 'uploadFreq', label: '업로드 주기', tooltip: '평균적인 콘텐츠 업로드 주기입니다.' },
-    { key: 'recentAvgViews', label: '최근 9개 평균 뷰', tooltip: '최근 상단 피드 9개 게시물의 평균 조회수입니다.' },
-    { key: 'captureLinks', label: '캡쳐 링크', tooltip: '최근 상단 피드 9개 게시물의 스크린샷 링크입니다.' },
-    { key: 'pinnedAvgViews', label: '고정 3개 평균 뷰', tooltip: '최상단 고정된 3개 게시물의 평균 조회수입니다.' },
-    { key: 'recent18AvgViews', label: '최근 18개 평균 뷰', tooltip: '최근 18개 포스팅의 평균 조회수입니다.' },
-    { key: 'recentAds', label: '최근 광고 컨텐츠', tooltip: '최근 업로드된 광고성 콘텐츠 정보입니다.' },
-    { key: 'contactMethod', label: '컨택 방법', tooltip: '인플루언서에게 연락할 수 있는 방법입니다.' },
-    { key: 'notes', label: '특이사항', tooltip: '해당 인플루언서에 대한 특별한 메모나 주의사항입니다.' },
-    { key: 'cnewlabConfirm', label: '씨뉴랩 컨펌', tooltip: '씨뉴랩에서 해당 인플루언서를 확인했는지 여부입니다.', type: 'checkbox' },
-    { key: 'buzzbylabConfirm', label: '버즈비랩 컨펌', tooltip: '버즈비랩에서 해당 인플루언서를 확인했는지 여부입니다.', type: 'checkbox' },
-    { key: 'buzzbylabOpinion', label: '버즈비랩 의견', tooltip: '버즈비랩의 해당 인플루언서에 대한 의견입니다.' },
-    { key: 'wantToTry', label: '꼭 해보고 싶은 분', tooltip: '특별히 협업하고 싶은 인플루언서인지 여부입니다.', type: 'checkbox' },
-    { key: 'dmSent', label: 'DM 전달 완료 OX', tooltip: 'DM이 성공적으로 전달되었는지 여부입니다.' },
-    { key: 'dmReply', label: 'DM 회신 OX', tooltip: 'DM에 대한 회신이 있었는지 여부입니다.' },
-    { key: 'guideEmailSent', label: '가이드 전달 멜 전송 OX', tooltip: '가이드 이메일이 전송되었는지 여부입니다.' },
-    { key: 'guideAgreement', label: '가이드 동의 OX', tooltip: '가이드에 동의했는지 여부입니다.' },
-    { key: 'additionalOptions', label: '추가 옵션 요청', tooltip: '추가로 요청된 옵션이나 조건입니다.' },
-    { key: 'finalAmount', label: '확정 금액', tooltip: '최종 확정된 협업 금액입니다.' }
-  ]
+  const filteredColumns = fields.filter(field => field.isFixed || visibleColumns[field.key])
 
-  const sampleData = [
-    {
-      accountId: '@example_user1',
-      name: '김인플루',
-      bio: '뷰티 & 라이프스타일',
-      followers: '125.3K',
-      ageGroup: '20-25세',
-      profileLink: 'https://instagram.com/example_user1',
-      category: '뷰티',
-      hasLinks: '유튜브 O',
-      uploadFreq: '주 3-4회',
-      recentAvgViews: '8.2K',
-      captureLinks: '캡쳐 보기',
-      pinnedAvgViews: '12.5K',
-      recent18AvgViews: '9.1K',
-      recentAds: '화장품 (2일 전)',
-      contactMethod: 'DM / 이메일',
-      notes: '응답률 높음',
-      cnewlabConfirm: true,
-      buzzbylabConfirm: false,
-      buzzbylabOpinion: '검토 필요',
-      wantToTry: true,
-      dmSent: 'O',
-      dmReply: 'O',
-      guideEmailSent: 'O',
-      guideAgreement: 'X',
-      additionalOptions: '추가 스토리 요청',
-      finalAmount: '500,000원'
-    },
-    {
-      accountId: '@fitness_guru',
-      name: '박트레이너',
-      bio: '홈트레이닝 전문가',
-      followers: '89.7K',
-      ageGroup: '25-30세',
-      profileLink: 'https://instagram.com/fitness_guru',
-      category: '피트니스',
-      hasLinks: '링크트리 O',
-      uploadFreq: '매일',
-      recentAvgViews: '6.8K',
-      captureLinks: '캡쳐 보기',
-      pinnedAvgViews: '10.2K',
-      recent18AvgViews: '7.4K',
-      recentAds: '운동용품 (1주 전)',
-      contactMethod: '매니저 연락처',
-      notes: '주말 응답 어려움',
-      cnewlabConfirm: false,
-      buzzbylabConfirm: true,
-      buzzbylabOpinion: '적극 추천',
-      wantToTry: false,
-      dmSent: 'O',
-      dmReply: 'X',
-      guideEmailSent: 'X',
-      guideAgreement: 'X',
-      additionalOptions: '-',
-      finalAmount: '미정'
+  // 동적 셀 렌더링 함수
+  const renderCell = (influencer, field) => {
+    const value = influencer.fieldData[field.key] || influencer[field.key]
+
+    switch (field.fieldType) {
+      case 'BOOLEAN':
+        return (
+          <div className="flex justify-center">
+            <input
+              type="checkbox"
+              checked={value || false}
+              readOnly
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+            />
+          </div>
+        )
+      case 'TAGS':
+        const tags = Array.isArray(value) ? value : (value ? [value] : [])
+        return (
+          <div className="flex flex-wrap gap-1">
+            {tags.map((tag, index) => (
+              <span key={index} className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )
+      case 'URL':
+        return value ? (
+          <a
+            href={value}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-purple-600 hover:text-purple-800 underline"
+          >
+            링크 보기
+          </a>
+        ) : null
+      case 'NUMBER':
+        return <span className="text-gray-900 font-medium">{value?.toLocaleString()}</span>
+      case 'CURRENCY':
+        return <span className="text-gray-900 font-semibold">{value}</span>
+      case 'SELECT':
+        const option = field.options?.find(opt => opt.value === value)
+        const label = option?.label || value
+        let badgeClass = 'bg-gray-100 text-gray-800'
+
+        if (value === 'O' || value === 'YOUTUBE_YES' || value === 'LINKTREE_YES') {
+          badgeClass = 'bg-green-100 text-green-800'
+        } else if (value === 'X') {
+          badgeClass = 'bg-red-100 text-red-800'
+        }
+
+        return (
+          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${badgeClass}`}>
+            {label}
+          </span>
+        )
+      case 'LONG_TEXT':
+        return <span className="text-gray-600 max-w-xs truncate block">{value}</span>
+      default:
+        if (field.key === 'accountId') {
+          return <span className="font-medium text-gray-900">{value}</span>
+        }
+        return <span className="text-gray-600">{value}</span>
     }
-  ]
-
-  const filteredColumns = columnDefinitions.filter(column => column.fixed || visibleColumns[column.key])
+  }
 
   if (loading) {
     return (
@@ -253,29 +263,29 @@ export default function InfluencerManagement() {
             {showColumnSelector && (
               <div className="p-4">
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-                  {columnDefinitions.map((column) => (
+                  {fields.map((field) => (
                     <label
-                      key={column.key}
+                      key={field.key}
                       className={`flex items-center space-x-2 p-2 rounded-lg transition-colors ${
-                        column.fixed
+                        field.isFixed
                           ? 'bg-gray-50 cursor-not-allowed'
                           : 'cursor-pointer hover:bg-gray-50'
                       }`}
                     >
                       <input
                         type="checkbox"
-                        checked={column.fixed || visibleColumns[column.key] || false}
-                        onChange={() => !column.fixed && toggleColumnVisibility(column.key)}
-                        disabled={column.fixed}
+                        checked={field.isFixed || visibleColumns[field.key] || false}
+                        onChange={() => !field.isFixed && toggleColumnVisibility(field.key)}
+                        disabled={field.isFixed}
                         className={`h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded ${
-                          column.fixed ? 'opacity-50 cursor-not-allowed' : ''
+                          field.isFixed ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                       />
                       <span className={`text-sm font-medium ${
-                        column.fixed ? 'text-gray-500' : 'text-gray-700'
+                        field.isFixed ? 'text-gray-500' : 'text-gray-700'
                       }`}>
-                        {column.label}
-                        {column.fixed && <span className="text-xs text-gray-400 ml-1">(고정)</span>}
+                        {field.label}
+                        {field.isFixed && <span className="text-xs text-gray-400 ml-1">(고정)</span>}
                       </span>
                     </label>
                   ))}
@@ -312,23 +322,23 @@ export default function InfluencerManagement() {
               <table className="w-full min-w-max">
                 <thead className="bg-gray-50">
                   <tr>
-                    {filteredColumns.map((column) => (
+                    {filteredColumns.map((field) => (
                       <th
-                        key={column.key}
+                        key={field.key}
                         className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 relative cursor-help whitespace-nowrap"
-                        onMouseEnter={() => setHoveredColumn(column.key)}
+                        onMouseEnter={() => setHoveredColumn(field.key)}
                         onMouseLeave={() => setHoveredColumn(null)}
                       >
                         <div className="flex items-center space-x-1">
-                          <span>{column.label}</span>
+                          <span>{field.label}</span>
                           <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
                         </div>
 
-                        {hoveredColumn === column.key && (
+                        {hoveredColumn === field.key && (
                           <div className="absolute top-full left-0 mt-1 w-64 bg-black text-white text-xs rounded-lg p-2 shadow-lg z-10">
-                            {column.tooltip}
+                            {field.tooltip}
                             <div className="absolute -top-1 left-4 w-2 h-2 bg-black transform rotate-45"></div>
                           </div>
                         )}
@@ -337,78 +347,20 @@ export default function InfluencerManagement() {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {sampleData.map((influencer, index) => (
-                    <tr key={index} className="hover:bg-gray-50 transition-colors">
-                      {filteredColumns.map((column) => {
-                        const value = influencer[column.key]
-
-                        return (
-                          <td key={column.key} className="px-4 py-3 text-sm whitespace-nowrap">
-                            {column.type === 'checkbox' ? (
-                              <div className="flex justify-center">
-                                <input
-                                  type="checkbox"
-                                  checked={value || false}
-                                  onChange={() => {}}
-                                  className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
-                                />
-                              </div>
-                            ) : column.key === 'accountId' ? (
-                              <span className="font-medium text-gray-900">{value}</span>
-                            ) : column.key === 'name' ? (
-                              <span className="text-gray-900">{value}</span>
-                            ) : column.key === 'bio' ? (
-                              <span className="text-gray-600 max-w-xs truncate block">{value}</span>
-                            ) : column.key === 'followers' || column.key === 'recentAvgViews' || column.key === 'pinnedAvgViews' || column.key === 'recent18AvgViews' ? (
-                              <span className="text-gray-900 font-medium">{value}</span>
-                            ) : column.key === 'profileLink' ? (
-                              <a
-                                href={value}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-purple-600 hover:text-purple-800 underline"
-                              >
-                                프로필 보기
-                              </a>
-                            ) : column.key === 'category' ? (
-                              <span className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                                {value}
-                              </span>
-                            ) : column.key === 'hasLinks' ? (
-                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                value && value.includes('O')
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-gray-100 text-gray-800'
-                              }`}>
-                                {value}
-                              </span>
-                            ) : column.key === 'captureLinks' ? (
-                              <button className="text-purple-600 hover:text-purple-800 underline text-xs">
-                                {value}
-                              </button>
-                            ) : column.key === 'dmSent' || column.key === 'dmReply' || column.key === 'guideEmailSent' || column.key === 'guideAgreement' ? (
-                              <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                                value === 'O'
-                                  ? 'bg-green-100 text-green-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {value}
-                              </span>
-                            ) : column.key === 'finalAmount' ? (
-                              <span className="text-gray-900 font-semibold">{value}</span>
-                            ) : (
-                              <span className="text-gray-600">{value}</span>
-                            )}
-                          </td>
-                        )
-                      })}
+                  {influencers.map((influencer, index) => (
+                    <tr key={influencer.id || index} className="hover:bg-gray-50 transition-colors">
+                      {filteredColumns.map((field) => (
+                        <td key={field.key} className="px-4 py-3 text-sm whitespace-nowrap">
+                          {renderCell(influencer, field)}
+                        </td>
+                      ))}
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            {sampleData.length === 0 && (
+            {influencers.length === 0 && (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
                   <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
