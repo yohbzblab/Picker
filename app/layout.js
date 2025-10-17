@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "InstaCrawl",
+  title: "Picker",
   description: "Instagram Analytics Service",
 };
 

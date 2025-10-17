@@ -93,7 +93,7 @@ export default function InsightsResultPage() {
                 onClick={() => router.push('/')}
                 className="text-2xl font-bold text-gray-900 hover:text-gray-700"
               >
-                InstaCrawl
+                Picker
               </button>
             </div>
             <div className="flex items-center space-x-4">
