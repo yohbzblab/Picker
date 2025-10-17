@@ -54,9 +54,15 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">InstaCrawl</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
             </div>
             <div className="flex items-center space-x-4">
+              <button
+                onClick={() => router.push('/influencer-management')}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                인플루언서 관리
+              </button>
               <button
                 onClick={() => router.push('/settings')}
                 className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -81,7 +87,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="text-center">
             <h2 className="text-4xl font-bold text-gray-900 mb-8">
-              InstaCrawl에 오신 것을 환영합니다
+              Picker에 오신 것을 환영합니다
             </h2>
             <p className="text-lg text-gray-600 mb-12">
               Instagram 분석을 위한 강력한 도구
