@@ -40,6 +40,15 @@ model InstagramAccount {
   refreshToken      String?  @db.Text
   tokenExpiresAt    DateTime
   isActive          Boolean  @default(true)
+
+  // Facebook 통합 필드들
+  facebookPageId    String?
+  facebookPageName  String?
+  followersCount    Int?
+  mediaCount        Int?
+  biography         String?  @db.Text
+  website           String?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 

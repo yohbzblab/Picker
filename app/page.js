@@ -101,7 +101,13 @@ export default function Home() {
                       onClick={() => router.push('/insights')}
                       className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors font-medium"
                     >
-                      인사이트 보기
+                      내 계정 인사이트
+                    </button>
+                    <button
+                      onClick={() => router.push('/competitor-analysis')}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-colors font-medium"
+                    >
+                      경쟁사 분석
                     </button>
                     <button
                       onClick={() => router.push('/settings')}
@@ -121,12 +127,20 @@ export default function Home() {
                     </svg>
                   </div>
                   <p className="text-lg text-gray-700 mb-6">Instagram 계정을 연결하여 시작하세요</p>
-                  <button
-                    onClick={() => router.push('/settings')}
-                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors font-medium"
-                  >
-                    Instagram 연결하기
-                  </button>
+                  <div className="space-y-3">
+                    <button
+                      onClick={() => router.push('/settings')}
+                      className="w-full bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg hover:from-purple-600 hover:to-pink-600 transition-colors font-medium"
+                    >
+                      Instagram 연결하기
+                    </button>
+                    <button
+                      onClick={() => router.push('/competitor-analysis')}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-lg hover:from-blue-600 hover:to-cyan-600 transition-colors font-medium"
+                    >
+                      경쟁사 분석 (연결 없이 가능)
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
