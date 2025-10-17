@@ -312,7 +312,10 @@ export default function InfluencerManagement() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
-                <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium">
+                <button
+                  onClick={() => router.push('/influencer-management/add')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
                   인플루언서 추가
                 </button>
               </div>
@@ -344,6 +347,9 @@ export default function InfluencerManagement() {
                         )}
                       </th>
                     ))}
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">
+                      작업
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -354,6 +360,16 @@ export default function InfluencerManagement() {
                           {renderCell(influencer, field)}
                         </td>
                       ))}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => router.push(`/influencer-management/edit/${influencer.id}`)}
+                            className="text-purple-600 hover:text-purple-900 text-sm font-medium"
+                          >
+                            수정
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

@@ -59,7 +59,7 @@ export default function AuthProvider({ children }) {
       }
 
       setDbUser(existingUser);
-      router.push("/");
+      // 로그인 후에만 메인 페이지로 리다이렉트 (기존 사용자가 돌아오는 경우 제외)
     } catch (error) {
       console.error("Error handling user registration:", error);
     }
@@ -96,6 +96,30 @@ export default function AuthProvider({ children }) {
 
     checkUser();
 
+    // 브라우저 포커스 이벤트 처리 (다른 탭에서 돌아올 때)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user) {
+        // 페이지가 다시 보이게 되고 사용자가 로그인 상태일 때
+        // 세션을 조용히 확인하되 리다이렉트하지 않음
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session?.user && user) {
+            // 세션이 유효하면 아무것도 하지 않음 (현재 페이지 유지)
+          } else if (!session?.user) {
+            // 세션이 없으면 로그아웃 처리
+            setUser(null);
+            setDbUser(null);
+            router.push("/login");
+          }
+        });
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const cleanup = () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
@@ -103,15 +127,31 @@ export default function AuthProvider({ children }) {
       setUser(supabaseUser);
 
       if (event === "SIGNED_IN" && supabaseUser) {
+        // 실제 로그인 이벤트에서만 리다이렉트
         await handleUserRegistration(supabaseUser);
+        router.push("/");
       } else if (event === "SIGNED_OUT") {
         setDbUser(null);
         router.push("/login");
+      } else if (event === "TOKEN_REFRESHED" && supabaseUser) {
+        // 토큰 갱신 시에는 리다이렉트하지 않고 dbUser만 업데이트
+        try {
+          const getUserResponse = await fetch(
+            `/api/users?supabaseId=${supabaseUser.id}`
+          );
+          if (getUserResponse.ok) {
+            const getUserData = await getUserResponse.json();
+            setDbUser(getUserData.user);
+          }
+        } catch (error) {
+          console.error("Error fetching user on token refresh:", error);
+        }
       }
     });
 
     return () => {
       subscription.unsubscribe();
+      cleanup();
     };
   }, [router, supabase]);
 
