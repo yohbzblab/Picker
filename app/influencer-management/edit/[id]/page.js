@@ -45,9 +45,17 @@ export default function EditInfluencer() {
         setInfluencer(influencerData.influencer)
 
         // 폼 데이터 설정
-        const initialData = { accountId: influencerData.influencer.accountId }
+        const initialData = {}
         fieldsData.fields.forEach(field => {
-          const value = influencerData.influencer.fieldData[field.key]
+          let value
+          if (field.key === 'accountId') {
+            // accountId는 influencer 테이블의 직접 컬럼에서 가져옴
+            value = influencerData.influencer.accountId
+          } else {
+            // 다른 필드들은 fieldData JSON에서 가져옴
+            value = influencerData.influencer.fieldData[field.key]
+          }
+
           if (field.fieldType === 'BOOLEAN') {
             initialData[field.key] = value || false
           } else if (field.fieldType === 'TAGS') {
@@ -139,8 +147,17 @@ export default function EditInfluencer() {
     try {
       setSaving(true)
 
-      // accountId 추출 및 fieldData 준비
-      const { accountId, ...fieldData } = formData
+      // accountId와 fieldData 분리
+      let accountId = null
+      const fieldData = {}
+
+      Object.keys(formData).forEach(key => {
+        if (key === 'accountId') {
+          accountId = formData[key]
+        } else {
+          fieldData[key] = formData[key]
+        }
+      })
 
       const response = await fetch(`/api/influencers/${params.id}`, {
         method: 'PUT',

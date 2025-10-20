@@ -12,6 +12,7 @@ export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const router = useRouter();
   const supabase = createClient();
 
@@ -91,6 +92,7 @@ export default function AuthProvider({ children }) {
         console.error("Error checking user:", error);
       } finally {
         setLoading(false);
+        setIsInitialLoad(false);
       }
     };
 
@@ -126,6 +128,11 @@ export default function AuthProvider({ children }) {
       const supabaseUser = session?.user ?? null;
       setUser(supabaseUser);
 
+      // 초기 로드 중에는 리다이렉트하지 않음
+      if (isInitialLoad) {
+        return;
+      }
+
       if (event === "SIGNED_IN" && supabaseUser) {
         // 실제 로그인 이벤트에서만 리다이렉트
         await handleUserRegistration(supabaseUser);
@@ -153,7 +160,7 @@ export default function AuthProvider({ children }) {
       subscription.unsubscribe();
       cleanup();
     };
-  }, [router, supabase]);
+  }, [router, supabase, isInitialLoad]);
 
   const signInWithGoogle = async () => {
     try {
