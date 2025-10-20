@@ -432,6 +432,12 @@ export default function EditInfluencer() {
                 인플루언서 관리
               </button>
               <button
+                onClick={() => router.push('/email-templates')}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                메일 템플릿
+              </button>
+              <button
                 onClick={() => router.push('/settings')}
                 className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
