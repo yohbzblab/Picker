@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter } from 'next/navigation'
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 
 export default function EmailTemplates() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth()
@@ -95,7 +95,8 @@ export default function EmailTemplates() {
         body: JSON.stringify({
           templateId: template.id,
           influencerId: selectedInfluencer || null,
-          userId: dbUser.id
+          userId: dbUser.id,
+          userVariables: userVariables
         })
       })
 
@@ -306,7 +307,7 @@ export default function EmailTemplates() {
 }
 
 // 변수 에디터 컴포넌트 - 버튼으로만 변수 삽입
-function VariableEditor({ value, onChange, placeholder, isMultiline = false, onInsertVariable }) {
+function VariableEditor({ value, onChange, placeholder, isMultiline = false, onInsertVariable, onFocus, onBlur }) {
   const editorRef = useRef(null)
 
   const handleKeyDown = (e) => {
@@ -437,7 +438,9 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          className="absolute inset-0 w-full h-full p-3 text-transparent bg-transparent caret-black font-medium resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
+          onFocus={onFocus}
+          onBlur={onBlur}
+          className="absolute inset-0 w-full h-full p-3 text-transparent bg-transparent font-medium resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
           rows={8}
           style={{
             caretColor: '#111827' // 커서 색상을 검정색으로
@@ -461,7 +464,9 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
         value={value}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="absolute inset-0 w-full h-full px-3 py-2 text-transparent bg-transparent caret-black font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
+        onFocus={onFocus}
+        onBlur={onBlur}
+        className="absolute inset-0 w-full h-full px-3 py-2 text-transparent bg-transparent font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
         style={{
           caretColor: '#111827' // 커서 색상을 검정색으로
         }}
@@ -481,17 +486,165 @@ function TemplateModal({ template, onClose, onSave, userId }) {
   const [subjectInsertFn, setSubjectInsertFn] = useState(null)
   const [contentInsertFn, setContentInsertFn] = useState(null)
   const [activeField, setActiveField] = useState(null) // 'subject' or 'content'
+  const [variableInputs, setVariableInputs] = useState({}) // 사용자가 입력한 변수 값들
+  const [influencerFields, setInfluencerFields] = useState([]) // 데이터베이스에서 가져온 인플루언서 필드들
+  const [loadingFields, setLoadingFields] = useState(true)
+  const [conditionalRules, setConditionalRules] = useState({}) // 조건문 규칙들 { variableName: { conditions: [...], defaultValue: '' } }
+  const [showConditionsModal, setShowConditionsModal] = useState(false)
+  const [editingConditionVariable, setEditingConditionVariable] = useState(null)
+  const [userVariables, setUserVariables] = useState({}) // 사용자 정의 변수들 { variableName: ['값1', '값2', ...] }
+  const [showUserVariableModal, setShowUserVariableModal] = useState(false)
 
-  const availableVariables = [
-    '인플루언서이름',
-    '계정ID',
-    '팔로워수',
-    '브랜드명',
-    '회사명',
-    '오늘날짜',
-    '현재년도',
-    '현재월'
-  ]
+  // 사용자 변수 모달 열기
+
+
+  const openUserVariableModal = () => {
+    setShowUserVariableModal(true)
+  }
+
+  // 인플루언서 필드 데이터 가져오기
+  useEffect(() => {
+    const fetchInfluencerFields = async () => {
+      try {
+        const response = await fetch('/api/influencer-fields')
+        if (response.ok) {
+          const data = await response.json()
+          setInfluencerFields(data.fields || [])
+        }
+      } catch (error) {
+        console.error('Error fetching influencer fields:', error)
+      } finally {
+        setLoadingFields(false)
+      }
+    }
+
+    fetchInfluencerFields()
+  }, [])
+
+
+  // 실시간 미리보기용 변수 치환 함수
+  const replaceVariables = useCallback((text) => {
+    if (!text) return text
+
+    let result = text
+
+    // 사용자 변수들의 기본값 (첫 번째 값 사용)
+    const userSampleData = {}
+    Object.keys(userVariables).forEach(key => {
+      const values = userVariables[key]
+      userSampleData[key] = values && values.length > 0 ? values[0] : '값 없음'
+    })
+
+    // 인플루언서 필드들의 샘플 데이터 생성 (텍스트 타입과 숫자 타입만)
+    const influencerSampleData = {}
+    influencerFields.forEach(field => {
+      switch (field.fieldType) {
+        case 'TEXT':
+        case 'LONG_TEXT':
+          if (field.key === 'name') influencerSampleData[field.key] = '김인플루'
+          else if (field.key === 'accountId') influencerSampleData[field.key] = '@sample_influencer'
+          else influencerSampleData[field.key] = `샘플 ${field.label}`
+          break
+        case 'NUMBER':
+          if (field.key === 'followers') influencerSampleData[field.key] = '10,000'
+          else influencerSampleData[field.key] = '100'
+          break
+        // 다른 타입들은 변수로 사용하지 않음
+      }
+    })
+
+    // 모든 샘플 데이터 병합
+    const defaultSampleData = { ...userSampleData, ...influencerSampleData }
+
+    // {{변수명}} 형태의 변수들을 치환
+    Object.keys(defaultSampleData).forEach(key => {
+      const variablePattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+      // 사용자가 입력한 값이 있으면 그것을 사용하고, 없으면 기본값 사용
+      let valueToUse = variableInputs[key] !== undefined ? variableInputs[key] : defaultSampleData[key]
+
+      // 숫자 타입 필드이고 조건문이 설정되어 있으면 조건문 평가
+      const field = influencerFields.find(f => f.key === key)
+      if (field && field.fieldType === 'NUMBER' && conditionalRules[key]) {
+        const { conditions, defaultValue } = conditionalRules[key]
+        valueToUse = evaluateCondition(valueToUse, conditions, defaultValue)
+      }
+
+      result = result.replace(variablePattern, valueToUse || `{{${key}}}`)
+    })
+
+    // 사용자가 새로 추가한 변수들도 처리 (기본값이 없는 경우)
+    Object.keys(variableInputs).forEach(key => {
+      if (!defaultSampleData[key]) {
+        const variablePattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
+        result = result.replace(variablePattern, variableInputs[key] || `{{${key}}}`)
+      }
+    })
+
+    return result
+  }, [userVariables, influencerFields, variableInputs, conditionalRules])
+
+  // 현재 사용된 변수들 추출 함수
+  const getUsedVariables = useCallback(() => {
+    const allText = (formData.subject + ' ' + formData.content)
+    const variableMatches = allText.match(/\{\{([^}]+)\}\}/g) || []
+    return [...new Set(variableMatches.map(match => match.slice(2, -2)))] // {{}} 제거하고 변수명만 추출
+  }, [formData.subject, formData.content])
+
+  // 변수 입력값 변경 핸들러
+  const handleVariableInputChange = useCallback((variableName, value) => {
+    setVariableInputs(prev => ({
+      ...prev,
+      [variableName]: value
+    }))
+  }, [])
+
+  // 조건문 평가 함수
+  const evaluateCondition = useCallback((value, conditions, defaultValue) => {
+    const numValue = parseFloat(value)
+    if (isNaN(numValue)) return defaultValue || value
+
+    // 조건들을 정렬 (min 값 기준으로)
+    const sortedConditions = [...conditions].sort((a, b) => (a.min || -Infinity) - (b.min || -Infinity))
+
+    for (const condition of sortedConditions) {
+      const { min, max, operator, result } = condition
+
+      let matches = false
+      switch (operator) {
+        case 'range':
+          matches = (min === undefined || numValue >= min) && (max === undefined || numValue <= max)
+          break
+        case 'equal':
+          matches = numValue === min
+          break
+        case 'greater':
+          matches = numValue > min
+          break
+        case 'less':
+          matches = numValue < min
+          break
+        case 'greaterEqual':
+          matches = numValue >= min
+          break
+        case 'lessEqual':
+          matches = numValue <= min
+          break
+      }
+
+      if (matches) {
+        return result
+      }
+    }
+
+    return defaultValue || value
+  }, [])
+
+
+  // 조건문 모달 열기
+  const openConditionsModal = useCallback((variableName) => {
+    setEditingConditionVariable(variableName)
+    setShowConditionsModal(true)
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -535,21 +688,23 @@ function TemplateModal({ template, onClose, onSave, userId }) {
     }
   }
 
-  const handleVariableInsert = (variable) => {
+  const handleVariableInsert = useCallback((variable) => {
     if (activeField === 'subject' && subjectInsertFn) {
       subjectInsertFn(variable)
     } else if (activeField === 'content' && contentInsertFn) {
       contentInsertFn(variable)
-    } else if (contentInsertFn) {
-      // 기본적으로 내용에 삽입
-      contentInsertFn(variable)
+    } else {
+      if (contentInsertFn) {
+        contentInsertFn(variable)
+      }
     }
-  }
+  }, [activeField, subjectInsertFn, contentInsertFn])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
+      <div className="bg-white rounded-lg max-w-6xl w-full max-h-[90vh] overflow-hidden flex">
+        {/* 왼쪽: 편집 폼 */}
+        <div className="flex-1 p-6 overflow-y-auto">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900">
               {template ? '템플릿 수정' : '새 템플릿 만들기'}
@@ -572,8 +727,8 @@ function TemplateModal({ template, onClose, onSave, userId }) {
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-gray-900 font-medium"
+                onChange={useCallback((e) => setFormData(prev => ({ ...prev, name: e.target.value })), [])}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
                 placeholder="예: 초기 협업 제안"
                 required
               />
@@ -583,56 +738,126 @@ function TemplateModal({ template, onClose, onSave, userId }) {
               <label className="block text-sm font-medium text-gray-900 mb-2">
                 메일 제목
               </label>
-              <div
-                onFocus={() => setActiveField('subject')}
-                onBlur={() => setActiveField(null)}
-              >
-                <VariableEditor
-                  value={formData.subject}
-                  onChange={(value) => setFormData({ ...formData, subject: value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="예: 협업 제안드립니다"
-                  onInsertVariable={(fn) => setSubjectInsertFn(() => fn)}
-                />
-              </div>
+              <VariableEditor
+                value={formData.subject}
+                onChange={useCallback((value) => setFormData(prev => ({ ...prev, subject: value })), [])}
+                placeholder="예: 협업 제안드립니다"
+                onInsertVariable={useCallback((fn) => setSubjectInsertFn(() => fn), [])}
+                onFocus={useCallback(() => setActiveField('subject'), [])}
+                onBlur={useCallback(() => setTimeout(() => setActiveField(null), 100), [])}
+              />
             </div>
 
             <div className="mb-4">
               <label className="block text-sm font-medium text-gray-900 mb-2">
                 메일 내용
               </label>
-              <div
-                onFocus={() => setActiveField('content')}
-                onBlur={() => setActiveField(null)}
-              >
-                <VariableEditor
-                  value={formData.content}
-                  onChange={(value) => setFormData({ ...formData, content: value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="예: 꼭 제안하고싶은 내용이 있어요!"
-                  isMultiline={true}
-                  onInsertVariable={(fn) => setContentInsertFn(() => fn)}
-                />
-              </div>
+              <VariableEditor
+                value={formData.content}
+                onChange={useCallback((value) => setFormData(prev => ({ ...prev, content: value })), [])}
+                placeholder="예: 꼭 제안하고싶은 내용이 있어요!"
+                isMultiline={true}
+                onInsertVariable={useCallback((fn) => setContentInsertFn(() => fn), [])}
+                onFocus={useCallback(() => setActiveField('content'), [])}
+                onBlur={useCallback(() => setTimeout(() => setActiveField(null), 100), [])}
+              />
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-900 mb-2">
                 사용 가능한 변수 (클릭하여 삽입)
               </label>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {availableVariables.map((variable) => (
-                  <button
-                    key={variable}
-                    type="button"
-                    onClick={() => handleVariableInsert(variable)}
-                    className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors"
-                  >
-                    {variable}
-                  </button>
-                ))}
-              </div>
-              <p className="text-xs text-gray-600 mt-2">
+
+              {loadingFields ? (
+                <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
+              ) : (
+                <div className="space-y-4">
+                  {/* 사용자 변수들 */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium text-gray-700">사용자 변수</h4>
+                      <button
+                        type="button"
+                        onClick={() => openUserVariableModal()}
+                        className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
+                        title="변수 관리"
+                      >
+                        관리
+                      </button>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {Object.keys(userVariables).length === 0 ? (
+                        <p className="text-xs text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
+                      ) : (
+                        Object.keys(userVariables).map((variableName) => (
+                          <button
+                            key={variableName}
+                            type="button"
+                            onClick={() => handleVariableInsert(variableName)}
+                            className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                          >
+                            {variableName}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 인플루언서 필드들 (텍스트 타입만) */}
+                  {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-gray-700 mb-2">인플루언서 정보</h4>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').map((field) => (
+                          <button
+                            key={field.key}
+                            type="button"
+                            onClick={() => handleVariableInsert(field.key)}
+                            className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors text-left"
+                            title={field.tooltip || field.label}
+                          >
+                            {field.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 조건문 변수들 (숫자 타입) */}
+                  {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
+                    <div>
+                      <h4 className="text-xs font-medium text-gray-700 mb-2">조건문 변수 (숫자 기반)</h4>
+                      <div className="space-y-2">
+                        {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
+                          <div key={field.key} className="flex items-center space-x-2">
+                            <button
+                              type="button"
+                              onClick={() => handleVariableInsert(field.key)}
+                              className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
+                              title={field.tooltip || field.label}
+                            >
+                              {field.label}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => openConditionsModal(field.key)}
+                              className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
+                              title="조건문 설정"
+                            >
+                              조건 설정
+                              {conditionalRules[field.key] && conditionalRules[field.key].conditions.length > 0 && (
+                                <span className="ml-1 inline-block w-2 h-2 bg-orange-400 rounded-full"></span>
+                              )}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <p className="text-xs text-gray-600 mt-3">
                 변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다. 백스페이스로 변수를 한번에 삭제할 수 있습니다.
               </p>
             </div>
@@ -655,7 +880,249 @@ function TemplateModal({ template, onClose, onSave, userId }) {
             </div>
           </form>
         </div>
+
+        {/* 오른쪽: 실시간 미리보기 */}
+        <div className="flex-1 bg-gray-50 border-l border-gray-200 p-6 overflow-y-auto">
+          <div className="mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">실시간 미리보기</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              변수는 샘플 데이터로 치환되어 표시됩니다
+            </p>
+          </div>
+
+          {/* 미리보기 컨테이너 */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 shadow-sm">
+            {/* 제목 미리보기 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                제목 미리보기
+              </label>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[42px] flex items-center">
+                <p className="text-gray-900 font-medium">
+                  {formData.subject ? replaceVariables(formData.subject) : '제목을 입력해주세요'}
+                </p>
+              </div>
+            </div>
+
+            {/* 내용 미리보기 */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                내용 미리보기
+              </label>
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
+                <div className="text-gray-900 whitespace-pre-wrap">
+                  {formData.content ? replaceVariables(formData.content) : '내용을 입력해주세요'}
+                </div>
+              </div>
+            </div>
+
+            {/* 사용된 변수 입력 */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                변수 값 입력 (미리보기용)
+              </label>
+              <div className="space-y-3">
+                {(() => {
+                  const usedVariables = getUsedVariables()
+
+                  if (usedVariables.length === 0) {
+                    return <span className="text-gray-400 text-sm">변수가 없습니다</span>
+                  }
+
+                  return usedVariables.map((variableName, index) => {
+                    // 사용자 변수와 인플루언서 필드의 기본값 가져오기
+                    const userSampleData = {}
+                    Object.keys(userVariables).forEach(key => {
+                      const values = userVariables[key]
+                      userSampleData[key] = values && values.length > 0 ? values[0] : '값 없음'
+                    })
+
+                    // 인플루언서 필드 기본값 (텍스트 타입과 숫자 타입만)
+                    const influencerField = influencerFields.find(field => field.key === variableName)
+                    let defaultValue = userSampleData[variableName] || ''
+
+                    if (influencerField) {
+                      switch (influencerField.fieldType) {
+                        case 'TEXT':
+                        case 'LONG_TEXT':
+                          if (variableName === 'name') defaultValue = '김인플루'
+                          else if (variableName === 'accountId') defaultValue = '@sample_influencer'
+                          else defaultValue = `샘플 ${influencerField.label}`
+                          break
+                        case 'NUMBER':
+                          if (variableName === 'followers') defaultValue = '10,000'
+                          else defaultValue = '100'
+                          break
+                        // 다른 타입들은 변수로 사용하지 않음
+                        default:
+                          defaultValue = `샘플 ${influencerField.label}`
+                      }
+                    }
+
+                    // 변수 라벨 표시 (필드의 label 또는 시스템 변수명)
+                    const variableLabel = influencerField ? influencerField.label : variableName
+
+                    // 조건문이 설정되어 있는지 확인
+                    const hasConditions = influencerField && influencerField.fieldType === 'NUMBER' && conditionalRules[variableName] && conditionalRules[variableName].conditions.length > 0
+
+                    return (
+                      <div key={index} className="space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full min-w-0 flex-shrink-0" title={`변수: {{${variableName}}}`}>
+                            {variableLabel}
+                            {hasConditions && (
+                              <span className="ml-1 inline-block w-1.5 h-1.5 bg-orange-400 rounded-full" title="조건문 설정됨"></span>
+                            )}
+                          </span>
+                          <input
+                            type="text"
+                            value={variableInputs[variableName] !== undefined ? variableInputs[variableName] : defaultValue}
+                            onChange={(e) => handleVariableInputChange(variableName, e.target.value)}
+                            placeholder={defaultValue || `${variableLabel} 값을 입력하세요`}
+                            className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
+                          />
+                        </div>
+
+                        {/* 조건문 표시 */}
+                        {hasConditions && (
+                          <div className="ml-20 text-xs text-gray-600 bg-gray-50 p-2 rounded border-l-2 border-orange-300">
+                            <div className="font-medium text-gray-700 mb-1">설정된 조건:</div>
+                            <div className="space-y-1">
+                              {conditionalRules[variableName].conditions.map((condition, condIndex) => {
+                                let conditionText = ''
+                                switch (condition.operator) {
+                                  case 'range':
+                                    const minText = condition.min ? `${condition.min} 이상` : ''
+                                    const maxText = condition.max ? `${condition.max} 이하` : ''
+                                    if (minText && maxText) {
+                                      conditionText = `${minText} ~ ${maxText}`
+                                    } else if (minText) {
+                                      conditionText = minText
+                                    } else if (maxText) {
+                                      conditionText = maxText
+                                    }
+                                    break
+                                  case 'equal':
+                                    conditionText = `= ${condition.min}`
+                                    break
+                                  case 'greater':
+                                    conditionText = `> ${condition.min}`
+                                    break
+                                  case 'less':
+                                    conditionText = `< ${condition.min}`
+                                    break
+                                  case 'greaterEqual':
+                                    conditionText = `>= ${condition.min}`
+                                    break
+                                  case 'lessEqual':
+                                    conditionText = `<= ${condition.min}`
+                                    break
+                                }
+
+                                // 현재 입력값이 이 조건에 해당하는지 확인
+                                const currentValue = variableInputs[variableName] !== undefined ? variableInputs[variableName] : defaultValue
+                                const numCurrentValue = parseFloat(currentValue)
+                                let isMatching = false
+
+                                if (!isNaN(numCurrentValue)) {
+                                  switch (condition.operator) {
+                                    case 'range':
+                                      isMatching = (condition.min === undefined || numCurrentValue >= parseFloat(condition.min)) &&
+                                                   (condition.max === undefined || numCurrentValue <= parseFloat(condition.max))
+                                      break
+                                    case 'equal':
+                                      isMatching = numCurrentValue === parseFloat(condition.min)
+                                      break
+                                    case 'greater':
+                                      isMatching = numCurrentValue > parseFloat(condition.min)
+                                      break
+                                    case 'less':
+                                      isMatching = numCurrentValue < parseFloat(condition.min)
+                                      break
+                                    case 'greaterEqual':
+                                      isMatching = numCurrentValue >= parseFloat(condition.min)
+                                      break
+                                    case 'lessEqual':
+                                      isMatching = numCurrentValue <= parseFloat(condition.min)
+                                      break
+                                  }
+                                }
+
+                                return (
+                                  <div key={condIndex} className={`flex justify-between items-center ${isMatching ? 'bg-green-100 -mx-1 px-1 rounded' : ''}`}>
+                                    <span className="text-gray-600">{conditionText}</span>
+                                    <span className={`font-medium ${isMatching ? 'text-green-700' : 'text-blue-600'}`}>
+                                      → "{condition.result}"
+                                      {isMatching && <span className="ml-1 text-green-600">✓</span>}
+                                    </span>
+                                  </div>
+                                )
+                              })}
+                              {conditionalRules[variableName].defaultValue && (
+                                <div className="flex justify-between items-center border-t border-gray-200 pt-1 mt-1">
+                                  <span className="text-gray-600">기타</span>
+                                  <span className="text-gray-500">→ "{conditionalRules[variableName].defaultValue}"</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* 현재 결과값 표시 */}
+                            {(() => {
+                              const currentValue = variableInputs[variableName] !== undefined ? variableInputs[variableName] : defaultValue
+                              const resultValue = evaluateCondition(currentValue, conditionalRules[variableName].conditions, conditionalRules[variableName].defaultValue)
+                              if (currentValue && resultValue !== currentValue) {
+                                return (
+                                  <div className="mt-2 pt-2 border-t border-gray-300">
+                                    <div className="text-xs font-medium text-gray-700">
+                                      입력값 "{currentValue}" → 결과: <span className="text-purple-600">"{resultValue}"</span>
+                                    </div>
+                                  </div>
+                                )
+                              }
+                              return null
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })
+                })()}
+              </div>
+              {getUsedVariables().length > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  입력한 값들이 위 미리보기에 실시간으로 반영됩니다
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
+
+      {/* 조건문 설정 모달 */}
+      {showConditionsModal && (
+        <ConditionsModal
+          field={influencerFields.find(f => f.key === editingConditionVariable)}
+          initialRules={conditionalRules[editingConditionVariable] || { conditions: [], defaultValue: '' }}
+          onSave={(rules) => {
+            setConditionalRules(prev => ({
+              ...prev,
+              [editingConditionVariable]: rules
+            }))
+            setShowConditionsModal(false)
+          }}
+          onClose={() => setShowConditionsModal(false)}
+        />
+      )}
+
+      {/* 사용자 변수 설정 모달 */}
+      {showUserVariableModal && (
+        <UserVariableModal
+          isOpen={showUserVariableModal}
+          userVariables={userVariables}
+          setUserVariables={setUserVariables}
+          onClose={() => setShowUserVariableModal(false)}
+        />
+      )}
     </div>
   )
 }
@@ -687,7 +1154,7 @@ function PreviewModal({ previewData, influencers, selectedInfluencer, onInfluenc
             <select
               value={selectedInfluencer}
               onChange={(e) => onInfluencerChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
             >
               <option value="">인플루언서를 선택하세요</option>
               {influencers.map((influencer) => (
@@ -751,6 +1218,434 @@ function PreviewModal({ previewData, influencers, selectedInfluencer, onInfluenc
               className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
             >
               닫기
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// 조건문 설정 모달 컴포넌트
+function ConditionsModal({ field, initialRules, onSave, onClose }) {
+  const [conditions, setConditions] = useState(initialRules.conditions || [])
+  const [defaultValue, setDefaultValue] = useState(initialRules.defaultValue || '')
+  const [errors, setErrors] = useState([])
+
+  // 조건 추가
+  const addCondition = () => {
+    setConditions([
+      ...conditions,
+      { min: '', max: '', operator: 'range', result: '' }
+    ])
+  }
+
+  // 조건 삭제
+  const removeCondition = (index) => {
+    setConditions(conditions.filter((_, i) => i !== index))
+  }
+
+  // 조건 수정
+  const updateCondition = (index, field, value) => {
+    const newConditions = [...conditions]
+    newConditions[index] = { ...newConditions[index], [field]: value }
+    setConditions(newConditions)
+  }
+
+  // 저장하기 전 검증
+  const handleSave = () => {
+    const validationErrors = []
+
+    // 빈 조건 체크
+    conditions.forEach((condition, index) => {
+      if (!condition.result.trim()) {
+        validationErrors.push(`조건 ${index + 1}의 결과값을 입력해주세요.`)
+      }
+
+      if (condition.operator === 'range') {
+        if (!condition.min && !condition.max) {
+          validationErrors.push(`조건 ${index + 1}의 범위를 설정해주세요.`)
+        }
+      } else if (['equal', 'greater', 'less', 'greaterEqual', 'lessEqual'].includes(condition.operator)) {
+        if (!condition.min && condition.min !== 0) {
+          validationErrors.push(`조건 ${index + 1}의 기준값을 입력해주세요.`)
+        }
+      }
+    })
+
+    // 겹치는 범위 체크
+    for (let i = 0; i < conditions.length; i++) {
+      for (let j = i + 1; j < conditions.length; j++) {
+        const cond1 = conditions[i]
+        const cond2 = conditions[j]
+
+        if (cond1.operator === 'range' && cond2.operator === 'range') {
+          const min1 = parseFloat(cond1.min) || -Infinity
+          const max1 = parseFloat(cond1.max) || Infinity
+          const min2 = parseFloat(cond2.min) || -Infinity
+          const max2 = parseFloat(cond2.max) || Infinity
+
+          // 범위가 겹치는지 체크
+          if (!(max1 < min2 || max2 < min1)) {
+            validationErrors.push(`조건 ${i + 1}과 조건 ${j + 1}의 범위가 겹칩니다.`)
+          }
+        }
+      }
+    }
+
+    setErrors(validationErrors)
+
+    if (validationErrors.length === 0) {
+      onSave({ conditions, defaultValue })
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[60]">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-semibold text-gray-900">
+              {field?.label} 조건문 설정
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-sm text-gray-600 mb-4">
+              숫자 값에 따라 다른 텍스트를 출력하는 조건을 설정할 수 있습니다.
+            </p>
+
+            {/* 오류 메시지 */}
+            {errors.length > 0 && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <h4 className="text-sm font-medium text-red-800 mb-2">오류가 있습니다:</h4>
+                <ul className="text-sm text-red-700 space-y-1">
+                  {errors.map((error, index) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* 조건 목록 */}
+            <div className="space-y-4">
+              {conditions.map((condition, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-medium text-gray-900">조건 {index + 1}</h4>
+                    <button
+                      onClick={() => removeCondition(index)}
+                      className="text-red-500 hover:text-red-700 text-sm"
+                    >
+                      삭제
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                    {/* 조건 타입 */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">조건 타입</label>
+                      <select
+                        value={condition.operator}
+                        onChange={(e) => updateCondition(index, 'operator', e.target.value)}
+                        className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 text-black font-medium"
+                      >
+                        <option value="range">범위 (이상 ~ 이하)</option>
+                        <option value="equal">같음 (=)</option>
+                        <option value="greater">초과 (&gt;)</option>
+                        <option value="less">미만 (&lt;)</option>
+                        <option value="greaterEqual">이상 (&gt;=)</option>
+                        <option value="lessEqual">이하 (&lt;=)</option>
+                      </select>
+                    </div>
+
+                    {/* 최소값 */}
+                    {condition.operator === 'range' ? (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">최소값 (이상)</label>
+                        <input
+                          type="number"
+                          value={condition.min}
+                          onChange={(e) => updateCondition(index, 'min', e.target.value)}
+                          className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 text-black font-medium"
+                          placeholder="예: 1000"
+                        />
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">기준값</label>
+                        <input
+                          type="number"
+                          value={condition.min}
+                          onChange={(e) => updateCondition(index, 'min', e.target.value)}
+                          className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 text-black font-medium"
+                          placeholder="예: 1000"
+                        />
+                      </div>
+                    )}
+
+                    {/* 최대값 (범위일 때만) */}
+                    {condition.operator === 'range' && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">최대값 (이하)</label>
+                        <input
+                          type="number"
+                          value={condition.max}
+                          onChange={(e) => updateCondition(index, 'max', e.target.value)}
+                          className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 text-black font-medium"
+                          placeholder="예: 4000"
+                        />
+                      </div>
+                    )}
+
+                    {/* 결과값 */}
+                    <div className={condition.operator === 'range' ? '' : 'md:col-span-2'}>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">출력 텍스트</label>
+                      <input
+                        type="text"
+                        value={condition.result}
+                        onChange={(e) => updateCondition(index, 'result', e.target.value)}
+                        className="w-full text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500"
+                        placeholder="예: 소규모 인플루언서"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* 조건 추가 버튼 */}
+              <button
+                onClick={addCondition}
+                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
+              >
+                + 조건 추가
+              </button>
+            </div>
+
+            {/* 기본값 설정 */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                기본값 (어떤 조건에도 해당하지 않을 때)
+              </label>
+              <input
+                type="text"
+                value={defaultValue}
+                onChange={(e) => setDefaultValue(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 text-black font-medium"
+                placeholder="예: 기타"
+              />
+            </div>
+          </div>
+
+          {/* 버튼들 */}
+          <div className="flex justify-end space-x-3">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables }) => {
+  const [newVariableName, setNewVariableName] = useState('')
+  const [newValue, setNewValue] = useState('')
+  const [editingVariable, setEditingVariable] = useState(null)
+  const [editingValueIndex, setEditingValueIndex] = useState(null)
+
+  if (!isOpen) return null
+
+  const addVariable = () => {
+    if (newVariableName.trim() && !userVariables[newVariableName]) {
+      setUserVariables(prev => ({
+        ...prev,
+        [newVariableName]: ['기본값']
+      }))
+      setNewVariableName('')
+    }
+  }
+
+  const deleteVariable = (variableName) => {
+    setUserVariables(prev => {
+      const updated = { ...prev }
+      delete updated[variableName]
+      return updated
+    })
+  }
+
+  const addValue = (variableName) => {
+    if (newValue.trim()) {
+      setUserVariables(prev => ({
+        ...prev,
+        [variableName]: [...prev[variableName], newValue]
+      }))
+      setNewValue('')
+    }
+  }
+
+  const editValue = (variableName, index, newVal) => {
+    setUserVariables(prev => ({
+      ...prev,
+      [variableName]: prev[variableName].map((val, i) => i === index ? newVal : val)
+    }))
+  }
+
+  const deleteValue = (variableName, index) => {
+    setUserVariables(prev => ({
+      ...prev,
+      [variableName]: prev[variableName].filter((_, i) => i !== index)
+    }))
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-hidden mx-4">
+        <div className="p-6 overflow-y-auto max-h-[80vh]">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">사용자 변수 관리</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* 새 변수 추가 */}
+          <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+            <h3 className="font-medium text-gray-900 mb-3">새 변수 추가</h3>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newVariableName}
+                onChange={(e) => setNewVariableName(e.target.value)}
+                placeholder="변수명 (예: 제품명, 브랜드명)"
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-black font-medium"
+                onKeyDown={(e) => e.key === 'Enter' && addVariable()}
+              />
+              <button
+                onClick={addVariable}
+                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              >
+                추가
+              </button>
+            </div>
+          </div>
+
+          {/* 기존 변수 목록 */}
+          <div className="space-y-4">
+            {Object.entries(userVariables).map(([variableName, values]) => (
+              <div key={variableName} className="border border-gray-200 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h4 className="font-medium text-gray-900">{`{{${variableName}}}`}</h4>
+                  <button
+                    onClick={() => deleteVariable(variableName)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    삭제
+                  </button>
+                </div>
+
+                {/* 값 목록 */}
+                <div className="space-y-2 mb-3">
+                  {values.map((value, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      {editingVariable === variableName && editingValueIndex === index ? (
+                        <input
+                          type="text"
+                          value={value}
+                          onChange={(e) => editValue(variableName, index, e.target.value)}
+                          onBlur={() => {
+                            setEditingVariable(null)
+                            setEditingValueIndex(null)
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              setEditingVariable(null)
+                              setEditingValueIndex(null)
+                            }
+                          }}
+                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-black font-medium"
+                          autoFocus
+                        />
+                      ) : (
+                        <>
+                          <span
+                            className="flex-1 px-2 py-1 bg-gray-50 rounded cursor-pointer text-black"
+                            onClick={() => {
+                              setEditingVariable(variableName)
+                              setEditingValueIndex(index)
+                            }}
+                          >
+                            {value}
+                          </span>
+                          <button
+                            onClick={() => deleteValue(variableName, index)}
+                            className="text-red-500 hover:text-red-700 text-sm"
+                          >
+                            삭제
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                {/* 새 값 추가 */}
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newValue}
+                    onChange={(e) => setNewValue(e.target.value)}
+                    placeholder="새 값 추가"
+                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-black font-medium"
+                    onKeyDown={(e) => e.key === 'Enter' && addValue(variableName)}
+                  />
+                  <button
+                    onClick={() => addValue(variableName)}
+                    className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
+                  >
+                    추가
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {Object.keys(userVariables).length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              아직 생성된 변수가 없습니다. 위에서 새 변수를 추가해보세요.
+            </div>
+          )}
+
+          {/* 닫기 버튼 */}
+          <div className="flex justify-end mt-6">
+            <button
+              onClick={onClose}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              완료
             </button>
           </div>
         </div>

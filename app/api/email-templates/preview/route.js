@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { templateId, influencerId, userId, subject, content } = body
+    const { templateId, influencerId, userId, subject, content, userVariables } = body
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
@@ -58,8 +58,8 @@ export async function POST(request) {
     })
 
     // 변수 치환
-    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData)
-    const replacedContent = replaceVariables(templateData.content, influencerData, userData)
+    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables)
+    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables)
 
     return NextResponse.json({
       preview: {
@@ -81,7 +81,7 @@ export async function POST(request) {
 }
 
 // 변수 치환 함수
-function replaceVariables(text, influencerData, userData) {
+function replaceVariables(text, influencerData, userData, userVariables = {}) {
   if (!text) return text
 
   let result = text
@@ -110,18 +110,18 @@ function replaceVariables(text, influencerData, userData) {
     })
   }
 
-  // 사용자/브랜드 관련 변수들
-  if (userData) {
-    result = result.replace(/\{\{브랜드명\}\}/g, userData.name || '브랜드')
-    result = result.replace(/\{\{회사명\}\}/g, userData.name || '회사')
-    result = result.replace(/\{\{사용자이름\}\}/g, userData.name || '사용자')
-  }
+  // 사용자 정의 변수들
+  if (userVariables && typeof userVariables === 'object') {
+    Object.keys(userVariables).forEach(variableName => {
+      const variablePattern = new RegExp(`\\{\\{${variableName}\\}\\}`, 'g')
+      const values = userVariables[variableName]
 
-  // 현재 날짜 변수
-  const today = new Date()
-  result = result.replace(/\{\{오늘날짜\}\}/g, today.toLocaleDateString('ko-KR'))
-  result = result.replace(/\{\{현재년도\}\}/g, today.getFullYear().toString())
-  result = result.replace(/\{\{현재월\}\}/g, (today.getMonth() + 1).toString())
+      if (Array.isArray(values) && values.length > 0) {
+        // 배열의 첫 번째 값을 사용 (나중에 사용자가 선택할 수 있도록 확장 가능)
+        result = result.replace(variablePattern, values[0])
+      }
+    })
+  }
 
   return result
 }
