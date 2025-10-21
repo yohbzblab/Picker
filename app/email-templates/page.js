@@ -352,22 +352,53 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
     const element = editorRef.current
     if (!element) return
 
-    const start = element.selectionStart
-    const end = element.selectionEnd
-    const before = value.substring(0, start)
-    const after = value.substring(end)
+    // DOM 요소에서 직접 현재 값과 커서 위치 가져오기
+    const currentValue = element.value || value || ''
+    let start = 0
+    let end = 0
+
+    try {
+      // 요소가 포커스되어 있거나 selectionStart가 있는 경우
+      if (element.selectionStart !== undefined && element.selectionEnd !== undefined) {
+        start = element.selectionStart
+        end = element.selectionEnd
+      } else {
+        // 포커스가 없거나 selection이 없는 경우 끝에 추가
+        start = end = currentValue.length
+      }
+    } catch (e) {
+      // selection 접근 실패 시 끝에 추가
+      start = end = currentValue.length
+    }
+
+    const before = currentValue.substring(0, start)
+    const after = currentValue.substring(end)
 
     // 변수를 {{변수명}} 형태로 삽입
     const formattedVariable = `{{${variable}}}`
     const newValue = before + formattedVariable + after
+
+
+    // 상태 업데이트
     onChange(newValue)
 
-    // 커서를 변수 뒤로 이동
-    setTimeout(() => {
-      element.focus()
-      const newPos = start + formattedVariable.length
-      element.setSelectionRange(newPos, newPos)
-    }, 0)
+    // DOM 요소 값도 직접 업데이트 (동기화)
+    element.value = newValue
+
+    // DOM 업데이트 후 포커스와 커서 설정
+    requestAnimationFrame(() => {
+      try {
+        if (element && typeof element.focus === 'function') {
+          element.focus()
+          const newPos = start + formattedVariable.length
+          if (typeof element.setSelectionRange === 'function') {
+            element.setSelectionRange(newPos, newPos)
+          }
+        }
+      } catch (e) {
+        // 커서 설정 실패 시 무시
+      }
+    })
   }
 
   // onInsertVariable prop으로 insertVariable 함수 전달
@@ -689,11 +720,33 @@ function TemplateModal({ template, onClose, onSave, userId }) {
   }
 
   const handleVariableInsert = useCallback((variable) => {
-    if (activeField === 'subject' && subjectInsertFn) {
+    // 활성 필드 확인 - activeField 상태를 우선적으로 사용
+    let targetField = activeField
+
+    // activeField가 없는 경우 DOM 포커스 상태로 판단
+    if (!targetField) {
+      const activeElement = document.activeElement
+
+      // 부모 컨테이너를 통해 어떤 에디터인지 확인
+      const closestLabel = activeElement?.closest('div')?.previousElementSibling?.textContent
+
+      if (closestLabel?.includes('메일 제목')) {
+        targetField = 'subject'
+      } else if (closestLabel?.includes('메일 내용')) {
+        targetField = 'content'
+      } else {
+        // 기본값: content 필드
+        targetField = 'content'
+      }
+    }
+
+    // 해당 필드의 삽입 함수 실행
+    if (targetField === 'subject' && subjectInsertFn) {
       subjectInsertFn(variable)
-    } else if (activeField === 'content' && contentInsertFn) {
+    } else if (targetField === 'content' && contentInsertFn) {
       contentInsertFn(variable)
     } else {
+      // 폴백: content 필드에 삽입
       if (contentInsertFn) {
         contentInsertFn(variable)
       }
@@ -744,7 +797,16 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                 placeholder="예: 협업 제안드립니다"
                 onInsertVariable={useCallback((fn) => setSubjectInsertFn(() => fn), [])}
                 onFocus={useCallback(() => setActiveField('subject'), [])}
-                onBlur={useCallback(() => setTimeout(() => setActiveField(null), 100), [])}
+                onBlur={useCallback(() => {
+                  // 포커스가 다른 변수 버튼으로 이동하는 경우를 위해 지연 처리
+                  setTimeout(() => {
+                    const activeElement = document.activeElement
+                    // 변수 버튼에 포커스가 있지 않은 경우에만 activeField 초기화
+                    if (!activeElement?.closest('button') || activeElement.closest('button')?.type === 'submit') {
+                      setActiveField(null)
+                    }
+                  }, 150)
+                }, [])}
               />
             </div>
 
@@ -759,7 +821,16 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                 isMultiline={true}
                 onInsertVariable={useCallback((fn) => setContentInsertFn(() => fn), [])}
                 onFocus={useCallback(() => setActiveField('content'), [])}
-                onBlur={useCallback(() => setTimeout(() => setActiveField(null), 100), [])}
+                onBlur={useCallback(() => {
+                  // 포커스가 다른 변수 버튼으로 이동하는 경우를 위해 지연 처리
+                  setTimeout(() => {
+                    const activeElement = document.activeElement
+                    // 변수 버튼에 포커스가 있지 않은 경우에만 activeField 초기화
+                    if (!activeElement?.closest('button') || activeElement.closest('button')?.type === 'submit') {
+                      setActiveField(null)
+                    }
+                  }, 150)
+                }, [])}
               />
             </div>
 
