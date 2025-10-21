@@ -105,17 +105,19 @@ model Influencer {
 }
 
 model EmailTemplate {
-  id          Int      @id @default(autoincrement())
-  userId      Int      // 템플릿 소유자
-  name        String   // 템플릿 이름 (예: "초기 협업 제안")
-  subject     String   // 메일 제목
-  content     String   @db.Text  // 메일 본문
-  variables   Json?    // 사용 가능한 변수 목록
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id              Int      @id @default(autoincrement())
+  userId          Int      // 템플릿 소유자
+  name            String   // 템플릿 이름 (예: "초기 협업 제안")
+  subject         String   // 메일 제목
+  content         String   @db.Text  // 메일 본문
+  variables       Json?    // 사용 가능한 변수 목록 (레거시)
+  userVariables   Json?    // 사용자 정의 변수 { "변수명": ["값1", "값2", ...] }
+  conditionalRules Json?   // 조건문 규칙 { "변수명": { "conditions": [...], "defaultValue": "" } }
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("email_templates")

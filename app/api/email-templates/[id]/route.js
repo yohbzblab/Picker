@@ -36,7 +36,8 @@ export async function PUT(request, { params }) {
   try {
     const { id } = params
     const body = await request.json()
-    const { userId, name, subject, content, variables } = body
+    const { userId, name, subject, content, variables, userVariables, conditionalRules } = body
+
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
@@ -55,20 +56,31 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Template not found' }, { status: 404 })
     }
 
+
     // 변수 추출 로직
     const extractedVariables = extractVariablesFromContent((content || existingTemplate.content) + ' ' + (subject || existingTemplate.subject))
+
+    const updateData = {
+      ...(name && { name }),
+      ...(subject && { subject }),
+      ...(content && { content }),
+      variables: variables || extractedVariables,
+      updatedAt: new Date()
+    }
+
+    // userVariables와 conditionalRules가 제공된 경우에만 업데이트
+    if (userVariables !== undefined) {
+      updateData.userVariables = userVariables
+    }
+    if (conditionalRules !== undefined) {
+      updateData.conditionalRules = conditionalRules
+    }
 
     const template = await prisma.emailTemplate.update({
       where: {
         id: parseInt(id)
       },
-      data: {
-        ...(name && { name }),
-        ...(subject && { subject }),
-        ...(content && { content }),
-        variables: variables || extractedVariables,
-        updatedAt: new Date()
-      }
+      data: updateData
     })
 
     return NextResponse.json({ template })

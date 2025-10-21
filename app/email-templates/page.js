@@ -227,21 +227,20 @@ export default function EmailTemplates() {
 
                   <div className="mb-4">
                     <p className="text-sm font-medium text-gray-700 mb-1">내용:</p>
-                    <p className="text-sm text-gray-600 line-clamp-3">{template.content}</p>
-                  </div>
-
-                  {template.variables && template.variables.length > 0 && (
-                    <div className="mb-4">
-                      <p className="text-sm font-medium text-gray-700 mb-2">사용된 변수:</p>
-                      <div className="flex flex-wrap gap-1">
-                        {template.variables.map((variable, index) => (
-                          <span key={index} className="inline-flex px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                            {variable}
-                          </span>
-                        ))}
+                    <div className="text-sm text-gray-600">
+                      <div
+                        className="whitespace-pre-wrap break-words overflow-hidden"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 3,
+                          WebkitBoxOrient: 'vertical',
+                          lineHeight: '1.4'
+                        }}
+                      >
+                        {template.content}
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   <div className="flex space-x-2">
                     <button
@@ -520,11 +519,20 @@ function TemplateModal({ template, onClose, onSave, userId }) {
   const [variableInputs, setVariableInputs] = useState({}) // 사용자가 입력한 변수 값들
   const [influencerFields, setInfluencerFields] = useState([]) // 데이터베이스에서 가져온 인플루언서 필드들
   const [loadingFields, setLoadingFields] = useState(true)
-  const [conditionalRules, setConditionalRules] = useState({}) // 조건문 규칙들 { variableName: { conditions: [...], defaultValue: '' } }
+  const [conditionalRules, setConditionalRules] = useState(template?.conditionalRules || {}) // 조건문 규칙들 { variableName: { conditions: [...], defaultValue: '' } }
   const [showConditionsModal, setShowConditionsModal] = useState(false)
   const [editingConditionVariable, setEditingConditionVariable] = useState(null)
-  const [userVariables, setUserVariables] = useState({}) // 사용자 정의 변수들 { variableName: ['값1', '값2', ...] }
+  const [userVariables, setUserVariables] = useState(template?.userVariables || {}) // 사용자 정의 변수들 { variableName: ['값1', '값2', ...] }
+
   const [showUserVariableModal, setShowUserVariableModal] = useState(false)
+
+  // 템플릿이 변경될 때 상태 업데이트
+  useEffect(() => {
+    if (template) {
+      setUserVariables(template.userVariables || {})
+      setConditionalRules(template.conditionalRules || {})
+    }
+  }, [template])
 
   // 사용자 변수 모달 열기
 
@@ -694,15 +702,20 @@ function TemplateModal({ template, onClose, onSave, userId }) {
 
       const method = template ? 'PUT' : 'POST'
 
+      const requestData = {
+        ...formData,
+        userId,
+        userVariables,
+        conditionalRules
+      }
+
+
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...formData,
-          userId
-        })
+        body: JSON.stringify(requestData)
       })
 
       if (response.ok) {

@@ -32,7 +32,8 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { userId, name, subject, content, variables } = body
+    const { userId, name, subject, content, variables, userVariables, conditionalRules } = body
+
 
     if (!userId || !name || !subject || !content) {
       return NextResponse.json({
@@ -40,17 +41,21 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // 변수 추출 로직 - @변수명 형태의 변수들을 찾아서 저장
+    // 변수 추출 로직 - {{변수명}} 형태의 변수들을 찾아서 저장
     const extractedVariables = extractVariablesFromContent(content + ' ' + subject)
 
+    const templateData = {
+      userId: parseInt(userId),
+      name,
+      subject,
+      content,
+      variables: variables || extractedVariables,
+      userVariables: userVariables || {},
+      conditionalRules: conditionalRules || {}
+    }
+
     const template = await prisma.emailTemplate.create({
-      data: {
-        userId: parseInt(userId),
-        name,
-        subject,
-        content,
-        variables: variables || extractedVariables
-      }
+      data: templateData
     })
 
     return NextResponse.json({ template }, { status: 201 })
