@@ -809,7 +809,9 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                 onChange={useCallback((value) => setFormData(prev => ({ ...prev, subject: value })), [])}
                 placeholder="예: 협업 제안드립니다"
                 onInsertVariable={useCallback((fn) => setSubjectInsertFn(() => fn), [])}
-                onFocus={useCallback(() => setActiveField('subject'), [])}
+                onFocus={useCallback(() => {
+                  setActiveField('subject')
+                }, [])}
                 onBlur={useCallback(() => {
                   // 포커스가 다른 변수 버튼으로 이동하는 경우를 위해 지연 처리
                   setTimeout(() => {
@@ -863,6 +865,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                       <button
                         type="button"
                         onClick={() => openUserVariableModal()}
+                        onMouseDown={(e) => e.preventDefault()}
                         className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
                         title="변수 관리"
                       >
@@ -878,6 +881,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                             key={variableName}
                             type="button"
                             onClick={() => handleVariableInsert(variableName)}
+                            onMouseDown={(e) => e.preventDefault()}
                             className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
                           >
                             {variableName}
@@ -897,6 +901,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                             key={field.key}
                             type="button"
                             onClick={() => handleVariableInsert(field.key)}
+                            onMouseDown={(e) => e.preventDefault()}
                             className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors text-left"
                             title={field.tooltip || field.label}
                           >
@@ -917,6 +922,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                             <button
                               type="button"
                               onClick={() => handleVariableInsert(field.key)}
+                              onMouseDown={(e) => e.preventDefault()}
                               className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
                               title={field.tooltip || field.label}
                             >
@@ -925,6 +931,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                             <button
                               type="button"
                               onClick={() => openConditionsModal(field.key)}
+                              onMouseDown={(e) => e.preventDefault()}
                               className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
                               title="조건문 설정"
                             >
