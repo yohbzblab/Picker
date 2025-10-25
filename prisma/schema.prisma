@@ -27,6 +27,7 @@ model User {
   instagramAccounts InstagramAccount[]
   influencers       Influencer[]
   emailTemplates    EmailTemplate[]
+  templateConnections TemplateInfluencerConnection[]
 
   @@map("users")
 }
@@ -98,6 +99,7 @@ model Influencer {
   updatedAt DateTime @updatedAt
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connections TemplateInfluencerConnection[]
 
   @@index([userId])
   @@index([accountId])
@@ -118,9 +120,30 @@ model EmailTemplate {
   updatedAt       DateTime @updatedAt
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  connections     TemplateInfluencerConnection[]
 
   @@index([userId])
   @@map("email_templates")
+}
+
+model TemplateInfluencerConnection {
+  id            Int      @id @default(autoincrement())
+  templateId    Int      // 템플릿 ID
+  influencerId  Int      // 인플루언서 ID
+  userId        Int      // 소유자 (보안을 위해)
+  userVariables Json?    // 이 연결에 대한 사용자 변수 설정 { "변수명": "값" }
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template      EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  influencer    Influencer    @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, influencerId]) // 중복 연결 방지
+  @@index([templateId])
+  @@index([influencerId])
+  @@index([userId])
+  @@map("template_influencer_connections")
 }
 
 enum FieldType {

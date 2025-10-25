@@ -8,13 +8,9 @@ export default function EmailTemplates() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const [templates, setTemplates] = useState([])
-  const [influencers, setInfluencers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showTemplateModal, setShowTemplateModal] = useState(false)
-  const [showPreviewModal, setShowPreviewModal] = useState(false)
   const [editingTemplate, setEditingTemplate] = useState(null)
-  const [previewData, setPreviewData] = useState(null)
-  const [selectedInfluencer, setSelectedInfluencer] = useState('')
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -32,20 +28,11 @@ export default function EmailTemplates() {
     try {
       setLoading(true)
 
-      // 템플릿과 인플루언서 데이터를 병렬로 로드
-      const [templatesResponse, influencersResponse] = await Promise.all([
-        fetch(`/api/email-templates?userId=${dbUser.id}`),
-        fetch(`/api/influencers?userId=${dbUser.id}`)
-      ])
+      const response = await fetch(`/api/email-templates?userId=${dbUser.id}`)
 
-      if (templatesResponse.ok) {
-        const templatesData = await templatesResponse.json()
-        setTemplates(templatesData.templates || [])
-      }
-
-      if (influencersResponse.ok) {
-        const influencersData = await influencersResponse.json()
-        setInfluencers(influencersData.influencers || [])
+      if (response.ok) {
+        const data = await response.json()
+        setTemplates(data.templates || [])
       }
     } catch (error) {
       console.error('Error loading data:', error)
@@ -85,35 +72,9 @@ export default function EmailTemplates() {
     }
   }
 
-  const handlePreview = async (template) => {
-    try {
-      const response = await fetch('/api/email-templates/preview', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          templateId: template.id,
-          influencerId: selectedInfluencer || null,
-          userId: dbUser.id,
-          userVariables: userVariables
-        })
-      })
-
-      if (response.ok) {
-        const data = await response.json()
-        setPreviewData({
-          ...data.preview,
-          templateName: template.name
-        })
-        setShowPreviewModal(true)
-      } else {
-        alert('미리보기 생성에 실패했습니다.')
-      }
-    } catch (error) {
-      console.error('Error generating preview:', error)
-      alert('미리보기 생성 중 오류가 발생했습니다.')
-    }
+  const handleInfluencerConnect = (template) => {
+    // 템플릿 ID를 쿼리 파라미터로 전달하여 인플루언서 연결 페이지로 이동
+    router.push(`/influencer-connect?templateId=${template.id}`)
   }
 
   if (authLoading || loading) {
@@ -244,10 +205,10 @@ export default function EmailTemplates() {
 
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => handlePreview(template)}
-                      className="flex-1 text-sm bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                      onClick={() => handleInfluencerConnect(template)}
+                      className="flex-1 text-sm bg-purple-100 text-purple-700 px-3 py-2 rounded-lg hover:bg-purple-200 transition-colors"
                     >
-                      미리보기
+                      인플루언서 연결
                     </button>
                   </div>
 
@@ -291,16 +252,6 @@ export default function EmailTemplates() {
         />
       )}
 
-      {/* 미리보기 모달 */}
-      {showPreviewModal && previewData && (
-        <PreviewModal
-          previewData={previewData}
-          influencers={influencers}
-          selectedInfluencer={selectedInfluencer}
-          onInfluencerChange={setSelectedInfluencer}
-          onClose={() => setShowPreviewModal(false)}
-        />
-      )}
     </div>
   )
 }
@@ -483,7 +434,7 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
   return (
     <div className="relative">
       <div
-        className="px-3 py-2 overflow-hidden rounded-lg border border-gray-300 bg-white flex items-center pointer-events-none"
+        className="px-3 py-2 overflow-hidden rounded-lg border border-gray-300 bg-white flex items-center pointer-events-none whitespace-pre-wrap"
         style={{ minHeight: '42px' }}
       >
         {renderWithHighlight()}
@@ -1218,104 +1169,6 @@ function TemplateModal({ template, onClose, onSave, userId }) {
   )
 }
 
-// 미리보기 모달 컴포넌트
-function PreviewModal({ previewData, influencers, selectedInfluencer, onInfluencerChange, onClose }) {
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-3xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900">
-              템플릿 미리보기: {previewData.templateName}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              인플루언서 선택 (변수 치환용)
-            </label>
-            <select
-              value={selectedInfluencer}
-              onChange={(e) => onInfluencerChange(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
-            >
-              <option value="">인플루언서를 선택하세요</option>
-              {influencers.map((influencer) => (
-                <option key={influencer.id} value={influencer.id}>
-                  {influencer.fieldData?.name || influencer.accountId} ({influencer.accountId})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 원본 */}
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">원본 템플릿</h3>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">제목:</label>
-                <div className="bg-white p-3 rounded border text-sm">
-                  {previewData.originalSubject}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">내용:</label>
-                <div className="bg-white p-3 rounded border text-sm whitespace-pre-wrap">
-                  {previewData.originalContent}
-                </div>
-              </div>
-            </div>
-
-            {/* 미리보기 */}
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">
-                변수 치환 결과
-                {previewData.influencer && (
-                  <span className="text-sm font-normal text-gray-600 ml-2">
-                    ({previewData.influencer.name})
-                  </span>
-                )}
-              </h3>
-
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-1">제목:</label>
-                <div className="bg-white p-3 rounded border text-sm">
-                  {previewData.subject}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">내용:</label>
-                <div className="bg-white p-3 rounded border text-sm whitespace-pre-wrap">
-                  {previewData.content}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // 조건문 설정 모달 컴포넌트
 function ConditionsModal({ field, initialRules, onSave, onClose }) {
