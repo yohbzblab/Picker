@@ -40,15 +40,26 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const supabaseId = searchParams.get('supabaseId')
+    const userId = searchParams.get('userId')
 
-    if (!supabaseId) {
+    let user
+
+    if (userId) {
+      // userId로 직접 조회
+      const { PrismaClient } = await import('../../generated/prisma')
+      const prisma = new PrismaClient()
+      user = await prisma.user.findUnique({
+        where: { id: parseInt(userId) }
+      })
+    } else if (supabaseId) {
+      // supabaseId로 조회
+      user = await findUserBySupabaseId(supabaseId)
+    } else {
       return NextResponse.json(
-        { error: 'supabaseId is required' },
+        { error: 'supabaseId or userId is required' },
         { status: 400 }
       )
     }
-
-    const user = await findUserBySupabaseId(supabaseId)
 
     if (!user) {
       return NextResponse.json(

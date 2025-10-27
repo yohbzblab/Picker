@@ -5,10 +5,11 @@ const prisma = new PrismaClient()
 
 export async function GET(request, { params }) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const influencerId = parseInt(id)
 
     const influencer = await prisma.influencer.findUnique({
-      where: { id },
+      where: { id: influencerId },
       include: {
         user: {
           select: { id: true, email: true, name: true }
@@ -31,13 +32,14 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const influencerId = parseInt(id)
     const body = await request.json()
     const { accountId, fieldData } = body
 
     // 기존 인플루언서 확인
     const existingInfluencer = await prisma.influencer.findUnique({
-      where: { id }
+      where: { id: influencerId }
     })
 
     if (!existingInfluencer) {
@@ -50,7 +52,7 @@ export async function PUT(request, { params }) {
         where: {
           userId: existingInfluencer.userId,
           accountId,
-          id: { not: id }
+          id: { not: influencerId }
         }
       })
 
@@ -60,7 +62,7 @@ export async function PUT(request, { params }) {
     }
 
     const influencer = await prisma.influencer.update({
-      where: { id },
+      where: { id: influencerId },
       data: {
         ...(accountId && { accountId }),
         ...(fieldData && { fieldData })
@@ -78,11 +80,12 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const influencerId = parseInt(id)
 
     // 인플루언서 존재 확인
     const existingInfluencer = await prisma.influencer.findUnique({
-      where: { id }
+      where: { id: influencerId }
     })
 
     if (!existingInfluencer) {
@@ -90,7 +93,7 @@ export async function DELETE(request, { params }) {
     }
 
     await prisma.influencer.delete({
-      where: { id }
+      where: { id: influencerId }
     })
 
     return NextResponse.json({ message: 'Influencer deleted successfully' })

@@ -5,7 +5,7 @@ const prisma = new PrismaClient()
 
 export async function GET(request, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 
@@ -34,7 +34,7 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
     const body = await request.json()
     const { userId, name, subject, content, variables, userVariables, conditionalRules } = body
 
@@ -92,7 +92,7 @@ export async function PUT(request, { params }) {
 
 export async function DELETE(request, { params }) {
   try {
-    const { id } = params
+    const { id } = await params
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
 

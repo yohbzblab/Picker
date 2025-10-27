@@ -21,6 +21,18 @@ model User {
   profileImage    String?
   supabaseId      String   @unique
   isProfileComplete Boolean @default(false)
+
+  // SMTP 설정 필드들
+  smtpHost        String?  // SMTP 서버 주소
+  smtpPort        Int?     // SMTP 포트 (예: 587, 465)
+  smtpUser        String?  // SMTP 사용자명 (이메일)
+  smtpPassword    String?  // SMTP 비밀번호
+  smtpSecure      Boolean? @default(false) // SSL/TLS 사용 여부
+
+  // 발신자 정보
+  senderName      String?  // 발신자 이름
+  brandName       String?  // 브랜드명
+
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
@@ -28,6 +40,7 @@ model User {
   influencers       Influencer[]
   emailTemplates    EmailTemplate[]
   templateConnections TemplateInfluencerConnection[]
+  emailsSent        EmailSent[]
 
   @@map("users")
 }
@@ -100,6 +113,7 @@ model Influencer {
 
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connections TemplateInfluencerConnection[]
+  emailsSent  EmailSent[]
 
   @@index([userId])
   @@index([accountId])
@@ -121,6 +135,7 @@ model EmailTemplate {
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connections     TemplateInfluencerConnection[]
+  emailsSent      EmailSent[]
 
   @@index([userId])
   @@map("email_templates")
@@ -144,6 +159,36 @@ model TemplateInfluencerConnection {
   @@index([influencerId])
   @@index([userId])
   @@map("template_influencer_connections")
+}
+
+model EmailSent {
+  id            Int      @id @default(autoincrement())
+  userId        Int      // 발신자
+  templateId    Int?     // 사용된 템플릿 (옵션)
+  influencerId  Int?     // 수신자 인플루언서 (옵션)
+  to            String   // 수신자 이메일 주소
+  subject       String   // 메일 제목
+  content       String   @db.Text // 메일 본문
+  messageId     String?  // 메일 서버에서 반환된 메시지 ID
+  status        EmailStatus @default(SENT) // 전송 상태
+  errorMessage  String?  // 오류 메시지 (실패 시)
+  sentAt        DateTime @default(now()) // 전송 시간
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  template      EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  influencer    Influencer?   @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([templateId])
+  @@index([influencerId])
+  @@index([sentAt])
+  @@map("emails_sent")
+}
+
+enum EmailStatus {
+  SENT      // 성공적으로 전송됨
+  FAILED    // 전송 실패
+  PENDING   // 전송 대기 중
 }
 
 enum FieldType {

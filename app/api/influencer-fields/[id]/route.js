@@ -5,13 +5,14 @@ const prisma = new PrismaClient()
 
 export async function PUT(request, { params }) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const fieldId = parseInt(id)
     const body = await request.json()
     const { label, tooltip, fieldType, isRequired, sortOrder, options, validation } = body
 
     // 고정 필드인지 확인
     const existingField = await prisma.influencerField.findUnique({
-      where: { id }
+      where: { id: fieldId }
     })
 
     if (!existingField) {
@@ -23,7 +24,7 @@ export async function PUT(request, { params }) {
     }
 
     const field = await prisma.influencerField.update({
-      where: { id },
+      where: { id: fieldId },
       data: {
         label,
         tooltip,
@@ -44,13 +45,14 @@ export async function PUT(request, { params }) {
   }
 }
 
-export async function DELETE(request, { params }) {
+export async function DELETE(_, { params }) {
   try {
-    const id = parseInt(params.id)
+    const { id } = await params
+    const fieldId = parseInt(id)
 
     // 고정 필드인지 확인
     const existingField = await prisma.influencerField.findUnique({
-      where: { id }
+      where: { id: fieldId }
     })
 
     if (!existingField) {
@@ -63,7 +65,7 @@ export async function DELETE(request, { params }) {
 
     // 소프트 삭제 (isActive를 false로 설정)
     await prisma.influencerField.update({
-      where: { id },
+      where: { id: fieldId },
       data: { isActive: false }
     })
 
