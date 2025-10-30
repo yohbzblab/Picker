@@ -54,10 +54,14 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Account ID already exists for this user' }, { status: 400 })
     }
 
+    // 이메일을 별도 컬럼으로 추출
+    const email = fieldData?.email || null
+
     const influencer = await prisma.influencer.create({
       data: {
         userId: parseInt(userId),
         accountId,
+        email,
         fieldData: fieldData || {}
       }
     })

@@ -103,6 +103,7 @@ model Influencer {
 
   // 고정 필드들
   accountId String   // 계정 ID (항상 필요한 기본 식별자)
+  email     String?  // 이메일 주소
 
   // 동적 필드 데이터 (JSON)
   fieldData Json     // { "name": "김인플루", "followers": 125300, "categories": ["뷰티", "라이프스타일"] }

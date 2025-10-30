@@ -7,7 +7,7 @@ const prisma = new PrismaClient()
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { templateId, influencerId, userId, userVariables, testRecipient } = body
+    const { templateId, influencerId, userId, userVariables, testRecipient, senderName } = body
 
     if (!templateId || !influencerId || !userId || !testRecipient) {
       return NextResponse.json({
@@ -52,8 +52,8 @@ export async function POST(request) {
     }
 
     // 변수 치환
-    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables)
-    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables)
+    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables, templateData.conditionalRules)
+    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables, templateData.conditionalRules)
 
     // SMTP 설정 확인
     if (!userData.smtpHost || !userData.smtpPort || !userData.smtpUser || !userData.smtpPassword) {
@@ -79,14 +79,16 @@ export async function POST(request) {
     // 테스트 메일 본문에 원래 수신자 정보 추가
     const testContent = `=== 테스트 메일 ===
 원래 수신자: ${influencerData.fieldData?.name || '이름 없음'} (@${influencerData.accountId})
-원래 이메일: ${influencerData.fieldData?.email || '이메일 없음'}
+원래 이메일: ${influencerData.email || '이메일 없음'}
 =====================================
 
 ${replacedContent}`
 
     // 이메일 전송 (테스트 수신자에게)
     const mailOptions = {
-      from: userData.senderName
+      from: senderName
+        ? `"${senderName}" <${userData.smtpUser}>`
+        : userData.senderName
         ? `"${userData.senderName}" <${userData.smtpUser}>`
         : userData.smtpUser,
       to: testRecipient, // 테스트 수신자 (로그인한 사용자)
@@ -124,7 +126,7 @@ ${replacedContent}`
         to: testRecipient,
         originalRecipient: {
           name: influencerData.fieldData?.name || influencerData.accountId,
-          email: influencerData.fieldData?.email || 'N/A'
+          email: influencerData.email || 'N/A'
         },
         subject: testSubject,
         content: testContent
@@ -152,45 +154,75 @@ ${replacedContent}`
 }
 
 // 변수 치환 함수 (send API와 동일)
-function replaceVariables(text, influencerData, userData, userVariables = {}) {
+function replaceVariables(text, influencerData, userData, userVariables = {}, conditionalRules = {}) {
   if (!text) return text
 
   let result = text
 
-  // 인플루언서 관련 변수들
+  // 인플루언서 관련 변수들 (조건문 적용 포함)
   if (influencerData) {
     const fieldData = influencerData.fieldData || {}
 
-    // 기본 변수들
-    result = result.replace(/\{\{인플루언서이름\}\}/g, fieldData.name || influencerData.accountId || '인플루언서')
-    result = result.replace(/\{\{계정ID\}\}/g, influencerData.accountId || '')
-    result = result.replace(/\{\{팔로워수\}\}/g, fieldData.followers ? fieldData.followers.toLocaleString() : '0')
+    // 기본 변수들 - 조건문 확인
+    const nameValue = fieldData.name || influencerData.accountId || '인플루언서'
+    const finalNameValue = conditionalRules && conditionalRules['인플루언서이름'] ?
+      evaluateConditionalRule(conditionalRules['인플루언서이름'], influencerData, userData) : nameValue
+    result = result.replace(/\{\{인플루언서이름\}\}/g, finalNameValue)
 
-    // 동적 필드 데이터에서 추가 변수들
+    const accountValue = influencerData.accountId || ''
+    const finalAccountValue = conditionalRules && conditionalRules['계정ID'] ?
+      evaluateConditionalRule(conditionalRules['계정ID'], influencerData, userData) : accountValue
+    result = result.replace(/\{\{계정ID\}\}/g, finalAccountValue)
+
+    const followersValue = fieldData.followers ? fieldData.followers.toLocaleString() : '0'
+    const finalFollowersValue = conditionalRules && conditionalRules['팔로워수'] ?
+      evaluateConditionalRule(conditionalRules['팔로워수'], influencerData, userData) : followersValue
+    result = result.replace(/\{\{팔로워수\}\}/g, finalFollowersValue)
+
+    // 동적 필드 데이터에서 추가 변수들 - 조건문 확인
     Object.keys(fieldData).forEach(key => {
       const variablePattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-      const value = fieldData[key]
+      let value = fieldData[key]
+      let finalValue
 
-      if (typeof value === 'string') {
-        result = result.replace(variablePattern, value)
-      } else if (typeof value === 'number') {
-        result = result.replace(variablePattern, value.toLocaleString())
-      } else if (Array.isArray(value)) {
-        result = result.replace(variablePattern, value.join(', '))
+      // 조건문이 설정된 경우 조건문 평가
+      if (conditionalRules && conditionalRules[key]) {
+        finalValue = evaluateConditionalRule(conditionalRules[key], influencerData, userData)
+      } else {
+        // 조건문이 없는 경우 기본 포맷 적용
+        if (typeof value === 'string') {
+          finalValue = value
+        } else if (typeof value === 'number') {
+          finalValue = value.toLocaleString()
+        } else if (Array.isArray(value)) {
+          finalValue = value.join(', ')
+        } else {
+          finalValue = value
+        }
       }
+
+      result = result.replace(variablePattern, finalValue)
     })
   }
 
-  // 사용자 정의 변수들
+  // 사용자 정의 변수들 (조건문 처리 포함)
   if (userVariables && typeof userVariables === 'object') {
     Object.keys(userVariables).forEach(variableName => {
       const variablePattern = new RegExp(`\\{\\{${variableName}\\}\\}`, 'g')
-      const values = userVariables[variableName]
+      let finalValue = ''
 
-      if (Array.isArray(values) && values.length > 0) {
-        // 배열의 첫 번째 값을 사용
-        result = result.replace(variablePattern, values[0])
+      // 조건문이 설정된 변수인지 확인
+      if (conditionalRules && conditionalRules[variableName]) {
+        finalValue = evaluateConditionalRule(conditionalRules[variableName], influencerData, userData)
+      } else {
+        // 조건문이 없는 경우 기본 값 사용
+        const values = userVariables[variableName]
+        if (Array.isArray(values) && values.length > 0) {
+          finalValue = values[0]
+        }
       }
+
+      result = result.replace(variablePattern, finalValue)
     })
   }
 
@@ -201,4 +233,67 @@ function replaceVariables(text, influencerData, userData, userVariables = {}) {
   }
 
   return result
+}
+
+// 조건문 평가 함수 (실제 DB 형식에 맞게 수정)
+function evaluateConditionalRule(rule, influencerData, userData) {
+  if (!rule || !rule.conditions || !Array.isArray(rule.conditions)) {
+    return rule.defaultValue || ''
+  }
+
+  const fieldData = influencerData?.fieldData || {}
+
+  // 조건문들을 순서대로 평가
+  for (const condition of rule.conditions) {
+    if (evaluateCondition(condition, fieldData, userData)) {
+      return condition.result || ''
+    }
+  }
+
+  // 모든 조건에 맞지 않으면 기본값 반환
+  return rule.defaultValue || ''
+}
+
+// 개별 조건 평가 함수 (실제 DB 형식에 맞게 수정)
+function evaluateCondition(condition, fieldData, userData) {
+  if (!condition || !condition.operator) {
+    return false
+  }
+
+  switch (condition.operator) {
+    case 'range':
+      // range 연산자: min <= 값 <= max
+      const minValue = parseFloat(condition.min) || 0
+      const maxValue = parseFloat(condition.max) || 0
+      const followers = fieldData.followers || 0
+
+      return followers >= minValue && followers <= maxValue
+
+    case 'gte': // 이상
+      const gteValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) >= gteValue
+
+    case 'lte': // 이하
+      const lteValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) <= lteValue
+
+    case 'gt': // 초과
+      const gtValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) > gtValue
+
+    case 'lt': // 미만
+      const ltValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) < ltValue
+
+    case 'eq': // 같음
+      const eqValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) === eqValue
+
+    case 'ne': // 다름
+      const neValue = parseFloat(condition.value) || 0
+      return (fieldData.followers || 0) !== neValue
+
+    default:
+      return false
+  }
 }

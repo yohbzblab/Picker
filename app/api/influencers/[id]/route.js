@@ -61,11 +61,15 @@ export async function PUT(request, { params }) {
       }
     }
 
+    // 이메일을 별도 컬럼으로 추출
+    const email = fieldData?.email || null
+
     const influencer = await prisma.influencer.update({
       where: { id: influencerId },
       data: {
         ...(accountId && { accountId }),
-        ...(fieldData && { fieldData })
+        ...(fieldData && { fieldData }),
+        ...(email !== null && { email })
       }
     })
 

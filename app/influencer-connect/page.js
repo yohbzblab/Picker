@@ -2,9 +2,9 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 
-export default function InfluencerConnect() {
+function InfluencerConnectContent() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -18,6 +18,7 @@ export default function InfluencerConnect() {
   const [previewContent, setPreviewContent] = useState(null) // 미리보기 내용
   const [expandedConnections, setExpandedConnections] = useState(new Set()) // 확장된 연결 카드 ID들
   const [connectionUserVariables, setConnectionUserVariables] = useState({}) // 각 연결별 사용자 변수 설정
+  const [showOriginalTemplate, setShowOriginalTemplate] = useState(false) // 원본 템플릿 토글
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -406,7 +407,7 @@ export default function InfluencerConnect() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
             {/* 왼쪽: 연결된 인플루언서 + 전체 인플루언서 목록 */}
             <div className="lg:col-span-2 space-y-6">
 
@@ -469,6 +470,11 @@ export default function InfluencerConnect() {
                                       <p className="text-xs text-gray-500 truncate">
                                         @{connection.influencer.accountId}
                                       </p>
+                                      {connection.influencer.email && (
+                                        <p className="text-xs text-purple-600 font-medium truncate">
+                                          📧 {connection.influencer.email}
+                                        </p>
+                                      )}
                                       {connection.influencer.fieldData?.followers && (
                                         <p className="text-xs text-gray-400">
                                           팔로워: {connection.influencer.fieldData.followers.toLocaleString()}명
@@ -690,6 +696,11 @@ export default function InfluencerConnect() {
                                     <p className="text-sm text-gray-500 truncate">
                                       @{influencer.accountId}
                                     </p>
+                                    {influencer.email && (
+                                      <p className="text-xs text-purple-600 font-medium truncate">
+                                        📧 {influencer.email}
+                                      </p>
+                                    )}
                                     {influencer.fieldData?.followers && (
                                       <p className="text-xs text-gray-400">
                                         팔로워: {influencer.fieldData.followers.toLocaleString()}명
@@ -745,37 +756,80 @@ export default function InfluencerConnect() {
             </div>
 
             {/* 오른쪽: 템플릿 정보 */}
-            <div className="lg:col-span-1">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-8">
-                <div className="p-6">
+            <div className="lg:col-span-3">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-8 max-h-[calc(100vh-4rem)] flex flex-col">
+                <div className="p-6 flex-shrink-0">
                   <h2 className="text-lg font-semibold text-gray-900 mb-4">템플릿 정보</h2>
+                </div>
+                <div className="px-6 pb-6 flex-1 overflow-y-auto">
                   <div className="space-y-4 text-sm">
                     <div>
                       <span className="text-gray-600">템플릿명:</span>
                       <p className="font-medium">{template.name}</p>
                     </div>
 
+                    {/* 조건문 변수 정보 표시 */}
+                    {template.conditionalRules && Object.keys(template.conditionalRules).length > 0 && (
+                      <div>
+                        <span className="text-gray-600">조건 변수:</span>
+                        <div className="mt-2 space-y-2">
+                          {Object.entries(template.conditionalRules).map(([variableName, rule]) => (
+                            <div key={variableName} className="bg-blue-50 p-3 rounded-lg border">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <span className="text-xs font-medium text-blue-800">{`{{${variableName}}}`}</span>
+                                <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded">조건부</span>
+                              </div>
+
+                              {rule.conditions && rule.conditions.length > 0 && (
+                                <div className="space-y-1">
+                                  {rule.conditions.map((condition, index) => (
+                                    <div key={index} className="text-xs bg-white p-2 rounded border text-gray-700">
+                                      {condition.operator === 'range' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.min).toLocaleString()}~{parseInt(condition.max).toLocaleString()}명 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : condition.operator === 'gte' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.value).toLocaleString()}명 이상 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : condition.operator === 'lte' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.value).toLocaleString()}명 이하 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : condition.operator === 'gt' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.value).toLocaleString()}명 초과 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : condition.operator === 'lt' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.value).toLocaleString()}명 미만 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : condition.operator === 'eq' ? (
+                                        <span>
+                                          팔로워 {parseInt(condition.value).toLocaleString()}명 → <strong>{condition.result}</strong>
+                                        </span>
+                                      ) : (
+                                        <span>
+                                          조건: {condition.operator} → <strong>{condition.result}</strong>
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {rule.defaultValue && (
+                                    <div className="text-xs bg-gray-100 p-2 rounded border text-gray-600">
+                                      기본값: <strong>{rule.defaultValue}</strong>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {previewInfluencer && previewContent ? (
                       <>
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="text-blue-600 font-medium text-xs">
-                                {(previewInfluencer.fieldData?.name || previewInfluencer.accountId || 'U').charAt(0).toUpperCase()}
-                              </span>
-                            </div>
-                            <div>
-                              <p className="text-xs font-medium text-blue-800">
-                                {previewInfluencer.fieldData?.name || '이름 없음'}
-                              </p>
-                              <p className="text-xs text-blue-600">
-                                @{previewInfluencer.accountId}
-                              </p>
-                            </div>
-                          </div>
-                          <p className="text-xs text-blue-700">선택된 인플루언서 기준 미리보기</p>
-                        </div>
-
                         <div>
                           <span className="text-gray-600">제목 (변수 치환됨):</span>
                           <p className="font-medium text-sm bg-green-50 p-3 rounded border whitespace-pre-wrap">
@@ -791,19 +845,34 @@ export default function InfluencerConnect() {
                         </div>
 
                         <div className="pt-3 border-t border-gray-200">
-                          <span className="text-gray-600">원본 템플릿:</span>
-                          <div className="mt-2 space-y-2">
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">제목:</p>
-                              <p className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">{template.subject}</p>
-                            </div>
-                            <div>
-                              <p className="text-xs text-gray-500 mb-1">본문:</p>
-                              <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap">
-                                {template.content}
+                          <button
+                            onClick={() => setShowOriginalTemplate(!showOriginalTemplate)}
+                            className="flex items-center justify-between w-full text-left text-gray-600 hover:text-gray-800 transition-colors"
+                          >
+                            <span>원본 템플릿</span>
+                            <svg
+                              className={`w-4 h-4 transition-transform ${showOriginalTemplate ? 'rotate-180' : ''}`}
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                            </svg>
+                          </button>
+                          {showOriginalTemplate && (
+                            <div className="mt-2 space-y-2">
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">제목:</p>
+                                <p className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">{template.subject}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 mb-1">본문:</p>
+                                <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                  {template.content}
+                                </div>
                               </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                       </>
                     ) : (
@@ -828,25 +897,25 @@ export default function InfluencerConnect() {
                       </>
                     )}
                   </div>
-
-                  {/* 메일 생성하기 버튼 */}
-                  {connectedInfluencers.length > 0 && (
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                      <button
-                        onClick={() => router.push(`/email-compose?templateId=${templateId}`)}
-                        className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                        </svg>
-                        <span>메일 생성하기</span>
-                      </button>
-                      <p className="text-xs text-gray-500 mt-2 text-center">
-                        연결된 인플루언서들에게 메일을 작성하고 전송할 수 있습니다.
-                      </p>
-                    </div>
-                  )}
                 </div>
+
+                {/* 메일 생성하기 버튼 - 스크롤 영역 밖 */}
+                {connectedInfluencers.length > 0 && (
+                  <div className="p-6 pt-0 flex-shrink-0 border-t border-gray-200">
+                    <button
+                      onClick={() => router.push(`/email-compose?templateId=${templateId}`)}
+                      className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      <span>메일 생성하기</span>
+                    </button>
+                    <p className="text-xs text-gray-500 mt-2 text-center">
+                      연결된 인플루언서들에게 메일을 작성하고 전송할 수 있습니다.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -854,5 +923,17 @@ export default function InfluencerConnect() {
       </main>
 
     </div>
+  )
+}
+
+export default function InfluencerConnect() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-gray-500">로딩중...</div>
+      </div>
+    }>
+      <InfluencerConnectContent />
+    </Suspense>
   )
 }

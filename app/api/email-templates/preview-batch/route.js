@@ -6,15 +6,19 @@ const prisma = new PrismaClient()
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { templateId, influencerId, userId, subject, content, userVariables } = body
+    const { templateId, userId, connections } = body
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
+    if (!connections || !Array.isArray(connections) || connections.length === 0) {
+      return NextResponse.json({ error: 'connections array is required' }, { status: 400 })
+    }
+
     let templateData
 
-    // 템플릿 ID가 있으면 기존 템플릿 사용, 없으면 제공된 subject/content 사용
+    // 템플릿 ID가 있으면 기존 템플릿 사용
     if (templateId) {
       templateData = await prisma.emailTemplate.findFirst({
         where: {
@@ -27,27 +31,10 @@ export async function POST(request) {
       if (!templateData) {
         return NextResponse.json({ error: 'Template not found' }, { status: 404 })
       }
-    } else if (subject && content) {
-      templateData = { subject, content }
     } else {
       return NextResponse.json({
-        error: 'Either templateId or both subject and content are required'
+        error: 'templateId is required'
       }, { status: 400 })
-    }
-
-    // 인플루언서 데이터 가져오기 (변수 치환용)
-    let influencerData = null
-    if (influencerId) {
-      influencerData = await prisma.influencer.findFirst({
-        where: {
-          id: parseInt(influencerId),
-          userId: parseInt(userId)
-        }
-      })
-
-      if (!influencerData) {
-        return NextResponse.json({ error: 'Influencer not found' }, { status: 404 })
-      }
     }
 
     // 사용자 데이터 가져오기 (브랜드명 등)
@@ -57,25 +44,80 @@ export async function POST(request) {
       }
     })
 
-    // 변수 치환
-    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables, templateData.conditionalRules)
-    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables, templateData.conditionalRules)
-
-    return NextResponse.json({
-      preview: {
-        subject: replacedSubject,
-        content: replacedContent,
-        originalSubject: templateData.subject,
-        originalContent: templateData.content,
-        influencer: influencerData ? {
-          id: influencerData.id,
-          accountId: influencerData.accountId,
-          name: influencerData.fieldData.name || influencerData.accountId
-        } : null
+    // 모든 인플루언서 데이터를 한 번에 가져오기
+    const influencerIds = connections.map(conn => conn.influencerId)
+    const influencers = await prisma.influencer.findMany({
+      where: {
+        id: { in: influencerIds },
+        userId: parseInt(userId)
       }
     })
+
+    // 인플루언서 ID를 키로 하는 맵 생성
+    const influencerMap = {}
+    influencers.forEach(inf => {
+      influencerMap[inf.id] = inf
+    })
+
+    // 각 연결에 대해 미리보기 생성
+    const previews = {}
+
+    for (const connection of connections) {
+      const influencerData = influencerMap[connection.influencerId]
+
+      if (!influencerData) {
+        console.warn(`Influencer ${connection.influencerId} not found`)
+        continue
+      }
+
+      try {
+        // 사용자 변수 처리
+        let customUserVariables = templateData.userVariables || {}
+
+        if (connection.userVariables) {
+          customUserVariables = {
+            ...templateData.userVariables,
+            ...Object.fromEntries(
+              Object.entries(connection.userVariables).map(([key, value]) => [key, [value]])
+            )
+          }
+        }
+
+        // 변수 치환
+        const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, customUserVariables, templateData.conditionalRules)
+        const replacedContent = replaceVariables(templateData.content, influencerData, userData, customUserVariables, templateData.conditionalRules)
+
+        previews[connection.influencerId] = {
+          subject: replacedSubject,
+          content: replacedContent,
+          originalSubject: templateData.subject,
+          originalContent: templateData.content,
+          influencer: {
+            id: influencerData.id,
+            accountId: influencerData.accountId,
+            name: influencerData.fieldData?.name || influencerData.accountId
+          }
+        }
+      } catch (error) {
+        console.error(`Error generating preview for influencer ${connection.influencerId}:`, error)
+        // 개별 실패는 로그만 남기고 계속 진행
+      }
+    }
+
+    return NextResponse.json({
+      previews,
+      templateInfo: {
+        id: templateData.id,
+        name: templateData.name,
+        subject: templateData.subject,
+        content: templateData.content
+      },
+      processedCount: Object.keys(previews).length,
+      totalCount: connections.length
+    })
+
   } catch (error) {
-    console.error('Error generating preview:', error)
+    console.error('Error generating batch previews:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

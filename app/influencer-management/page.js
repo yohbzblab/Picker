@@ -115,7 +115,15 @@ export default function InfluencerManagement() {
 
   // 동적 셀 렌더링 함수
   const renderCell = (influencer, field) => {
-    const value = influencer.fieldData[field.key] || influencer[field.key]
+    // 고정 필드들은 influencer 객체에서 직접 가져오기
+    let value
+    if (field.key === 'accountId') {
+      value = influencer.accountId
+    } else if (field.key === 'email') {
+      value = influencer.email
+    } else {
+      value = influencer.fieldData[field.key]
+    }
 
     switch (field.fieldType) {
       case 'BOOLEAN':
@@ -173,9 +181,31 @@ export default function InfluencerManagement() {
         )
       case 'LONG_TEXT':
         return <span className="text-gray-600 max-w-xs truncate block">{value}</span>
+      case 'EMAIL':
+        return value ? (
+          <a
+            href={`mailto:${value}`}
+            className="text-purple-600 hover:text-purple-800 underline font-medium"
+          >
+            {value}
+          </a>
+        ) : (
+          <span className="text-gray-400">이메일 없음</span>
+        )
       default:
         if (field.key === 'accountId') {
           return <span className="font-medium text-gray-900">{value}</span>
+        } else if (field.key === 'email') {
+          return value ? (
+            <a
+              href={`mailto:${value}`}
+              className="text-purple-600 hover:text-purple-800 underline font-medium"
+            >
+              {value}
+            </a>
+          ) : (
+            <span className="text-gray-400">이메일 없음</span>
+          )
         }
         return <span className="text-gray-600">{value}</span>
     }

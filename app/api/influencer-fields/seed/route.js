@@ -14,19 +14,28 @@ const defaultFields = [
     sortOrder: 1
   },
   {
+    key: 'email',
+    label: '이메일',
+    tooltip: '인플루언서와 연락할 수 있는 이메일 주소입니다.',
+    fieldType: 'EMAIL',
+    isRequired: true,
+    isFixed: true,
+    sortOrder: 2
+  },
+  {
     key: 'name',
     label: '인플루언서 이름',
     tooltip: '인플루언서의 실제 이름 또는 활동명입니다.',
     fieldType: 'TEXT',
     isRequired: true,
-    sortOrder: 2
+    sortOrder: 3
   },
   {
     key: 'bio',
     label: '프로필 소개',
     tooltip: '인플루언서 프로필에 작성된 자기소개 내용입니다.',
     fieldType: 'LONG_TEXT',
-    sortOrder: 3
+    sortOrder: 4
   },
   {
     key: 'followers',
@@ -34,28 +43,28 @@ const defaultFields = [
     tooltip: '현재 팔로워 수를 나타냅니다.',
     fieldType: 'NUMBER',
     validation: { min: 0 },
-    sortOrder: 4
+    sortOrder: 5
   },
   {
     key: 'ageGroup',
     label: '연령대',
     tooltip: '인플루언서의 추정 연령대입니다.',
     fieldType: 'TEXT',
-    sortOrder: 5
+    sortOrder: 6
   },
   {
     key: 'profileLink',
     label: '프로필 링크',
     tooltip: '인스타그램 프로필 페이지로 이동하는 링크입니다.',
     fieldType: 'URL',
-    sortOrder: 6
+    sortOrder: 7
   },
   {
     key: 'categories',
     label: '카테고리',
     tooltip: '인플루언서의 주요 활동 분야 또는 카테고리입니다.',
     fieldType: 'TAGS',
-    sortOrder: 7
+    sortOrder: 8
   },
   {
     key: 'hasLinks',
@@ -67,14 +76,14 @@ const defaultFields = [
       { value: 'LINKTREE_YES', label: '링크트리 O' },
       { value: 'NONE', label: '없음' }
     ],
-    sortOrder: 8
+    sortOrder: 9
   },
   {
     key: 'uploadFreq',
     label: '업로드 주기',
     tooltip: '평균적인 콘텐츠 업로드 주기입니다.',
     fieldType: 'TEXT',
-    sortOrder: 9
+    sortOrder: 10
   },
   {
     key: 'recentAvgViews',
@@ -82,14 +91,14 @@ const defaultFields = [
     tooltip: '최근 상단 피드 9개 게시물의 평균 조회수입니다.',
     fieldType: 'NUMBER',
     validation: { min: 0 },
-    sortOrder: 10
+    sortOrder: 11
   },
   {
     key: 'captureLinks',
     label: '캡쳐 링크',
     tooltip: '최근 상단 피드 9개 게시물의 스크린샷 링크입니다.',
     fieldType: 'URL',
-    sortOrder: 11
+    sortOrder: 12
   },
   {
     key: 'pinnedAvgViews',
@@ -97,7 +106,7 @@ const defaultFields = [
     tooltip: '최상단 고정된 3개 게시물의 평균 조회수입니다.',
     fieldType: 'NUMBER',
     validation: { min: 0 },
-    sortOrder: 12
+    sortOrder: 13
   },
   {
     key: 'recent18AvgViews',
@@ -105,56 +114,56 @@ const defaultFields = [
     tooltip: '최근 18개 포스팅의 평균 조회수입니다.',
     fieldType: 'NUMBER',
     validation: { min: 0 },
-    sortOrder: 13
+    sortOrder: 14
   },
   {
     key: 'recentAds',
     label: '최근 광고 컨텐츠',
     tooltip: '최근 업로드된 광고성 콘텐츠 정보입니다.',
     fieldType: 'LONG_TEXT',
-    sortOrder: 14
+    sortOrder: 15
   },
   {
     key: 'contactMethod',
     label: '컨택 방법',
     tooltip: '인플루언서에게 연락할 수 있는 방법입니다.',
     fieldType: 'TEXT',
-    sortOrder: 15
+    sortOrder: 16
   },
   {
     key: 'notes',
     label: '특이사항',
     tooltip: '해당 인플루언서에 대한 특별한 메모나 주의사항입니다.',
     fieldType: 'LONG_TEXT',
-    sortOrder: 16
+    sortOrder: 17
   },
   {
     key: 'cnewlabConfirm',
     label: '씨뉴랩 컨펌',
     tooltip: '씨뉴랩에서 해당 인플루언서를 확인했는지 여부입니다.',
     fieldType: 'BOOLEAN',
-    sortOrder: 17
+    sortOrder: 18
   },
   {
     key: 'buzzbylabConfirm',
     label: '버즈비랩 컨펌',
     tooltip: '버즈비랩에서 해당 인플루언서를 확인했는지 여부입니다.',
     fieldType: 'BOOLEAN',
-    sortOrder: 18
+    sortOrder: 19
   },
   {
     key: 'buzzbylabOpinion',
     label: '버즈비랩 의견',
     tooltip: '버즈비랩의 해당 인플루언서에 대한 의견입니다.',
     fieldType: 'LONG_TEXT',
-    sortOrder: 19
+    sortOrder: 20
   },
   {
     key: 'wantToTry',
     label: '꼭 해보고 싶은 분',
     tooltip: '특별히 협업하고 싶은 인플루언서인지 여부입니다.',
     fieldType: 'BOOLEAN',
-    sortOrder: 20
+    sortOrder: 21
   },
   {
     key: 'dmSent',
@@ -166,7 +175,7 @@ const defaultFields = [
       { value: 'X', label: '미완료' },
       { value: 'PENDING', label: '진행중' }
     ],
-    sortOrder: 21
+    sortOrder: 22
   },
   {
     key: 'dmReply',
@@ -178,7 +187,7 @@ const defaultFields = [
       { value: 'X', label: '미회신' },
       { value: 'PENDING', label: '대기중' }
     ],
-    sortOrder: 22
+    sortOrder: 23
   },
   {
     key: 'guideEmailSent',
@@ -189,7 +198,7 @@ const defaultFields = [
       { value: 'O', label: '전송완료' },
       { value: 'X', label: '미전송' }
     ],
-    sortOrder: 23
+    sortOrder: 24
   },
   {
     key: 'guideAgreement',
@@ -201,14 +210,14 @@ const defaultFields = [
       { value: 'X', label: '미동의' },
       { value: 'PENDING', label: '검토중' }
     ],
-    sortOrder: 24
+    sortOrder: 25
   },
   {
     key: 'additionalOptions',
     label: '추가 옵션 요청',
     tooltip: '추가로 요청된 옵션이나 조건입니다.',
     fieldType: 'TEXT',
-    sortOrder: 25
+    sortOrder: 26
   },
   {
     key: 'finalAmount',
@@ -216,7 +225,7 @@ const defaultFields = [
     tooltip: '최종 확정된 협업 금액입니다.',
     fieldType: 'CURRENCY',
     validation: { min: 0 },
-    sortOrder: 26
+    sortOrder: 27
   }
 ]
 
