@@ -1,12 +1,57 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const AuthContext = createContext({});
 
 export const useAuth = () => useContext(AuthContext);
+
+// 캐시 키 상수
+const CACHE_KEYS = {
+  USER: 'picker_user',
+  DB_USER: 'picker_db_user',
+  LAST_CHECK: 'picker_last_auth_check',
+  SESSION_EXPIRES: 'picker_session_expires'
+};
+
+// 캐시 유틸리티 함수들
+const authCache = {
+  set: (key, value) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(key, JSON.stringify(value));
+      }
+    } catch (error) {
+      console.warn('Failed to cache auth data:', error);
+    }
+  },
+  get: (key) => {
+    try {
+      if (typeof window !== 'undefined') {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : null;
+      }
+      return null;
+    } catch (error) {
+      console.warn('Failed to read auth cache:', error);
+      return null;
+    }
+  },
+  remove: (key) => {
+    try {
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(key);
+      }
+    } catch (error) {
+      console.warn('Failed to remove auth cache:', error);
+    }
+  },
+  clear: () => {
+    Object.values(CACHE_KEYS).forEach(key => authCache.remove(key));
+  }
+};
 
 export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -16,14 +61,56 @@ export default function AuthProvider({ children }) {
   const router = useRouter();
   const supabase = createClient();
 
-  const handleUserRegistration = async (supabaseUser) => {
+  // 캐시에서 사용자 정보를 로드하는 함수
+  const loadFromCache = useCallback(() => {
+    const cachedUser = authCache.get(CACHE_KEYS.USER);
+    const cachedDbUser = authCache.get(CACHE_KEYS.DB_USER);
+    const lastCheck = authCache.get(CACHE_KEYS.LAST_CHECK);
+
+    // 캐시가 5분 이내로 최신이면 사용
+    const isCacheValid = lastCheck && (Date.now() - lastCheck < 5 * 60 * 1000);
+
+    if (isCacheValid && cachedUser) {
+      setUser(cachedUser);
+      setDbUser(cachedDbUser);
+      setLoading(false);
+      return true;
+    }
+    return false;
+  }, []);
+
+  // 사용자 정보를 캐시에 저장하는 함수
+  const saveToCache = useCallback((userData, dbUserData) => {
+    authCache.set(CACHE_KEYS.USER, userData);
+    authCache.set(CACHE_KEYS.DB_USER, dbUserData);
+    authCache.set(CACHE_KEYS.LAST_CHECK, Date.now());
+  }, []);
+
+  // 캐시를 무효화하는 함수
+  const invalidateCache = useCallback(() => {
+    authCache.clear();
+  }, []);
+
+  const handleUserRegistration = useCallback(async (supabaseUser, skipCache = false) => {
     try {
-      // First, try to get existing user
+      let existingUser;
+
+      // 캐시에서 먼저 확인 (skipCache가 false이고 캐시가 유효한 경우)
+      if (!skipCache) {
+        const cachedDbUser = authCache.get(CACHE_KEYS.DB_USER);
+        const lastCheck = authCache.get(CACHE_KEYS.LAST_CHECK);
+        const isCacheValid = lastCheck && (Date.now() - lastCheck < 5 * 60 * 1000);
+
+        if (isCacheValid && cachedDbUser && cachedDbUser.supabaseId === supabaseUser.id) {
+          setDbUser(cachedDbUser);
+          return cachedDbUser;
+        }
+      }
+
+      // 캐시에 없거나 무효한 경우에만 API 호출
       const getUserResponse = await fetch(
         `/api/users?supabaseId=${supabaseUser.id}`
       );
-
-      let existingUser;
 
       if (getUserResponse.ok) {
         const getUserData = await getUserResponse.json();
@@ -60,15 +147,24 @@ export default function AuthProvider({ children }) {
       }
 
       setDbUser(existingUser);
-      // 로그인 후에만 메인 페이지로 리다이렉트 (기존 사용자가 돌아오는 경우 제외)
+      // 캐시에 저장
+      saveToCache(supabaseUser, existingUser);
+      return existingUser;
     } catch (error) {
       console.error("Error handling user registration:", error);
     }
-  };
+  }, [saveToCache]);
 
   useEffect(() => {
     const checkUser = async () => {
       try {
+        // 먼저 캐시에서 로드 시도
+        if (loadFromCache()) {
+          setIsInitialLoad(false);
+          return;
+        }
+
+        // 캐시에 없거나 만료된 경우에만 Supabase 호출
         const {
           data: { session },
         } = await supabase.auth.getSession();
@@ -76,17 +172,10 @@ export default function AuthProvider({ children }) {
         setUser(supabaseUser);
 
         if (supabaseUser) {
-          try {
-            const getUserResponse = await fetch(
-              `/api/users?supabaseId=${supabaseUser.id}`
-            );
-            if (getUserResponse.ok) {
-              const getUserData = await getUserResponse.json();
-              setDbUser(getUserData.user);
-            }
-          } catch (error) {
-            console.error("Error fetching user on init:", error);
-          }
+          await handleUserRegistration(supabaseUser);
+        } else {
+          // 로그아웃 상태면 캐시 정리
+          invalidateCache();
         }
       } catch (error) {
         console.error("Error checking user:", error);
@@ -98,16 +187,23 @@ export default function AuthProvider({ children }) {
 
     checkUser();
 
-    // 브라우저 포커스 이벤트 처리 (다른 탭에서 돌아올 때)
+    // 브라우저 포커스 이벤트 처리 최적화 (캐시 활용)
     const handleVisibilityChange = () => {
       if (!document.hidden && user) {
-        // 페이지가 다시 보이게 되고 사용자가 로그인 상태일 때
-        // 세션을 조용히 확인하되 리다이렉트하지 않음
+        const lastCheck = authCache.get(CACHE_KEYS.LAST_CHECK);
+        // 5분 이내에 체크했으면 Supabase 호출 생략
+        if (lastCheck && (Date.now() - lastCheck < 5 * 60 * 1000)) {
+          return;
+        }
+
+        // 5분이 지났으면 세션 확인
         supabase.auth.getSession().then(({ data: { session } }) => {
           if (session?.user && user) {
-            // 세션이 유효하면 아무것도 하지 않음 (현재 페이지 유지)
+            // 세션이 유효하면 캐시 갱신
+            authCache.set(CACHE_KEYS.LAST_CHECK, Date.now());
           } else if (!session?.user) {
             // 세션이 없으면 로그아웃 처리
+            invalidateCache();
             setUser(null);
             setDbUser(null);
             router.push("/login");
@@ -141,24 +237,26 @@ export default function AuthProvider({ children }) {
           router.push("/");
         } else {
           // 이미 로그인된 상태에서 세션이 복구된 경우 (탭 전환 등)
-          // dbUser만 업데이트하고 리다이렉트하지 않음
+          // 캐시된 데이터가 있으면 API 호출 생략
           await handleUserRegistration(supabaseUser);
         }
       } else if (event === "SIGNED_OUT") {
+        invalidateCache();
         setDbUser(null);
         router.push("/login");
       } else if (event === "TOKEN_REFRESHED" && supabaseUser) {
-        // 토큰 갱신 시에는 리다이렉트하지 않고 dbUser만 업데이트
-        try {
-          const getUserResponse = await fetch(
-            `/api/users?supabaseId=${supabaseUser.id}`
-          );
-          if (getUserResponse.ok) {
-            const getUserData = await getUserResponse.json();
-            setDbUser(getUserData.user);
-          }
-        } catch (error) {
-          console.error("Error fetching user on token refresh:", error);
+        // 토큰 갱신 시에는 캐시 확인 후 필요시에만 API 호출
+        const cachedDbUser = authCache.get(CACHE_KEYS.DB_USER);
+        const lastCheck = authCache.get(CACHE_KEYS.LAST_CHECK);
+        const isCacheValid = lastCheck && (Date.now() - lastCheck < 5 * 60 * 1000);
+
+        if (!isCacheValid || !cachedDbUser || cachedDbUser.supabaseId !== supabaseUser.id) {
+          // 캐시가 없거나 무효한 경우에만 API 호출
+          await handleUserRegistration(supabaseUser);
+        } else {
+          // 캐시가 유효하면 캐시 데이터 사용
+          setDbUser(cachedDbUser);
+          authCache.set(CACHE_KEYS.LAST_CHECK, Date.now());
         }
       }
     });
@@ -187,6 +285,8 @@ export default function AuthProvider({ children }) {
     try {
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      // 로그아웃 시 캐시 정리
+      invalidateCache();
     } catch (error) {
       console.error("Error signing out:", error);
     }
