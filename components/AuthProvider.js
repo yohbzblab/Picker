@@ -134,9 +134,16 @@ export default function AuthProvider({ children }) {
       }
 
       if (event === "SIGNED_IN" && supabaseUser) {
-        // 실제 로그인 이벤트에서만 리다이렉트
-        await handleUserRegistration(supabaseUser);
-        router.push("/");
+        // 탭 전환으로 인한 세션 복구가 아닌, 실제 로그인 이벤트에서만 리다이렉트
+        // 이미 user가 있으면 탭 전환일 가능성이 높음
+        if (!user) {
+          await handleUserRegistration(supabaseUser);
+          router.push("/");
+        } else {
+          // 이미 로그인된 상태에서 세션이 복구된 경우 (탭 전환 등)
+          // dbUser만 업데이트하고 리다이렉트하지 않음
+          await handleUserRegistration(supabaseUser);
+        }
       } else if (event === "SIGNED_OUT") {
         setDbUser(null);
         router.push("/login");

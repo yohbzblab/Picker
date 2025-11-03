@@ -213,14 +213,36 @@ export default function InfluencerManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-gray-500">로딩중...</div>
+      <div className="min-h-screen bg-white">
+        <nav className="bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <main className="min-h-screen bg-white"></main>
       </div>
     )
   }
 
   if (!user) {
-    return null
+    return (
+      <div className="min-h-screen bg-white">
+        <nav className="bg-white border-b border-gray-100">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between h-16">
+              <div className="flex items-center">
+                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+              </div>
+            </div>
+          </div>
+        </nav>
+        <main className="min-h-screen bg-white"></main>
+      </div>
+    )
   }
 
   return (

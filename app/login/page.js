@@ -16,9 +16,7 @@ export default function LoginPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-gray-500">로딩중...</div>
-      </div>
+      <div className="min-h-screen bg-white"></div>
     )
   }
 
