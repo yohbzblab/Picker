@@ -13,6 +13,7 @@ export default function InfluencerManagement() {
   const [fields, setFields] = useState([])
   const [influencers, setInfluencers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [editingField, setEditingField] = useState(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -111,6 +112,49 @@ export default function InfluencerManagement() {
     }))
   }
 
+  // 필드 값 업데이트 함수
+  const updateFieldValue = async (influencerId, fieldKey, value) => {
+    try {
+      const response = await fetch(`/api/influencers/${influencerId}/field`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          fieldKey,
+          value,
+          userId: dbUser.id
+        })
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        // UI 업데이트
+        setInfluencers(prev =>
+          prev.map(influencer =>
+            influencer.id === influencerId
+              ? {
+                  ...influencer,
+                  fieldData: {
+                    ...influencer.fieldData,
+                    [fieldKey]: value
+                  }
+                }
+              : influencer
+          )
+        )
+        setEditingField(null)
+      } else {
+        const error = await response.json()
+        console.error('Failed to update field:', error.error)
+        alert('업데이트에 실패했습니다: ' + error.error)
+      }
+    } catch (error) {
+      console.error('Error updating field:', error)
+      alert('업데이트 중 오류가 발생했습니다')
+    }
+  }
+
   const filteredColumns = fields.filter(field => field.isFixed || visibleColumns[field.key])
 
   // 동적 셀 렌더링 함수
@@ -125,6 +169,10 @@ export default function InfluencerManagement() {
       value = influencer.fieldData[field.key]
     }
 
+    const isEditable = field.fieldType === 'BOOLEAN' || field.fieldType === 'SELECT'
+    const editingKey = `${influencer.id}-${field.key}`
+    const isCurrentlyEditing = editingField === editingKey
+
     switch (field.fieldType) {
       case 'BOOLEAN':
         return (
@@ -132,11 +180,57 @@ export default function InfluencerManagement() {
             <input
               type="checkbox"
               checked={value || false}
-              readOnly
-              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+              onChange={(e) => {
+                updateFieldValue(influencer.id, field.key, e.target.checked)
+              }}
+              className="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded cursor-pointer hover:scale-110 transition-transform"
+              title="클릭하여 변경"
             />
           </div>
         )
+      case 'SELECT':
+        if (isCurrentlyEditing) {
+          return (
+            <div className="min-w-0">
+              <select
+                value={value || ''}
+                onChange={(e) => {
+                  updateFieldValue(influencer.id, field.key, e.target.value)
+                }}
+                onBlur={() => setEditingField(null)}
+                autoFocus
+                className="text-xs px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 min-w-0"
+              >
+                <option value="">선택하세요</option>
+                {field.options?.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
+        } else {
+          const option = field.options?.find(opt => opt.value === value)
+          const label = option?.label || value || '미설정'
+          let badgeClass = 'bg-gray-100 text-gray-800'
+
+          if (value === 'O' || value === 'YOUTUBE_YES' || value === 'LINKTREE_YES') {
+            badgeClass = 'bg-green-100 text-green-800'
+          } else if (value === 'X') {
+            badgeClass = 'bg-red-100 text-red-800'
+          }
+
+          return (
+            <span
+              className={`inline-flex px-2 py-1 text-xs font-medium rounded-full cursor-pointer hover:opacity-80 transition-opacity ${badgeClass}`}
+              onClick={() => setEditingField(editingKey)}
+              title="클릭하여 편집"
+            >
+              {label}
+            </span>
+          )
+        }
       case 'TAGS':
         const tags = Array.isArray(value) ? value : (value ? [value] : [])
         return (
@@ -163,22 +257,6 @@ export default function InfluencerManagement() {
         return <span className="text-gray-900 font-medium">{value?.toLocaleString()}</span>
       case 'CURRENCY':
         return <span className="text-gray-900 font-semibold">{value}</span>
-      case 'SELECT':
-        const option = field.options?.find(opt => opt.value === value)
-        const label = option?.label || value
-        let badgeClass = 'bg-gray-100 text-gray-800'
-
-        if (value === 'O' || value === 'YOUTUBE_YES' || value === 'LINKTREE_YES') {
-          badgeClass = 'bg-green-100 text-green-800'
-        } else if (value === 'X') {
-          badgeClass = 'bg-red-100 text-red-800'
-        }
-
-        return (
-          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${badgeClass}`}>
-            {label}
-          </span>
-        )
       case 'LONG_TEXT':
         return <span className="text-gray-600 max-w-xs truncate block">{value}</span>
       case 'EMAIL':
