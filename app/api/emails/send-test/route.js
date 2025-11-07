@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '../../../generated/prisma'
-import nodemailer from 'nodemailer'
+import { createTransporterByProvider, sendMailWithRetry, handleEmailProviderError, extractProviderConfig } from '../../../../lib/emailProviders'
 
 const prisma = new PrismaClient()
 
 export async function POST(request) {
+  let userData = null // 스코프 문제 해결을 위해 상단에 선언
+
   try {
     const body = await request.json()
     const { templateId, influencerId, userId, userVariables, testRecipient, senderName } = body
@@ -41,7 +43,7 @@ export async function POST(request) {
     }
 
     // 사용자 데이터 가져오기 (SMTP 설정 포함)
-    const userData = await prisma.user.findUnique({
+    userData = await prisma.user.findUnique({
       where: {
         id: parseInt(userId)
       }
@@ -55,23 +57,20 @@ export async function POST(request) {
     const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables, templateData.conditionalRules)
     const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables, templateData.conditionalRules)
 
-    // SMTP 설정 확인
-    if (!userData.smtpHost || !userData.smtpPort || !userData.smtpUser || !userData.smtpPassword) {
+    // 현재 선택된 이메일 제공업체 확인
+    const emailProvider = userData.emailProvider || 'mailplug'
+    const providerConfig = extractProviderConfig(userData, emailProvider)
+
+    // 제공업체별 설정 확인
+    if (!providerConfig.smtpUser || !providerConfig.smtpPassword) {
+      const providerName = emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'
       return NextResponse.json({
-        error: 'SMTP settings not configured. Please configure email settings first.'
+        error: `${providerName} 계정 설정이 필요합니다. 설정에서 ${providerName} 이메일과 앱 비밀번호를 입력해주세요.`
       }, { status: 400 })
     }
 
-    // SMTP Transporter 생성
-    const transporter = nodemailer.createTransport({
-      host: userData.smtpHost,
-      port: parseInt(userData.smtpPort),
-      secure: userData.smtpPort === 465, // true for 465, false for other ports
-      auth: {
-        user: userData.smtpUser,
-        pass: userData.smtpPassword,
-      },
-    })
+    // 제공업체별 SMTP Transporter 생성
+    const transporter = createTransporterByProvider(emailProvider, providerConfig)
 
     // 테스트 메일 제목에 테스트 표시 및 원래 수신자 정보 추가
     const testSubject = `[테스트] ${replacedSubject} (원래 수신자: ${influencerData.fieldData?.name || influencerData.accountId})`
@@ -84,20 +83,24 @@ export async function POST(request) {
 
 ${replacedContent}`
 
-    // 이메일 전송 (테스트 수신자에게)
+    // 이메일 전송 옵션 (테스트 수신자에게)
+    const fromName = senderName || providerConfig.senderName || userData.senderName
     const mailOptions = {
-      from: senderName
-        ? `"${senderName}" <${userData.smtpUser}>`
-        : userData.senderName
-        ? `"${userData.senderName}" <${userData.smtpUser}>`
-        : userData.smtpUser,
+      from: fromName ? `"${fromName}" <${providerConfig.smtpUser}>` : providerConfig.smtpUser,
       to: testRecipient, // 테스트 수신자 (로그인한 사용자)
       subject: testSubject,
       text: testContent, // 일반 텍스트 버전
       html: testContent.replace(/\n/g, '<br>'), // HTML 버전 (간단한 변환)
     }
 
-    const info = await transporter.sendMail(mailOptions)
+    // 재시도 로직을 포함한 메일 발송
+    const result = await sendMailWithRetry(transporter, mailOptions)
+
+    if (!result.success) {
+      throw result.error
+    }
+
+    const info = result.info
 
     // 테스트 전송 기록 저장 (선택사항)
     try {
@@ -136,20 +139,12 @@ ${replacedContent}`
   } catch (error) {
     console.error('Error sending test email:', error)
 
-    // 메일 전송 관련 특정 에러 처리
-    if (error.code === 'EAUTH') {
-      return NextResponse.json({
-        error: 'Authentication failed. Please check your email credentials.'
-      }, { status: 401 })
-    } else if (error.code === 'ECONNECTION') {
-      return NextResponse.json({
-        error: 'Connection failed. Please check your SMTP settings.'
-      }, { status: 503 })
-    }
-
+    // 제공업체별 에러 처리
+    const emailProvider = userData?.emailProvider || 'mailplug'
+    const errorInfo = handleEmailProviderError(emailProvider, error)
     return NextResponse.json({
-      error: 'Failed to send test email: ' + (error.message || 'Unknown error')
-    }, { status: 500 })
+      error: errorInfo.message
+    }, { status: errorInfo.status })
   }
 }
 
@@ -173,6 +168,11 @@ function replaceVariables(text, influencerData, userData, userVariables = {}, co
     const finalAccountValue = conditionalRules && conditionalRules['계정ID'] ?
       evaluateConditionalRule(conditionalRules['계정ID'], influencerData, userData) : accountValue
     result = result.replace(/\{\{계정ID\}\}/g, finalAccountValue)
+
+    // 영어 변수명 지원 추가
+    const finalAccountValueEn = conditionalRules && conditionalRules['accountId'] ?
+      evaluateConditionalRule(conditionalRules['accountId'], influencerData, userData) : accountValue
+    result = result.replace(/\{\{accountId\}\}/g, finalAccountValueEn)
 
     const followersValue = fieldData.followers ? fieldData.followers.toLocaleString() : '0'
     const finalFollowersValue = conditionalRules && conditionalRules['팔로워수'] ?

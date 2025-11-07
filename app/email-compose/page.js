@@ -19,14 +19,22 @@ function EmailComposeContent() {
   const [sendingProgress, setSendingProgress] = useState({ sent: 0, total: 0 });
   const [testSending, setTestSending] = useState(false);
   const [showSmtpSettings, setShowSmtpSettings] = useState(false);
-  const [smtpSettings, setSmtpSettings] = useState({
+  const [emailProvider, setEmailProvider] = useState("mailplug"); // 선택된 이메일 제공업체
+  const [mailplugSettings, setMailplugSettings] = useState({
+    smtpHost: "smtp.mailplug.co.kr",
+    smtpPort: 465,
+    smtpUser: "",
+    smtpPassword: "",
+    senderName: "",
+  });
+  const [gmailSettings, setGmailSettings] = useState({
     smtpHost: "smtp.gmail.com",
     smtpPort: 587,
     smtpUser: "",
     smtpPassword: "",
     senderName: "",
-    brandName: "",
   });
+  const [brandName, setBrandName] = useState("");
   const [savingSettings, setSavingSettings] = useState(false);
   const [showOriginalTemplate, setShowOriginalTemplate] = useState(false); // 원본 템플릿 토글
   const [senderName, setSenderName] = useState(""); // 발신자 이름
@@ -49,23 +57,36 @@ function EmailComposeContent() {
     try {
       setLoading(true);
 
-      // 사용자 SMTP 설정 로드
+      // 사용자 이메일 설정 로드
       const userResponse = await fetch(`/api/users?userId=${dbUser.id}`);
       if (userResponse.ok) {
         const userData = await userResponse.json();
         if (userData.user) {
-          setSmtpSettings({
-            smtpHost: userData.user.smtpHost || "smtp.gmail.com",
-            smtpPort: userData.user.smtpPort || 587,
-            smtpUser: userData.user.smtpUser || user.email, // 기본값으로 로그인한 이메일 사용
-            smtpPassword: userData.user.smtpPassword || "",
-            senderName: userData.user.senderName || "",
-            brandName: userData.user.brandName || "",
+          // 현재 선택된 이메일 제공업체 설정
+          setEmailProvider(userData.user.emailProvider || "mailplug");
+
+          // 메일플러그 설정
+          setMailplugSettings({
+            smtpHost: userData.user.mailplugSmtpHost || "smtp.mailplug.co.kr",
+            smtpPort: userData.user.mailplugSmtpPort || 465,
+            smtpUser: userData.user.mailplugSmtpUser || "",
+            smtpPassword: userData.user.mailplugSmtpPassword || "",
+            senderName: userData.user.mailplugSenderName || "",
           });
-          // 발신자 이름 기본값 설정 (SMTP 설정의 senderName 또는 이메일 주소)
+
+          // Gmail 설정
+          setGmailSettings({
+            smtpHost: userData.user.gmailSmtpHost || "smtp.gmail.com",
+            smtpPort: userData.user.gmailSmtpPort || 587,
+            smtpUser: userData.user.gmailSmtpUser || user.email,
+            smtpPassword: userData.user.gmailSmtpPassword || "",
+            senderName: userData.user.gmailSenderName || "",
+          });
+
+          // 공통 설정
+          setBrandName(userData.user.brandName || "");
           setSenderName(userData.user.senderName || user.email);
         } else {
-          // 사용자 데이터가 없는 경우 기본값으로 이메일 주소 사용
           setSenderName(user.email);
         }
       }
@@ -168,6 +189,22 @@ function EmailComposeContent() {
   const handleSaveSmtpSettings = async () => {
     setSavingSettings(true);
     try {
+      const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+
+      // 유효성 검사
+      if (!currentSettings.smtpUser || !currentSettings.smtpPassword) {
+        alert("이메일 주소와 앱 비밀번호를 모두 입력해주세요.");
+        setSavingSettings(false);
+        return;
+      }
+
+      // Gmail인 경우 @gmail.com 체크
+      if (emailProvider === 'gmail' && !currentSettings.smtpUser.includes('@gmail.com')) {
+        alert("Gmail 주소를 입력해주세요.");
+        setSavingSettings(false);
+        return;
+      }
+
       const response = await fetch("/api/users/smtp-settings", {
         method: "PUT",
         headers: {
@@ -175,20 +212,24 @@ function EmailComposeContent() {
         },
         body: JSON.stringify({
           userId: dbUser.id,
-          ...smtpSettings,
+          emailProvider,
+          mailplugSettings,
+          gmailSettings,
+          brandName,
+          senderName
         }),
       });
 
       if (response.ok) {
-        alert("SMTP 설정이 저장되었습니다.");
+        alert(`${emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} 설정이 저장되었습니다.`);
         setShowSmtpSettings(false);
       } else {
         const error = await response.json();
-        alert(error.error || "SMTP 설정 저장에 실패했습니다.");
+        alert(error.error || "설정 저장에 실패했습니다.");
       }
     } catch (error) {
-      console.error("Error saving SMTP settings:", error);
-      alert("SMTP 설정 저장 중 오류가 발생했습니다.");
+      console.error("Error saving settings:", error);
+      alert("설정 저장 중 오류가 발생했습니다.");
     } finally {
       setSavingSettings(false);
     }
@@ -511,22 +552,108 @@ function EmailComposeContent() {
                 </p>
               </div>
 
-              {/* 전송 버튼과 진행 상황 */}
+              {/* 이메일 제공업체 선택 및 설정 */}
               <div className="text-right">
-                {/* SMTP 설정 버튼 */}
-                {!smtpSettings.smtpPassword && (
-                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
-                    <p className="text-sm text-yellow-800 mb-2">
-                      ⚠️ 메일 전송을 위해 Gmail SMTP 설정이 필요합니다.
-                    </p>
-                    <button
-                      onClick={() => setShowSmtpSettings(true)}
-                      className="text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
-                    >
-                      SMTP 설정하기
-                    </button>
+                {/* 이메일 제공업체 선택 */}
+                <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg text-left">
+                  <h3 className="text-sm font-semibold text-gray-800 mb-3">📧 이메일 발송 설정</h3>
+
+                  {/* 제공업체 선택 라디오 버튼 */}
+                  <div className="grid grid-cols-2 gap-3 mb-4">
+                    <label className={`relative flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      emailProvider === 'mailplug'
+                        ? 'border-purple-500 bg-purple-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="emailProvider"
+                        value="mailplug"
+                        checked={emailProvider === 'mailplug'}
+                        onChange={(e) => setEmailProvider(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">🏢</span>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">메일플러그</div>
+                          <div className="text-xs text-gray-500">일일 3,000건</div>
+                        </div>
+                      </div>
+                      {emailProvider === 'mailplug' && (
+                        <div className="absolute top-2 right-2">
+                          <svg className="w-4 h-4 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </label>
+
+                    <label className={`relative flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      emailProvider === 'gmail'
+                        ? 'border-blue-500 bg-blue-50'
+                        : 'border-gray-200 hover:border-gray-300'
+                    }`}>
+                      <input
+                        type="radio"
+                        name="emailProvider"
+                        value="gmail"
+                        checked={emailProvider === 'gmail'}
+                        onChange={(e) => setEmailProvider(e.target.value)}
+                        className="sr-only"
+                      />
+                      <div className="flex items-center space-x-2">
+                        <span className="text-lg">📧</span>
+                        <div>
+                          <div className="text-sm font-medium text-gray-900">Gmail</div>
+                          <div className="text-xs text-gray-500">일일 500건</div>
+                        </div>
+                      </div>
+                      {emailProvider === 'gmail' && (
+                        <div className="absolute top-2 right-2">
+                          <svg className="w-4 h-4 text-blue-500" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </label>
                   </div>
-                )}
+
+                  {/* 현재 선택된 제공업체 설정 상태 */}
+                  {(() => {
+                    const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+                    const isConfigured = currentSettings.smtpUser && currentSettings.smtpPassword;
+
+                    return !isConfigured ? (
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <p className="text-sm text-yellow-800 mb-2">
+                          ⚠️ {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} SMTP 설정이 필요합니다.
+                        </p>
+                        <button
+                          onClick={() => setShowSmtpSettings(true)}
+                          className="text-sm bg-yellow-600 text-white px-3 py-1 rounded hover:bg-yellow-700"
+                        >
+                          {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} 설정하기
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                        <p className="text-sm text-green-800 mb-1">
+                          ✅ {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} 설정이 완료되었습니다.
+                        </p>
+                        <p className="text-xs text-green-600">
+                          발신자: {currentSettings.smtpUser}
+                        </p>
+                        <button
+                          onClick={() => setShowSmtpSettings(true)}
+                          className="text-xs text-green-600 hover:text-green-800 underline mt-1"
+                        >
+                          설정 수정
+                        </button>
+                      </div>
+                    );
+                  })()}
+                </div>
 
                 {sending || testSending ? (
                   <div className="bg-blue-50 px-4 py-3 rounded-lg">
@@ -554,10 +681,10 @@ function EmailComposeContent() {
                     <div className="flex space-x-2">
                       <button
                         onClick={handleTestSend}
-                        disabled={
-                          selectedInfluencers.length === 0 ||
-                          !smtpSettings.smtpPassword
-                        }
+                        disabled={(() => {
+                          const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+                          return selectedInfluencers.length === 0 || !currentSettings.smtpPassword;
+                        })()}
                         className="flex-1 bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                       >
                         <svg
@@ -603,10 +730,10 @@ function EmailComposeContent() {
                     </div>
                     <button
                       onClick={handleSendEmails}
-                      disabled={
-                        selectedInfluencers.length === 0 ||
-                        !smtpSettings.smtpPassword
-                      }
+                      disabled={(() => {
+                        const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+                        return selectedInfluencers.length === 0 || !currentSettings.smtpPassword;
+                      })()}
                       className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
                     >
                       <svg
@@ -1048,7 +1175,7 @@ function EmailComposeContent() {
             <div className="p-6">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  Gmail SMTP 설정
+                  {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} SMTP 설정
                 </h2>
                 <button
                   onClick={() => setShowSmtpSettings(false)}
@@ -1071,130 +1198,182 @@ function EmailComposeContent() {
               </div>
 
               <div className="space-y-4">
-                {/* Gmail 앱 비밀번호 안내 */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <h3 className="text-sm font-semibold text-blue-800 mb-2">
-                    📌 Gmail 앱 비밀번호 생성 방법
-                  </h3>
-                  <ol className="text-xs text-blue-700 space-y-1">
-                    <li>1. Google 계정 설정으로 이동 → 보안</li>
-                    <li>2. "2단계 인증"을 활성화</li>
-                    <li>3. "앱 비밀번호" 클릭</li>
-                    <li>4. 앱 선택: "메일", 기기 선택: "기타(맞춤 이름)"</li>
-                    <li>5. 생성된 16자리 비밀번호를 아래에 입력</li>
-                  </ol>
-                  <a
-                    href="https://myaccount.google.com/apppasswords"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
-                  >
-                    → Google 앱 비밀번호 설정 페이지 바로가기
-                  </a>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      SMTP 서버
-                    </label>
-                    <input
-                      type="text"
-                      value={smtpSettings.smtpHost}
-                      disabled
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
-                    />
+                {/* 제공업체별 설정 가이드 */}
+                {emailProvider === 'mailplug' ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-blue-800 mb-2">
+                      📌 메일플러그 앱 비밀번호 생성 방법
+                    </h3>
+                    <ol className="text-xs text-blue-700 space-y-1">
+                      <li>1. 메일플러그 관리자 페이지 접속</li>
+                      <li>2. 보안 설정 → 앱 비밀번호 관리</li>
+                      <li>3. "새 앱 비밀번호 생성" 클릭</li>
+                      <li>4. 생성된 앱 비밀번호를 아래에 입력</li>
+                      <li>5. ⚠️ 그룹웨어 비밀번호가 아닌 앱 비밀번호 사용</li>
+                    </ol>
+                    <a
+                      href="https://login.mailplug.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      → 메일플러그 관리자 페이지 바로가기
+                    </a>
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <p className="text-xs text-blue-700 font-medium mb-1">📋 메일플러그 SMTP 정보:</p>
+                      <ul className="text-xs text-blue-600 space-y-0.5">
+                        <li>• SMTP: smtp.mailplug.co.kr (포트 465, SSL/TLS)</li>
+                        <li>• 일일 발송 제한: 계정당 3,000건</li>
+                        <li>• 앱 비밀번호 2주간 미사용시 자동 삭제</li>
+                      </ul>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      포트
-                    </label>
-                    <input
-                      type="number"
-                      value={smtpSettings.smtpPort}
-                      disabled
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
-                    />
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h3 className="text-sm font-semibold text-blue-800 mb-2">
+                      📌 Gmail 앱 비밀번호 생성 방법
+                    </h3>
+                    <ol className="text-xs text-blue-700 space-y-1">
+                      <li>1. Google 계정 설정으로 이동 → 보안</li>
+                      <li>2. "2단계 인증"을 활성화</li>
+                      <li>3. "앱 비밀번호" 클릭</li>
+                      <li>4. 앱 선택: "메일", 기기 선택: "기타(맞춤 이름)"</li>
+                      <li>5. 생성된 16자리 비밀번호를 아래에 입력</li>
+                    </ol>
+                    <a
+                      href="https://myaccount.google.com/apppasswords"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-block mt-2 text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      → Google 앱 비밀번호 설정 페이지 바로가기
+                    </a>
+                    <div className="mt-3 pt-3 border-t border-blue-200">
+                      <p className="text-xs text-blue-700 font-medium mb-1">📋 Gmail SMTP 정보:</p>
+                      <ul className="text-xs text-blue-600 space-y-0.5">
+                        <li>• SMTP: smtp.gmail.com (포트 587, TLS)</li>
+                        <li>• 일일 발송 제한: 계정당 500건</li>
+                        <li>• 2단계 인증 필수</li>
+                      </ul>
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gmail 주소 (발신자)
-                  </label>
-                  <input
-                    type="email"
-                    value={smtpSettings.smtpUser}
-                    onChange={(e) =>
-                      setSmtpSettings({
-                        ...smtpSettings,
-                        smtpUser: e.target.value,
-                      })
-                    }
-                    placeholder={user.email}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    기본값: {user.email}
-                  </p>
-                </div>
+                {(() => {
+                  const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+                  const updateSettings = emailProvider === 'mailplug' ? setMailplugSettings : setGmailSettings;
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Gmail 앱 비밀번호 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="password"
-                    value={smtpSettings.smtpPassword}
-                    onChange={(e) =>
-                      setSmtpSettings({
-                        ...smtpSettings,
-                        smtpPassword: e.target.value.replace(/\s/g, ""),
-                      })
-                    }
-                    placeholder="16자리 앱 비밀번호 (공백 제거됨)"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    일반 비밀번호가 아닌 앱 비밀번호를 입력하세요
-                  </p>
-                </div>
+                  return (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            SMTP 서버
+                          </label>
+                          <input
+                            type="text"
+                            value={currentSettings.smtpHost}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            포트
+                          </label>
+                          <input
+                            type="number"
+                            value={currentSettings.smtpPort}
+                            disabled
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100"
+                          />
+                        </div>
+                      </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    발신자 이름 (선택)
-                  </label>
-                  <input
-                    type="text"
-                    value={smtpSettings.senderName}
-                    onChange={(e) =>
-                      setSmtpSettings({
-                        ...smtpSettings,
-                        senderName: e.target.value,
-                      })
-                    }
-                    placeholder="예: 홍길동, Marketing Team"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} 이메일 주소 (발신자)
+                        </label>
+                        <input
+                          type="email"
+                          value={currentSettings.smtpUser}
+                          onChange={(e) =>
+                            updateSettings({
+                              ...currentSettings,
+                              smtpUser: e.target.value,
+                            })
+                          }
+                          placeholder={emailProvider === 'gmail' ? 'your-email@gmail.com' : user.email}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {emailProvider === 'gmail' ? 'Gmail 주소를 입력하세요' : `기본값: ${user.email}`}
+                        </p>
+                      </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    브랜드명 (선택)
-                  </label>
-                  <input
-                    type="text"
-                    value={smtpSettings.brandName}
-                    onChange={(e) =>
-                      setSmtpSettings({
-                        ...smtpSettings,
-                        brandName: e.target.value,
-                      })
-                    }
-                    placeholder="예: MyBrand"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {emailProvider === 'mailplug' ? '메일플러그' : 'Gmail'} 앱 비밀번호 <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="password"
+                          value={currentSettings.smtpPassword}
+                          onChange={(e) =>
+                            updateSettings({
+                              ...currentSettings,
+                              smtpPassword: e.target.value.replace(/\s/g, ""),
+                            })
+                          }
+                          placeholder={emailProvider === 'mailplug'
+                            ? "메일플러그에서 생성한 앱 비밀번호 (공백 제거됨)"
+                            : "Gmail 16자리 앱 비밀번호 (공백 제거됨)"
+                          }
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          {emailProvider === 'mailplug'
+                            ? '그룹웨어 비밀번호가 아닌 앱 비밀번호를 입력하세요'
+                            : '일반 비밀번호가 아닌 앱 비밀번호를 입력하세요'
+                          }
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          발신자 이름 (선택)
+                        </label>
+                        <input
+                          type="text"
+                          value={currentSettings.senderName}
+                          onChange={(e) =>
+                            updateSettings({
+                              ...currentSettings,
+                              senderName: e.target.value,
+                            })
+                          }
+                          placeholder="예: 홍길동, Marketing Team"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          브랜드명 (선택)
+                        </label>
+                        <input
+                          type="text"
+                          value={brandName}
+                          onChange={(e) => setBrandName(e.target.value)}
+                          placeholder="예: MyBrand"
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                          모든 이메일 제공업체에서 공통으로 사용됩니다
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
 
               <div className="flex justify-end space-x-2 mt-6">
@@ -1206,7 +1385,10 @@ function EmailComposeContent() {
                 </button>
                 <button
                   onClick={handleSaveSmtpSettings}
-                  disabled={!smtpSettings.smtpPassword || savingSettings}
+                  disabled={(() => {
+                    const currentSettings = emailProvider === 'mailplug' ? mailplugSettings : gmailSettings;
+                    return !currentSettings.smtpPassword || savingSettings;
+                  })()}
                   className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
                 >
                   {savingSettings ? "저장 중..." : "설정 저장"}

@@ -18,6 +18,7 @@ function InfluencerConnectContent() {
   const [previewContent, setPreviewContent] = useState(null) // 미리보기 내용
   const [expandedConnections, setExpandedConnections] = useState(new Set()) // 확장된 연결 카드 ID들
   const [connectionUserVariables, setConnectionUserVariables] = useState({}) // 각 연결별 사용자 변수 설정
+  const [editingVariables, setEditingVariables] = useState({}) // 편집 중인 변수를 추적
   const [showOriginalTemplate, setShowOriginalTemplate] = useState(false) // 원본 템플릿 토글
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -125,6 +126,26 @@ function InfluencerConnectContent() {
         [variableName]: value
       }
     }))
+
+    // 현재 확장된 연결의 미리보기 업데이트
+    if (expandedConnections.has(connectionId)) {
+      const connection = connectedInfluencers.find(conn => conn.id === connectionId)
+      if (connection) {
+        // 약간의 지연을 두고 미리보기 업데이트 (입력 중 너무 자주 호출되는 것을 방지)
+        setTimeout(() => {
+          generatePreview(connection.influencer, connectionId)
+        }, 300)
+      }
+    }
+  }
+
+  // 변수 편집 모드 토글
+  const toggleEditVariable = (connectionId, variableName) => {
+    const key = `${connectionId}-${variableName}`
+    setEditingVariables(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }))
   }
 
   // 연결별 사용자 변수 저장
@@ -133,7 +154,26 @@ function InfluencerConnectContent() {
       setSaving(true)
       const variables = connectionUserVariables[connectionId] || {}
 
-      // API 호출로 사용자 변수 저장
+      // 1. 템플릿의 userVariables 업데이트
+      const templateResponse = await fetch(`/api/email-templates/${templateId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: dbUser.id,
+          userVariables: template.userVariables
+        })
+      })
+
+      if (!templateResponse.ok) {
+        const errorData = await templateResponse.json()
+        console.error('Error updating template:', errorData)
+        alert('템플릿 변수 저장에 실패했습니다.')
+        return
+      }
+
+      // 2. 연결별 사용자 변수 저장
       const response = await fetch('/api/template-influencer-connections', {
         method: 'PATCH',
         headers: {
@@ -149,6 +189,16 @@ function InfluencerConnectContent() {
       if (response.ok) {
         const data = await response.json()
         console.log('User variables saved successfully:', data)
+
+        // 연결 데이터 업데이트
+        setConnectedInfluencers(prevConnections =>
+          prevConnections.map(conn =>
+            conn.id === connectionId
+              ? { ...conn, userVariables: variables }
+              : conn
+          )
+        )
+
         alert('사용자 변수가 저장되었습니다.')
       } else {
         const errorData = await response.json()
@@ -251,20 +301,42 @@ function InfluencerConnectContent() {
     if (!template || !influencer) return
 
     try {
-      // 연결된 인플루언서인 경우 저장된 사용자 변수 사용
-      let customUserVariables = template.userVariables || {}
+      // 사용자 변수 준비
+      let customUserVariables = {}
+
+      // 템플릿의 모든 사용자 변수에 대해 기본값 설정
+      if (template.userVariables) {
+        Object.keys(template.userVariables).forEach(key => {
+          customUserVariables[key] = [`샘플 ${key}`] // 기본 샘플 값
+        })
+      }
 
       if (connectionId) {
         // 연결된 인플루언서의 저장된 사용자 변수 가져오기
         const connection = connectedInfluencers.find(conn => conn.id === connectionId)
         if (connection && connection.userVariables) {
-          // 템플릿의 기본 사용자 변수에 저장된 값을 오버라이드
-          customUserVariables = {
-            ...template.userVariables,
-            ...Object.fromEntries(
-              Object.entries(connection.userVariables).map(([key, value]) => [key, [value]])
-            )
-          }
+          // 저장된 값으로 오버라이드
+          Object.entries(connection.userVariables).forEach(([key, value]) => {
+            if (value && value.trim()) {
+              customUserVariables[key] = [value]
+            }
+          })
+        }
+
+        // 현재 편집 중인 값들도 반영
+        if (connectionUserVariables[connectionId]) {
+          Object.entries(connectionUserVariables[connectionId]).forEach(([key, value]) => {
+            if (value && value.trim()) {
+              customUserVariables[key] = [value]
+            }
+          })
+        }
+      } else {
+        // 선택된 인플루언서의 경우 샘플 값 사용
+        if (template.userVariables) {
+          Object.keys(template.userVariables).forEach(key => {
+            customUserVariables[key] = [`샘플 ${key}`]
+          })
         }
       }
 
@@ -579,39 +651,45 @@ function InfluencerConnectContent() {
 
                                     {/* 사용자 변수 설정 폼 */}
                                     {template.userVariables && Object.keys(template.userVariables).length > 0 ? (
-                                      <div className="space-y-3">
-                                        {Object.entries(template.userVariables).map(([variableName, options]) => (
-                                          <div key={variableName} className="bg-white p-3 rounded border">
-                                            <label className="block text-xs font-medium text-gray-700 mb-1">
-                                              {variableName}
-                                            </label>
-                                            {Array.isArray(options) && options.length > 0 ? (
-                                              // 선택형 변수 (드롭다운)
-                                              <select
-                                                value={connectionUserVariables[connection.id]?.[variableName] || options[0]}
-                                                onChange={(e) => updateConnectionUserVariable(connection.id, variableName, e.target.value)}
-                                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
-                                              >
-                                                {options.map((option, index) => (
-                                                  <option key={index} value={option}>
-                                                    {option}
-                                                  </option>
-                                                ))}
-                                              </select>
-                                            ) : (
-                                              // 텍스트 입력형 변수
-                                              <input
-                                                type="text"
-                                                value={connectionUserVariables[connection.id]?.[variableName] || ''}
-                                                onChange={(e) => updateConnectionUserVariable(connection.id, variableName, e.target.value)}
-                                                placeholder={`${variableName} 값을 입력하세요`}
-                                                className="w-full text-xs border border-gray-300 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
-                                              />
-                                            )}
-                                          </div>
-                                        ))}
+                                      <div className="space-y-2">
+                                        {/* 기존 변수 목록 */}
+                                        {Object.entries(template.userVariables).map(([variableName, options]) => {
+                                          const isEditing = editingVariables[`${connection.id}-${variableName}`]
+                                          const currentValue = connectionUserVariables[connection.id]?.[variableName] ||
+                                                             connection.userVariables?.[variableName] ||
+                                                             (Array.isArray(options) && options[0]) || ''
 
-                                        <div className="flex justify-end pt-2">
+                                          return (
+                                            <div key={variableName} className="bg-white p-2 rounded border flex items-center gap-2">
+                                              <span className="text-xs font-medium text-gray-700 min-w-[80px]">
+                                                {variableName}:
+                                              </span>
+                                              {isEditing ? (
+                                                <input
+                                                  type="text"
+                                                  value={currentValue}
+                                                  onChange={(e) => updateConnectionUserVariable(connection.id, variableName, e.target.value)}
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') {
+                                                      toggleEditVariable(connection.id, variableName)
+                                                    }
+                                                  }}
+                                                  className="flex-1 text-xs border border-purple-300 rounded px-2 py-1 focus:ring-purple-500 focus:border-purple-500"
+                                                  autoFocus
+                                                />
+                                              ) : (
+                                                <span
+                                                  className="flex-1 text-xs text-gray-800 cursor-pointer hover:bg-gray-50 px-2 py-1 rounded"
+                                                  onClick={() => toggleEditVariable(connection.id, variableName)}
+                                                >
+                                                  {currentValue || '클릭하여 입력'}
+                                                </span>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+
+                                        <div className="flex justify-end pt-2 border-t">
                                           <button
                                             onClick={() => saveConnectionUserVariables(connection.id)}
                                             disabled={saving}

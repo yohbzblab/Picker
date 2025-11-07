@@ -101,6 +101,11 @@ function replaceVariables(text, influencerData, userData, userVariables = {}, co
       evaluateConditionalRule(conditionalRules['계정ID'], influencerData, userData) : accountValue
     result = result.replace(/\{\{계정ID\}\}/g, finalAccountValue)
 
+    // 영어 변수명 지원 추가
+    const finalAccountValueEn = conditionalRules && conditionalRules['accountId'] ?
+      evaluateConditionalRule(conditionalRules['accountId'], influencerData, userData) : accountValue
+    result = result.replace(/\{\{accountId\}\}/g, finalAccountValueEn)
+
     const followersValue = fieldData.followers ? fieldData.followers.toLocaleString() : '0'
     const finalFollowersValue = conditionalRules && conditionalRules['팔로워수'] ?
       evaluateConditionalRule(conditionalRules['팔로워수'], influencerData, userData) : followersValue

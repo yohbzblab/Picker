@@ -281,6 +281,22 @@ export default function EmailTemplates() {
 // 변수 에디터 컴포넌트 - 버튼으로만 변수 삽입
 function VariableEditor({ value, onChange, placeholder, isMultiline = false, onInsertVariable, onFocus, onBlur }) {
   const editorRef = useRef(null)
+  const displayRef = useRef(null)
+
+  // textarea 높이를 내용에 맞춰 자동 조절
+  useEffect(() => {
+    if (isMultiline && editorRef.current) {
+      // 높이를 auto로 설정하여 스크롤 높이를 정확히 계산
+      editorRef.current.style.height = 'auto'
+      // 스크롤 높이에 맞춰 높이 설정
+      editorRef.current.style.height = editorRef.current.scrollHeight + 'px'
+
+      // display div도 동일한 높이로 설정
+      if (displayRef.current) {
+        displayRef.current.style.height = editorRef.current.scrollHeight + 'px'
+      }
+    }
+  }, [value, isMultiline])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Backspace') {
@@ -317,6 +333,20 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
     }
 
     onChange(newValue)
+
+    // 멀티라인일 경우 높이 자동 조절
+    if (isMultiline && editorRef.current) {
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.style.height = 'auto'
+          editorRef.current.style.height = editorRef.current.scrollHeight + 'px'
+
+          if (displayRef.current) {
+            displayRef.current.style.height = editorRef.current.scrollHeight + 'px'
+          }
+        }
+      }, 0)
+    }
   }
 
   // 변수 삽입 함수
@@ -431,6 +461,7 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
     return (
       <div className="relative">
         <div
+          ref={displayRef}
           className="p-3 whitespace-pre-wrap overflow-hidden rounded-lg border border-gray-300 bg-white pointer-events-none"
           style={{ lineHeight: '1.5rem', minHeight: '10rem' }}
         >
@@ -443,10 +474,11 @@ function VariableEditor({ value, onChange, placeholder, isMultiline = false, onI
           onKeyDown={handleKeyDown}
           onFocus={onFocus}
           onBlur={onBlur}
-          className="absolute inset-0 w-full h-full p-3 text-transparent bg-transparent font-medium resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg"
-          rows={8}
+          className="absolute inset-0 w-full p-3 text-transparent bg-transparent font-medium resize-none focus:outline-none focus:ring-2 focus:ring-purple-500 rounded-lg overflow-hidden"
           style={{
-            caretColor: '#111827' // 커서 색상을 검정색으로
+            caretColor: '#111827', // 커서 색상을 검정색으로
+            lineHeight: '1.5rem',
+            minHeight: '10rem'
           }}
         />
       </div>
@@ -540,11 +572,10 @@ function TemplateModal({ template, onClose, onSave, userId }) {
 
     let result = text
 
-    // 사용자 변수들의 기본값 (첫 번째 값 사용)
+    // 사용자 변수들의 기본값 (샘플 값 사용)
     const userSampleData = {}
     Object.keys(userVariables).forEach(key => {
-      const values = userVariables[key]
-      userSampleData[key] = values && values.length > 0 ? values[0] : '값 없음'
+      userSampleData[key] = `샘플 ${key}`
     })
 
     // 인플루언서 필드들의 샘플 데이터 생성 (텍스트 타입과 숫자 타입만)
@@ -997,8 +1028,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                     // 사용자 변수와 인플루언서 필드의 기본값 가져오기
                     const userSampleData = {}
                     Object.keys(userVariables).forEach(key => {
-                      const values = userVariables[key]
-                      userSampleData[key] = values && values.length > 0 ? values[0] : '값 없음'
+                      userSampleData[key] = `샘플 ${key}`
                     })
 
                     // 인플루언서 필드 기본값 (텍스트 타입과 숫자 타입만)
@@ -1434,9 +1464,6 @@ function ConditionsModal({ field, initialRules, onSave, onClose }) {
 
 const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables }) => {
   const [newVariableName, setNewVariableName] = useState('')
-  const [newValue, setNewValue] = useState('')
-  const [editingVariable, setEditingVariable] = useState(null)
-  const [editingValueIndex, setEditingValueIndex] = useState(null)
 
   if (!isOpen) return null
 
@@ -1444,7 +1471,7 @@ const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables })
     if (newVariableName.trim() && !userVariables[newVariableName]) {
       setUserVariables(prev => ({
         ...prev,
-        [newVariableName]: ['기본값']
+        [newVariableName]: []
       }))
       setNewVariableName('')
     }
@@ -1456,30 +1483,6 @@ const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables })
       delete updated[variableName]
       return updated
     })
-  }
-
-  const addValue = (variableName) => {
-    if (newValue.trim()) {
-      setUserVariables(prev => ({
-        ...prev,
-        [variableName]: [...prev[variableName], newValue]
-      }))
-      setNewValue('')
-    }
-  }
-
-  const editValue = (variableName, index, newVal) => {
-    setUserVariables(prev => ({
-      ...prev,
-      [variableName]: prev[variableName].map((val, i) => i === index ? newVal : val)
-    }))
-  }
-
-  const deleteValue = (variableName, index) => {
-    setUserVariables(prev => ({
-      ...prev,
-      [variableName]: prev[variableName].filter((_, i) => i !== index)
-    }))
   }
 
   return (
@@ -1517,84 +1520,25 @@ const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables })
                 추가
               </button>
             </div>
+            <p className="text-sm text-gray-600 mt-2">
+              변수의 실제 값은 인플루언서 연결 페이지에서 각각 설정할 수 있습니다.
+            </p>
           </div>
 
           {/* 기존 변수 목록 */}
-          <div className="space-y-4">
-            {Object.entries(userVariables).map(([variableName, values]) => (
-              <div key={variableName} className="border border-gray-200 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-3">
+          <div className="space-y-3">
+            {Object.keys(userVariables).map((variableName) => (
+              <div key={variableName} className="border border-gray-200 rounded-lg p-4 flex items-center justify-between">
+                <div>
                   <h4 className="font-medium text-gray-900">{`{{${variableName}}}`}</h4>
-                  <button
-                    onClick={() => deleteVariable(variableName)}
-                    className="text-red-500 hover:text-red-700 text-sm"
-                  >
-                    삭제
-                  </button>
+                  <p className="text-sm text-gray-500">인플루언서별로 값을 설정할 수 있는 변수</p>
                 </div>
-
-                {/* 값 목록 */}
-                <div className="space-y-2 mb-3">
-                  {values.map((value, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      {editingVariable === variableName && editingValueIndex === index ? (
-                        <input
-                          type="text"
-                          value={value}
-                          onChange={(e) => editValue(variableName, index, e.target.value)}
-                          onBlur={() => {
-                            setEditingVariable(null)
-                            setEditingValueIndex(null)
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              setEditingVariable(null)
-                              setEditingValueIndex(null)
-                            }
-                          }}
-                          className="flex-1 px-2 py-1 border border-gray-300 rounded text-black font-medium"
-                          autoFocus
-                        />
-                      ) : (
-                        <>
-                          <span
-                            className="flex-1 px-2 py-1 bg-gray-50 rounded cursor-pointer text-black"
-                            onClick={() => {
-                              setEditingVariable(variableName)
-                              setEditingValueIndex(index)
-                            }}
-                          >
-                            {value}
-                          </span>
-                          <button
-                            onClick={() => deleteValue(variableName, index)}
-                            className="text-red-500 hover:text-red-700 text-sm"
-                          >
-                            삭제
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                {/* 새 값 추가 */}
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newValue}
-                    onChange={(e) => setNewValue(e.target.value)}
-                    placeholder="새 값 추가"
-                    className="flex-1 px-2 py-1 border border-gray-300 rounded text-black font-medium"
-                    onKeyDown={(e) => e.key === 'Enter' && addValue(variableName)}
-                  />
-                  <button
-                    onClick={() => addValue(variableName)}
-                    className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-                  >
-                    추가
-                  </button>
-                </div>
+                <button
+                  onClick={() => deleteVariable(variableName)}
+                  className="text-red-500 hover:text-red-700 text-sm px-3 py-1 rounded border hover:bg-red-50"
+                >
+                  삭제
+                </button>
               </div>
             ))}
           </div>

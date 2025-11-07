@@ -22,16 +22,33 @@ model User {
   supabaseId      String   @unique
   isProfileComplete Boolean @default(false)
 
-  // SMTP 설정 필드들
+  // 기본 발신자 정보
+  senderName      String?  // 발신자 이름
+  brandName       String?  // 브랜드명
+
+  // 이메일 발송 모드 설정
+  emailProvider   String?  @default("mailplug") // "mailplug" | "gmail"
+
+  // Gmail SMTP 설정
+  gmailSmtpHost     String?  @default("smtp.gmail.com")
+  gmailSmtpPort     Int?     @default(587)
+  gmailSmtpUser     String?  // Gmail 주소
+  gmailSmtpPassword String?  // Gmail 앱 비밀번호
+  gmailSenderName   String?  // Gmail 발신자 이름
+
+  // 메일플러그 SMTP 설정
+  mailplugSmtpHost     String?  @default("smtp.mailplug.co.kr")
+  mailplugSmtpPort     Int?     @default(465)
+  mailplugSmtpUser     String?  // 메일플러그 이메일 주소
+  mailplugSmtpPassword String?  // 메일플러그 앱 비밀번호
+  mailplugSenderName   String?  // 메일플러그 발신자 이름
+
+  // 레거시 SMTP 설정 (기존 호환성)
   smtpHost        String?  // SMTP 서버 주소
   smtpPort        Int?     // SMTP 포트 (예: 587, 465)
   smtpUser        String?  // SMTP 사용자명 (이메일)
   smtpPassword    String?  // SMTP 비밀번호
   smtpSecure      Boolean? @default(false) // SSL/TLS 사용 여부
-
-  // 발신자 정보
-  senderName      String?  // 발신자 이름
-  brandName       String?  // 브랜드명
 
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
