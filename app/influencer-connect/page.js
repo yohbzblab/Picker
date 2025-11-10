@@ -624,7 +624,8 @@ function InfluencerConnectContent() {
                                     const savedValue = connection.userVariables?.[key]
                                     const localValue = connectionUserVariables[connection.id]?.[key]
                                     const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : ''
-                                    const displayValue = savedValue || localValue || defaultValue
+                                    // null 병합 연산자(??)를 사용하여 빈 문자열도 유효한 값으로 처리
+                                    const displayValue = localValue ?? savedValue ?? defaultValue
 
                                     return (
                                       <div key={key} className="flex items-center bg-white/50 p-2 rounded">
@@ -655,9 +656,11 @@ function InfluencerConnectContent() {
                                         {/* 기존 변수 목록 */}
                                         {Object.entries(template.userVariables).map(([variableName, options]) => {
                                           const isEditing = editingVariables[`${connection.id}-${variableName}`]
-                                          const currentValue = connectionUserVariables[connection.id]?.[variableName] ||
-                                                             connection.userVariables?.[variableName] ||
-                                                             (Array.isArray(options) && options[0]) || ''
+                                          // null 병합 연산자를 사용하여 빈 문자열도 유효한 값으로 처리
+                                          const localValue = connectionUserVariables[connection.id]?.[variableName]
+                                          const savedValue = connection.userVariables?.[variableName]
+                                          const defaultValue = Array.isArray(options) && options[0] || ''
+                                          const currentValue = localValue !== undefined ? localValue : (savedValue ?? defaultValue)
 
                                           return (
                                             <div key={variableName} className="bg-white p-2 rounded border flex items-center gap-2">
