@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
+import Footer from '@/components/Footer'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
@@ -54,7 +55,7 @@ export default function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       <nav className="bg-white border-b border-gray-100">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
@@ -164,6 +165,7 @@ export default function Home() {
           </div>
         </div>
       </main>
+      <Footer />
     </div>
   )
 }
