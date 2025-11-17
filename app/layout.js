@@ -15,6 +15,9 @@ const geistMono = Geist_Mono({
 export const metadata = {
   title: "Picker",
   description: "Instagram Analytics Service",
+  other: {
+    'facebook-domain-verification': '2iu4y6r9ntykuywmz91t8dqpeu11uu',
+  },
 };
 
 export default function RootLayout({ children }) {
