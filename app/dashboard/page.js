@@ -78,6 +78,12 @@ export default function Dashboard() {
                 메일 템플릿
               </button>
               <button
+                onClick={() => router.push("/inbox")}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                📧 수신함
+              </button>
+              <button
                 onClick={() => router.push("/settings")}
                 className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
@@ -175,6 +181,63 @@ export default function Dashboard() {
                 </div>
               </div>
             )}
+
+            {/* 메일 관리 섹션 */}
+            <div className="mt-16">
+              <h3 className="text-2xl font-bold text-gray-900 mb-8">
+                📧 메일 관리
+              </h3>
+              <div className="grid md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div className="bg-blue-50 rounded-xl p-6 text-center">
+                  <div className="w-12 h-12 bg-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold">📝</span>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2">메일 작성</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    인플루언서에게 협업 제안 메일을 보내세요
+                  </p>
+                  <button
+                    onClick={() => router.push("/email-compose")}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    메일 작성
+                  </button>
+                </div>
+
+                <div className="bg-green-50 rounded-xl p-6 text-center">
+                  <div className="w-12 h-12 bg-green-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold">📧</span>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2">수신함</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    받은 메일을 확인하고 관리하세요
+                  </p>
+                  <button
+                    onClick={() => router.push("/inbox")}
+                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                  >
+                    수신함 열기
+                  </button>
+                </div>
+
+                <div className="bg-purple-50 rounded-xl p-6 text-center">
+                  <div className="w-12 h-12 bg-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center">
+                    <span className="text-white font-bold">📋</span>
+                  </div>
+                  <h4 className="font-semibold text-gray-900 mb-2">메일 템플릿</h4>
+                  <p className="text-sm text-gray-600 mb-4">
+                    재사용 가능한 메일 템플릿을 관리하세요
+                  </p>
+                  <button
+                    onClick={() => router.push("/email-templates")}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                  >
+                    템플릿 관리
+                  </button>
+                </div>
+              </div>
+            </div>
+
           </div>
         </div>
       </main>

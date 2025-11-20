@@ -126,6 +126,73 @@ const isConnected = await verifyMailplugConnection(transporter)
 console.log('메일플러그 연결 상태:', isConnected)
 ```
 
+## 📬 메일 수신 기능 (POP3)
+
+### POP3 수신 설정
+
+메일플러그는 SMTP와 POP3에서 동일한 앱 비밀번호를 사용합니다. 따라서 별도 설정 없이 기존 메일플러그 계정으로 수신 기능을 이용할 수 있습니다.
+
+### 웹 인터페이스 사용법
+
+#### 1. 수신함 접근
+- 대시보드에서 "📧 수신함" 버튼 클릭
+- 또는 직접 `/inbox` URL 접근
+
+#### 2. 새 메일 수신
+```javascript
+// API를 통한 메일 수신
+const response = await fetch("/api/emails/receive", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    userId: userId,
+    options: {
+      limit: 10,           // 한 번에 가져올 메일 수
+      deleteAfterRead: false  // 읽은 후 서버에서 삭제 여부
+    }
+  })
+});
+```
+
+#### 3. 메일 관리 기능
+- **읽기**: 메일 클릭 시 자동으로 읽음 상태로 변경
+- **삭제**: 개별 또는 일괄 삭제 가능
+- **검색**: 발신자, 제목, 본문 검색
+- **필터링**: 안읽은 메일만 보기
+- **정렬**: 수신 날짜 순 정렬
+
+#### 4. 메일 상세 보기
+- HTML/텍스트 본문 전환 가능
+- 첨부파일 정보 표시
+- 전체 메일 헤더 정보 확인
+
+### API 사용법
+
+#### 메일 수신 (POP3)
+```javascript
+import { fetchAllEmails, testPOP3Connection } from './lib/mailplugPop3'
+
+// 연결 테스트
+const config = {
+  smtpUser: "your_email@domain.com",
+  smtpPassword: "your_app_password"
+};
+
+const isConnected = await testPOP3Connection(config);
+
+// 메일 수신
+const emails = await fetchAllEmails(config, {
+  limit: 20,
+  deleteAfterRead: false
+});
+```
+
+#### API 엔드포인트
+- `POST /api/emails/receive`: 새 메일 수신 및 저장
+- `GET /api/emails/inbox`: 수신함 메일 목록 조회
+- `GET /api/emails/[emailId]`: 특정 메일 상세 조회
+- `PATCH /api/emails/inbox`: 메일 상태 일괄 업데이트
+
 ## 📈 이용 제한 및 권장사항
 
 ### 발송 제한
@@ -173,8 +240,17 @@ console.log('메일플러그 연결 상태:', isConnected)
 - 자동 재시도 로직 구현
 - 향상된 에러 처리 및 사용자 안내
 
+### v1.1.0 (2024년) - POP3 수신 기능 추가 완료
+- ✅ 메일플러그 POP3 수신 기능 구현
+- ✅ 수신 메일 데이터베이스 저장 및 관리
+- ✅ 웹 인터페이스 수신함 구현
+- ✅ 메일 읽기, 삭제, 검색 기능
+- ✅ 발송과 수신 통합 메일 관리 시스템
+
 ### 추가 개발 예정
 - [ ] 메일플러그 Webhook 연동 (전송 상태 추적)
 - [ ] 대량 발송 예약 기능
 - [ ] 발송 통계 대시보드
 - [ ] 템플릿별 발송 성과 분석
+- [ ] 수신 메일 자동 분류 및 라벨링
+- [ ] 첨부파일 다운로드 기능

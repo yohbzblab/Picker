@@ -504,6 +504,12 @@ function EmailComposeContent() {
               >
                 설정
               </button>
+              <button
+                onClick={() => router.push("/inbox")}
+                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                📧 수신함
+              </button>
               <span className="text-sm text-gray-600">{user.email}</span>
               <button
                 onClick={signOut}

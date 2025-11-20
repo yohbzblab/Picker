@@ -58,6 +58,7 @@ model User {
   emailTemplates    EmailTemplate[]
   templateConnections TemplateInfluencerConnection[]
   emailsSent        EmailSent[]
+  emailsReceived    EmailReceived[]
 
   @@map("users")
 }
@@ -207,6 +208,32 @@ enum EmailStatus {
   SENT      // 성공적으로 전송됨
   FAILED    // 전송 실패
   PENDING   // 전송 대기 중
+}
+
+model EmailReceived {
+  id            Int      @id @default(autoincrement())
+  userId        Int      // 수신자 (계정 소유자)
+  messageId     String?  // POP3 메시지 ID
+  from          String   // 발신자 이메일 주소
+  to            String   // 수신자 이메일 주소
+  subject       String   // 메일 제목
+  textContent   String?  @db.Text // 텍스트 본문
+  htmlContent   String?  @db.Text // HTML 본문
+  isRead        Boolean  @default(false) // 읽음 여부
+  isDeleted     Boolean  @default(false) // 삭제 여부
+  attachments   Json?    // 첨부파일 정보 (JSON)
+  headers       Json?    // 메일 헤더 정보 (JSON)
+  receivedAt    DateTime @default(now()) // 수신 시간
+  originalDate  DateTime? // 원본 메일의 발송 시간
+
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([from])
+  @@index([receivedAt])
+  @@index([isRead])
+  @@index([isDeleted])
+  @@map("emails_received")
 }
 
 enum FieldType {
