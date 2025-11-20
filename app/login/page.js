@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
+import Footer from '@/components/Footer'
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -250,6 +251,8 @@ export default function LoginPage() {
           </div>
         </section>
       </main>
+
+      <Footer />
     </div>
   )
 }
