@@ -8,9 +8,10 @@ export default function Home() {
   const { user, loading } = useAuth();
   const router = useRouter();
 
+  // 로그인된 사용자는 대시보드로 리다이렉트 (클라이언트 사이드)
   useEffect(() => {
     if (!loading && user) {
-      router.push("/dashboard");
+      router.push('/dashboard');
     }
   }, [user, loading, router]);
 
