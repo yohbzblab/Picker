@@ -115,6 +115,39 @@ export default function InfluencerManagement() {
   // 필드 값 업데이트 함수
   const updateFieldValue = async (influencerId, fieldKey, value) => {
     try {
+      // 필드 타입에 따른 값 검증 및 변환
+      const field = fields.find(f => f.key === fieldKey)
+      let processedValue = value
+
+      if (field) {
+        switch (field.fieldType) {
+          case 'NUMBER':
+            if (value === null || value === '' || value === undefined) {
+              processedValue = null
+            } else {
+              const numValue = Number(value)
+              if (isNaN(numValue)) {
+                alert('숫자만 입력 가능합니다.')
+                return
+              }
+              processedValue = numValue
+            }
+            break
+          case 'TEXT':
+          case 'LONG_TEXT':
+          case 'CURRENCY':
+            if (typeof value === 'string') {
+              processedValue = value.trim()
+            }
+            break
+          case 'BOOLEAN':
+            processedValue = Boolean(value)
+            break
+          default:
+            processedValue = value
+        }
+      }
+
       const response = await fetch(`/api/influencers/${influencerId}/field`, {
         method: 'PATCH',
         headers: {
@@ -122,7 +155,7 @@ export default function InfluencerManagement() {
         },
         body: JSON.stringify({
           fieldKey,
-          value,
+          value: processedValue,
           userId: dbUser.id
         })
       })
@@ -137,7 +170,7 @@ export default function InfluencerManagement() {
                   ...influencer,
                   fieldData: {
                     ...influencer.fieldData,
-                    [fieldKey]: value
+                    [fieldKey]: processedValue
                   }
                 }
               : influencer
@@ -169,7 +202,7 @@ export default function InfluencerManagement() {
       value = influencer.fieldData[field.key]
     }
 
-    const isEditable = field.fieldType === 'BOOLEAN' || field.fieldType === 'SELECT'
+    const isEditable = ['BOOLEAN', 'SELECT', 'TEXT', 'NUMBER', 'LONG_TEXT', 'CURRENCY'].includes(field.fieldType)
     const editingKey = `${influencer.id}-${field.key}`
     const isCurrentlyEditing = editingField === editingKey
 
@@ -253,12 +286,195 @@ export default function InfluencerManagement() {
             링크 보기
           </a>
         ) : null
+      case 'TEXT':
+        if (isCurrentlyEditing) {
+          return (
+            <input
+              type="text"
+              value={value || ''}
+              onChange={(e) => {
+                setInfluencers(prev =>
+                  prev.map(inf =>
+                    inf.id === influencer.id
+                      ? {
+                          ...inf,
+                          fieldData: {
+                            ...inf.fieldData,
+                            [field.key]: e.target.value
+                          }
+                        }
+                      : inf
+                  )
+                )
+              }}
+              onBlur={() => {
+                updateFieldValue(influencer.id, field.key, value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.target.blur()
+                } else if (e.key === 'Escape') {
+                  setEditingField(null)
+                }
+              }}
+              autoFocus
+              className="w-full text-sm px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+            />
+          )
+        } else {
+          return (
+            <span
+              className="text-gray-600 cursor-pointer hover:text-purple-600 hover:bg-purple-50 px-2 py-1 rounded transition-colors"
+              onClick={() => setEditingField(editingKey)}
+              title="클릭하여 편집"
+            >
+              {value || '클릭하여 입력'}
+            </span>
+          )
+        }
       case 'NUMBER':
-        return <span className="text-gray-900 font-medium">{value?.toLocaleString()}</span>
+        if (isCurrentlyEditing) {
+          return (
+            <input
+              type="number"
+              value={value || ''}
+              onChange={(e) => {
+                const numValue = e.target.value === '' ? null : Number(e.target.value)
+                setInfluencers(prev =>
+                  prev.map(inf =>
+                    inf.id === influencer.id
+                      ? {
+                          ...inf,
+                          fieldData: {
+                            ...inf.fieldData,
+                            [field.key]: numValue
+                          }
+                        }
+                      : inf
+                  )
+                )
+              }}
+              onBlur={() => {
+                updateFieldValue(influencer.id, field.key, value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.target.blur()
+                } else if (e.key === 'Escape') {
+                  setEditingField(null)
+                }
+              }}
+              autoFocus
+              className="w-full text-sm px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+            />
+          )
+        } else {
+          return (
+            <span
+              className="text-gray-900 font-medium cursor-pointer hover:text-purple-600 hover:bg-purple-50 px-2 py-1 rounded transition-colors"
+              onClick={() => setEditingField(editingKey)}
+              title="클릭하여 편집"
+            >
+              {value ? value.toLocaleString() : '클릭하여 입력'}
+            </span>
+          )
+        }
       case 'CURRENCY':
-        return <span className="text-gray-900 font-semibold">{value}</span>
+        if (isCurrentlyEditing) {
+          return (
+            <input
+              type="text"
+              value={value || ''}
+              onChange={(e) => {
+                setInfluencers(prev =>
+                  prev.map(inf =>
+                    inf.id === influencer.id
+                      ? {
+                          ...inf,
+                          fieldData: {
+                            ...inf.fieldData,
+                            [field.key]: e.target.value
+                          }
+                        }
+                      : inf
+                  )
+                )
+              }}
+              onBlur={() => {
+                updateFieldValue(influencer.id, field.key, value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.target.blur()
+                } else if (e.key === 'Escape') {
+                  setEditingField(null)
+                }
+              }}
+              autoFocus
+              className="w-full text-sm px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500"
+              placeholder="예: 100만원"
+            />
+          )
+        } else {
+          return (
+            <span
+              className="text-gray-900 font-semibold cursor-pointer hover:text-purple-600 hover:bg-purple-50 px-2 py-1 rounded transition-colors"
+              onClick={() => setEditingField(editingKey)}
+              title="클릭하여 편집"
+            >
+              {value || '클릭하여 입력'}
+            </span>
+          )
+        }
       case 'LONG_TEXT':
-        return <span className="text-gray-600 max-w-xs truncate block">{value}</span>
+        if (isCurrentlyEditing) {
+          return (
+            <textarea
+              value={value || ''}
+              onChange={(e) => {
+                setInfluencers(prev =>
+                  prev.map(inf =>
+                    inf.id === influencer.id
+                      ? {
+                          ...inf,
+                          fieldData: {
+                            ...inf.fieldData,
+                            [field.key]: e.target.value
+                          }
+                        }
+                      : inf
+                  )
+                )
+              }}
+              onBlur={() => {
+                updateFieldValue(influencer.id, field.key, value)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && e.shiftKey) {
+                  return // Allow line breaks with Shift+Enter
+                } else if (e.key === 'Enter') {
+                  e.preventDefault()
+                  e.target.blur()
+                } else if (e.key === 'Escape') {
+                  setEditingField(null)
+                }
+              }}
+              autoFocus
+              rows={3}
+              className="w-full text-sm px-2 py-1 border border-gray-300 rounded-md focus:ring-purple-500 focus:border-purple-500 resize-none"
+            />
+          )
+        } else {
+          return (
+            <span
+              className="text-gray-600 max-w-xs truncate block cursor-pointer hover:text-purple-600 hover:bg-purple-50 px-2 py-1 rounded transition-colors"
+              onClick={() => setEditingField(editingKey)}
+              title="클릭하여 편집"
+            >
+              {value || '클릭하여 입력'}
+            </span>
+          )
+        }
       case 'EMAIL':
         return value ? (
           <a

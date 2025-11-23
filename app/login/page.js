@@ -2,22 +2,70 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import Footer from '@/components/Footer'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
   const { user, loading, signInWithGoogle } = useAuth()
   const router = useRouter()
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
+  const [envInfo, setEnvInfo] = useState({})
 
   useEffect(() => {
     if (!loading && user) {
-      router.push('/')
+      router.push('/dashboard')
     }
   }, [user, loading, router])
 
+  // URL 쿼리 파라미터에서 오류 확인
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const error = urlParams.get('error');
+
+      if (error) {
+        let errorMessage = '';
+
+        switch (error) {
+          case 'auth_failed':
+            errorMessage = '인증에 실패했습니다. Google 로그인을 다시 시도해주세요.';
+            break;
+          case 'callback_error':
+            errorMessage = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+            break;
+          default:
+            errorMessage = '로그인 중 오류가 발생했습니다.';
+        }
+
+        alert(errorMessage);
+
+        // URL에서 오류 파라미터 제거
+        window.history.replaceState({}, '', '/login');
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    // 클라이언트 환경에서만 실행
+    if (typeof window !== 'undefined') {
+      setEnvInfo({
+        currentUrl: window.location.origin,
+        hostname: window.location.hostname,
+        isNgrok: window.location.hostname.includes('ngrok'),
+        appUrl: process.env.NEXT_PUBLIC_APP_URL,
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL
+      })
+    }
+  }, [])
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-white"></div>
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">로딩 중...</p>
+        </div>
+      </div>
     )
   }
 
@@ -251,6 +299,82 @@ export default function LoginPage() {
           </div>
         </section>
       </main>
+
+      {/* 디버그 정보 패널 (개발 환경의 ngrok에서만 표시) */}
+      {process.env.NODE_ENV === 'development' && envInfo.isNgrok && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <button
+            onClick={() => setShowDebugInfo(!showDebugInfo)}
+            className="bg-yellow-500 text-white px-3 py-2 rounded-lg text-sm font-medium shadow-lg hover:bg-yellow-600 transition-colors"
+          >
+            🔧 Debug
+          </button>
+
+          {showDebugInfo && (
+            <div className="absolute bottom-12 right-0 bg-white border border-gray-300 rounded-lg shadow-xl p-4 w-80 text-sm">
+              <h3 className="font-bold text-gray-900 mb-2">🌐 환경 정보</h3>
+              <div className="space-y-2 text-gray-700">
+                <div>
+                  <span className="font-medium">현재 URL:</span>
+                  <br />
+                  <span className="text-xs break-all">{envInfo.currentUrl}</span>
+                </div>
+                <div>
+                  <span className="font-medium">설정된 앱 URL:</span>
+                  <br />
+                  <span className="text-xs break-all">{envInfo.appUrl}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Supabase URL:</span>
+                  <br />
+                  <span className="text-xs break-all">{envInfo.supabaseUrl}</span>
+                </div>
+                <div className={`p-2 rounded ${envInfo.isNgrok ? 'bg-yellow-100' : 'bg-green-100'}`}>
+                  <span className="font-medium">상태:</span> {envInfo.isNgrok ? '🟡 ngrok 환경' : '🟢 로컬 환경'}
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <h4 className="font-medium text-gray-900 mb-2">📋 Supabase 설정 체크리스트</h4>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div>1. Site URL: {envInfo.currentUrl}</div>
+                  <div>2. Redirect URL: {envInfo.currentUrl}/auth/callback</div>
+                  <div>3. 브라우저 콘솔에서 오류 확인</div>
+                  <div>4. Google Cloud Console OAuth 설정</div>
+                </div>
+              </div>
+
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <h4 className="font-medium text-gray-900 mb-2">🔄 콜백 흐름</h4>
+                <div className="text-xs text-gray-600 space-y-1">
+                  <div>1. 로그인 버튼 클릭 → Google OAuth</div>
+                  <div>2. Google → Supabase 콜백</div>
+                  <div>3. Supabase → {envInfo.currentUrl}/auth/callback</div>
+                  <div>4. 콜백 처리 → {envInfo.currentUrl} 홈으로</div>
+                </div>
+                <div className="mt-2 text-xs text-red-600">
+                  ⚠️ 모든 단계에서 ngrok URL 유지 확인
+                </div>
+              </div>
+
+              {process.env.NODE_ENV === 'development' && (
+                <button
+                  onClick={() => {
+                    console.log('Environment Info:');
+                    console.log('Current URL:', envInfo.currentUrl);
+                    console.log('App URL:', envInfo.appUrl);
+                    console.log('Supabase URL:', envInfo.supabaseUrl);
+                    console.log('Is ngrok:', envInfo.isNgrok);
+                  }}
+                  className="mt-3 w-full bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
+                >
+                  콘솔에 정보 출력 (개발용)
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <Footer />
     </div>

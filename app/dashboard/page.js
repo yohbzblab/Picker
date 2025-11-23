@@ -81,14 +81,9 @@ export default function Dashboard() {
                 onClick={() => router.push("/inbox")}
                 className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
               >
-                📧 수신함
+                수신함
               </button>
-              <button
-                onClick={() => router.push("/settings")}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                설정
-              </button>
+
               <span className="text-sm text-gray-600">{user.email}</span>
               <button
                 onClick={signOut}
@@ -111,7 +106,8 @@ export default function Dashboard() {
               Picker : Instagram 분석을 위한 강력한 도구
             </p>
 
-            {!isLoadingAccounts && instagramAccounts.length > 0 ? (
+            {/* Instagram 계정 연결 섹션 - 나중에 다시 사용 예정 */}
+            {/* {!isLoadingAccounts && instagramAccounts.length > 0 ? (
               <div className="bg-gray-50 rounded-2xl p-12 max-w-2xl mx-auto">
                 <div className="text-center">
                   <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full mx-auto mb-6 flex items-center justify-center">
@@ -180,7 +176,7 @@ export default function Dashboard() {
                   </div>
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* 메일 관리 섹션 */}
             <div className="mt-16">
@@ -192,7 +188,9 @@ export default function Dashboard() {
                   <div className="w-12 h-12 bg-blue-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                     <span className="text-white font-bold">📝</span>
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">메일 작성</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    메일 작성
+                  </h4>
                   <p className="text-sm text-gray-600 mb-4">
                     인플루언서에게 협업 제안 메일을 보내세요
                   </p>
@@ -224,7 +222,9 @@ export default function Dashboard() {
                   <div className="w-12 h-12 bg-purple-500 rounded-full mx-auto mb-4 flex items-center justify-center">
                     <span className="text-white font-bold">📋</span>
                   </div>
-                  <h4 className="font-semibold text-gray-900 mb-2">메일 템플릿</h4>
+                  <h4 className="font-semibold text-gray-900 mb-2">
+                    메일 템플릿
+                  </h4>
                   <p className="text-sm text-gray-600 mb-4">
                     재사용 가능한 메일 템플릿을 관리하세요
                   </p>
@@ -237,7 +237,6 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-
           </div>
         </div>
       </main>
