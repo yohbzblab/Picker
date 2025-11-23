@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { tokenManager } from "@/lib/auth/token";
@@ -59,6 +59,7 @@ export default function AuthProvider({ children }) {
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
   const supabase = createClient();
 
@@ -156,15 +157,40 @@ export default function AuthProvider({ children }) {
     }
   }, [saveToCache]);
 
+  // 클라이언트 사이드 hydration 처리 및 즉시 토큰 확인
   useEffect(() => {
+    setIsHydrated(true);
+
+    // 즉시 로컬 토큰 확인하여 로딩 상태 최적화
+    const token = tokenManager.getToken();
+    const userData = tokenManager.getUserData();
+
+    if (token && tokenManager.isValid() && userData) {
+      // console.log('Using cached user data immediately'); // 디버깅용
+      setUser(userData.supabaseUser);
+      setDbUser(userData.dbUser);
+      setLoading(false);
+      setIsInitialLoad(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // 클라이언트 사이드에서만 실행하고, 한 번만 실행
+    if (!isHydrated || !isInitialLoad) {
+      return;
+    }
+
     const checkUser = async () => {
       try {
+        // console.log('Initial auth check starting...'); // 디버깅용
+
         // 먼저 로컬 토큰 확인
         const token = tokenManager.getToken();
         const userData = tokenManager.getUserData();
 
         if (token && tokenManager.isValid() && userData) {
-          // 유효한 토큰이 있으면 로컬 데이터 사용
+          // console.log('Using cached user data'); // 디버깅용
+          // 유효한 토큰이 있으면 로컬 데이터 사용 - 즉시 로딩 완료
           setUser(userData.supabaseUser);
           setDbUser(userData.dbUser);
           setLoading(false);
@@ -172,6 +198,7 @@ export default function AuthProvider({ children }) {
           return;
         }
 
+        // console.log('Checking Supabase session...'); // 디버깅용
         // 토큰이 없거나 유효하지 않으면 Supabase 세션 확인 (OAuth 콜백 처리용)
         const {
           data: { session },
@@ -179,6 +206,7 @@ export default function AuthProvider({ children }) {
         const supabaseUser = session?.user ?? null;
 
         if (supabaseUser && session?.access_token) {
+          // console.log('Found valid Supabase session'); // 디버깅용
           // Supabase 세션이 있으면 토큰 저장
           tokenManager.setToken(session.access_token);
           setUser(supabaseUser);
@@ -191,6 +219,7 @@ export default function AuthProvider({ children }) {
             dbUser: dbUserData
           });
         } else {
+          // console.log('No valid session found'); // 디버깅용
           // 로그아웃 상태
           tokenManager.clearAll();
           invalidateCache();
@@ -206,29 +235,36 @@ export default function AuthProvider({ children }) {
     };
 
     checkUser();
+  }, [isHydrated, isInitialLoad, supabase, handleUserRegistration, invalidateCache]);
 
-    // visibilitychange 이벤트 리스너 제거 - 탭 전환 시 리렌더링과 강제 리다이렉트 방지
+  // onAuthStateChange 이벤트 리스너 설정 - 초기 로드 완료 후에만 실행
+  useEffect(() => {
+    if (!isHydrated || isInitialLoad) {
+      return;
+    }
+
+    // console.log('Setting up auth state change listener'); // 디버깅용
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('Auth state change:', event, 'pathname:', window.location.pathname); // 디버깅용
+      // console.log('Auth state change:', event, 'pathname:', window.location.pathname); // 디버깅용
       const supabaseUser = session?.user ?? null;
-
-      // 초기 로드 중에는 리다이렉트하지 않음
-      if (isInitialLoad) {
-        console.log('Skipping during initial load');
-        return;
-      }
 
       // 모든 자동 이벤트에서는 리다이렉트하지 않음 - 오직 명시적인 로그인/로그아웃만
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT") {
-        console.log('Ignoring event:', event);
+        // console.log('Ignoring event:', event); // 디버깅용
         return;
       }
 
       if (event === "SIGNED_IN" && supabaseUser && session?.access_token) {
-        console.log('Processing SIGNED_IN event');
+        // console.log('Processing SIGNED_IN event'); // 디버깅용
+        // 현재 사용자와 같은지 확인하여 불필요한 상태 업데이트 방지
+        if (user?.id === supabaseUser.id) {
+          // console.log('User already set, skipping state update'); // 디버깅용
+          return;
+        }
+
         // 로그인 성공 시 토큰 저장
         tokenManager.setToken(session.access_token);
         setUser(supabaseUser);
@@ -244,13 +280,13 @@ export default function AuthProvider({ children }) {
         // 로그인 페이지나 홈페이지에서만 대시보드로 리다이렉트
         const currentPath = window.location.pathname;
         if (currentPath === '/login' || currentPath === '/' || currentPath === '/auth/callback') {
-          console.log('Redirecting to dashboard from:', currentPath);
+          // console.log('Redirecting to dashboard from:', currentPath); // 디버깅용
           router.push("/dashboard");
         } else {
-          console.log('Not redirecting, current path:', currentPath);
+          // console.log('Not redirecting, current path:', currentPath); // 디버깅용
         }
       } else if (event === "SIGNED_OUT") {
-        console.log('Processing SIGNED_OUT event');
+        // console.log('Processing SIGNED_OUT event'); // 디버깅용
         // 로그아웃 처리
         tokenManager.clearAll();
         invalidateCache();
@@ -263,9 +299,10 @@ export default function AuthProvider({ children }) {
     });
 
     return () => {
+      // console.log('Cleaning up auth state change listener'); // 디버깅용
       subscription.unsubscribe();
     };
-  }, [router, supabase, isInitialLoad]);
+  }, [isHydrated, isInitialLoad, user, supabase, router, handleUserRegistration, invalidateCache]);
 
   const signInWithGoogle = async () => {
     try {
@@ -327,14 +364,14 @@ export default function AuthProvider({ children }) {
     return true;
   }, [user, router, invalidateCache]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     dbUser,
     loading,
     signInWithGoogle,
     signOut,
     checkTokenValidity,
-  };
+  }), [user, dbUser, loading, signInWithGoogle, signOut, checkTokenValidity]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
