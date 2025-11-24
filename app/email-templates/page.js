@@ -1,11 +1,12 @@
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
+import Navbar from '@/components/Navbar'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState, useRef, useCallback } from 'react'
 
 export default function EmailTemplates() {
-  const { user, dbUser, loading: authLoading, signOut } = useAuth()
+  const { user, dbUser, loading: authLoading } = useAuth()
   const router = useRouter()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
@@ -80,15 +81,7 @@ export default function EmailTemplates() {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-white">
-        <nav className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navbar />
         <main className="min-h-screen bg-white"></main>
       </div>
     )
@@ -97,15 +90,7 @@ export default function EmailTemplates() {
   if (!user) {
     return (
       <div className="min-h-screen bg-white">
-        <nav className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navbar />
         <main className="min-h-screen bg-white"></main>
       </div>
     )
@@ -113,49 +98,7 @@ export default function EmailTemplates() {
 
   return (
     <div className="min-h-screen bg-white">
-      <nav className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <button
-                onClick={() => router.push('/')}
-                className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors"
-              >
-                Picker
-              </button>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push('/influencer-management')}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                인플루언서 관리
-              </button>
-              <button
-                onClick={() => router.push('/email-templates')}
-                className="text-sm text-purple-600 hover:text-purple-700 px-3 py-2 rounded-lg bg-purple-50 transition-colors font-medium"
-              >
-                메일 템플릿
-              </button>
-              <button
-                onClick={() => router.push('/settings')}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                설정
-              </button>
-              <span className="text-sm text-gray-600">
-                {user.email}
-              </span>
-              <button
-                onClick={signOut}
-                className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                로그아웃
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">

@@ -2,11 +2,12 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function InboxPage() {
-  const { user, dbUser, loading, signOut } = useAuth();
+  const { user, dbUser, loading } = useAuth();
   const router = useRouter();
 
   // 상태 관리
@@ -344,45 +345,36 @@ export default function InboxPage() {
 
   if (loading || !dbUser) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-lg">로딩 중...</div>
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-lg">로딩 중...</div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* 헤더 */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center space-x-4">
-              <h1 className="text-2xl font-bold text-gray-900">📧 수신함</h1>
-              {mailboxStats && (
-                <div className="flex items-center space-x-4 text-sm text-gray-600">
-                  <span>전체: {mailboxStats.totalEmails}</span>
-                  <span>안읽음: {mailboxStats.unreadEmails}</span>
-                  <span>최근 24시간: {mailboxStats.recentEmails}</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push("/dashboard")}
-                className="text-blue-600 hover:text-blue-800"
-              >
-                대시보드로
-              </button>
-              <button
-                onClick={signOut}
-                className="bg-gray-600 text-white px-4 py-2 rounded-md hover:bg-gray-700"
-              >
-                로그아웃
-              </button>
+    <div className="min-h-screen bg-white">
+      <Navbar />
+      <div className="min-h-screen bg-gray-50">
+        {/* 헤더 */}
+        <header className="bg-white shadow-sm border-b border-gray-200">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-between items-center py-4">
+              <div className="flex items-center space-x-4">
+                <h1 className="text-2xl font-bold text-gray-900">📧 수신함</h1>
+                {mailboxStats && (
+                  <div className="flex items-center space-x-4 text-sm text-gray-600">
+                    <span>전체: {mailboxStats.totalEmails}</span>
+                    <span>안읽음: {mailboxStats.unreadEmails}</span>
+                    <span>최근 24시간: {mailboxStats.recentEmails}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      </header>
+        </header>
 
       {/* 메인 컨텐츠 */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -687,6 +679,7 @@ export default function InboxPage() {
       )}
 
       <Footer />
+      </div>
     </div>
   );
 }

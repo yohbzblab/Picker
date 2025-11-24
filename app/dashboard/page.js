@@ -2,6 +2,7 @@
 
 import { useAuth } from "@/components/AuthProvider";
 import Footer from "@/components/Footer";
+import Navbar from "@/components/Navbar";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -42,15 +43,7 @@ export default function Dashboard() {
   if (loading || !user) {
     return (
       <div className="min-h-screen bg-white">
-        <nav className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex justify-between h-16">
-              <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
-              </div>
-            </div>
-          </div>
-        </nav>
+        <Navbar />
         <main className="min-h-screen bg-white"></main>
       </div>
     );
@@ -58,43 +51,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col">
-      <nav className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16">
-            <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
-            </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => router.push("/influencer-management")}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                인플루언서 관리
-              </button>
-              <button
-                onClick={() => router.push("/email-templates")}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                메일 템플릿
-              </button>
-              <button
-                onClick={() => router.push("/inbox")}
-                className="text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
-              >
-                수신함
-              </button>
-
-              <span className="text-sm text-gray-600">{user.email}</span>
-              <button
-                onClick={signOut}
-                className="text-sm bg-gray-900 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors"
-              >
-                로그아웃
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+      <Navbar />
 
       <main className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">

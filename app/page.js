@@ -62,7 +62,10 @@ export default function Home() {
               </p>
 
               <div className="flex gap-4 justify-center mt-10">
-                <button className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
+                <button
+                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                >
                   도입 문의
                 </button>
                 <button className="px-8 py-3 bg-white text-purple-600 font-semibold rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors">
