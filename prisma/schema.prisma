@@ -133,9 +133,11 @@ model Influencer {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connections TemplateInfluencerConnection[]
   emailsSent  EmailSent[]
+  emailsReceived EmailReceived[]
 
   @@index([userId])
   @@index([accountId])
+  @@index([email])
   @@map("influencers")
 }
 
@@ -214,6 +216,7 @@ model EmailReceived {
   id            Int      @id @default(autoincrement())
   userId        Int      // 수신자 (계정 소유자)
   messageId     String?  // POP3 메시지 ID
+  uniqueId      String?  // 고유 식별자 (중복 방지용)
   from          String   // 발신자 이메일 주소
   to            String   // 수신자 이메일 주소
   subject       String   // 메일 제목
@@ -225,14 +228,22 @@ model EmailReceived {
   headers       Json?    // 메일 헤더 정보 (JSON)
   receivedAt    DateTime @default(now()) // 수신 시간
   originalDate  DateTime? // 원본 메일의 발송 시간
+  provider      String?  // 이메일 제공자 (gmail, mailplug)
+  influencerId  Int?     // 연관된 인플루언서 ID
+  isInfluencer  Boolean  @default(false) // 인플루언서 메일 여부
 
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  influencer    Influencer? @relation(fields: [influencerId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([from])
   @@index([receivedAt])
   @@index([isRead])
   @@index([isDeleted])
+  @@index([provider])
+  @@index([influencerId])
+  @@index([uniqueId])
+  @@unique([userId, uniqueId]) // 사용자별 고유 ID 유니크 제약
   @@map("emails_received")
 }
 

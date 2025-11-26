@@ -10,29 +10,29 @@ import {
 const prisma = new PrismaClient();
 
 /**
- * IMAP 연결을 위한 설정
+ * Gmail IMAP 연결을 위한 설정
  */
-function createImapConfig(user) {
+function createGmailImapConfig(user) {
   return {
-    user: user.mailplugSmtpUser,
-    password: user.mailplugSmtpPassword,
-    host: "imap.mailplug.co.kr",
+    user: user.gmailSmtpUser,
+    password: user.gmailSmtpPassword,
+    host: "imap.gmail.com",
     port: 993,
     tls: true,
     authTimeout: 10000,
     connTimeout: 15000,
     keepalive: false,
     tlsOptions: {
-      servername: "imap.mailplug.co.kr",
+      servername: "imap.gmail.com",
       rejectUnauthorized: false,
     },
   };
 }
 
 /**
- * IMAP으로 메일 가져오기 (DB 저장 없이 바로 반환)
+ * Gmail IMAP으로 메일 가져오기
  */
-function fetchEmailsViaImap(config, options = {}) {
+function fetchGmailEmailsViaImap(config, options = {}) {
   return new Promise((resolve, reject) => {
     const imap = new Imap(config);
     const emails = [];
@@ -42,10 +42,10 @@ function fetchEmailsViaImap(config, options = {}) {
     // 전체 작업 타임아웃 (30초로 단축)
     const globalTimeout = setTimeout(() => {
       if (!isResolved) {
-        console.error("❌ IMAP 전체 작업 타임아웃 (30초)");
+        console.error("❌ Gmail IMAP 전체 작업 타임아웃 (30초)");
         isResolved = true;
         imap.end();
-        reject(new Error("IMAP operation timeout"));
+        reject(new Error("Gmail IMAP operation timeout"));
       }
     }, 30000);
 
@@ -61,18 +61,18 @@ function fetchEmailsViaImap(config, options = {}) {
       isResolved = true;
       cleanup();
 
-      console.log(`✅ 메일 가져오기 완료 - 총 ${emails.length}개`);
+      console.log(`✅ Gmail 메일 가져오기 완료 - 총 ${emails.length}개`);
       // 최신 메일부터 정렬하여 반환
       emails.sort((a, b) => new Date(b.date) - new Date(a.date));
       resolve(emails);
     }
 
     imap.once("ready", function () {
-      console.log("✅ IMAP 연결 성공");
+      console.log("✅ Gmail IMAP 연결 성공");
 
       imap.openBox("INBOX", true, function (err, box) {
         if (err) {
-          console.error("❌ INBOX 열기 실패:", err);
+          console.error("❌ Gmail INBOX 열기 실패:", err);
           if (!isResolved) {
             isResolved = true;
             cleanup();
@@ -81,10 +81,12 @@ function fetchEmailsViaImap(config, options = {}) {
           return;
         }
 
-        console.log(`📬 INBOX 열기 성공 - 총 메일: ${box.messages.total}개`);
+        console.log(
+          `📬 Gmail INBOX 열기 성공 - 총 메일: ${box.messages.total}개`
+        );
 
         if (box.messages.total === 0) {
-          console.log("📭 받은 메일이 없습니다");
+          console.log("📭 Gmail 받은 메일이 없습니다");
           finishWithResults();
           return;
         }
@@ -92,7 +94,9 @@ function fetchEmailsViaImap(config, options = {}) {
         // 모든 메일 가져오기 (limit 제거)
         const fetchRange = "1:*";
 
-        console.log(`📨 모든 메일 가져오는 중... (총 ${box.messages.total}개)`);
+        console.log(
+          `📨 Gmail 모든 메일 가져오는 중... (총 ${box.messages.total}개)`
+        );
 
         let emailCount = 0;
         let processedCount = 0;
@@ -118,9 +122,6 @@ function fetchEmailsViaImap(config, options = {}) {
 
               // 모든 메일 데이터 수집 완료시 한번에 파싱
               if (processedCount === emailCount) {
-                console.log(
-                  `📦 모든 메일 데이터 수집 완료 (${emailCount}개) - 파싱 시작`
-                );
                 processAllEmails();
               }
             });
@@ -144,19 +145,8 @@ function fetchEmailsViaImap(config, options = {}) {
                 const fromEmail = formatEmailForStorage(fromRaw);
                 const toEmail = formatEmailForStorage(toRaw);
 
-                if (
-                  fromEmail === "info@featuring.in" ||
-                  toEmail === "info@featuring.in"
-                )
-                  console.log({
-                    fromOriginal: fromRaw,
-                    fromExtracted: fromEmail,
-                    toOriginal: toRaw,
-                    toExtracted: toEmail,
-                  });
-
                 const processedEmail = {
-                  id: `imap-${seqno}-${Date.now()}`,
+                  id: `gmail-${seqno}-${Date.now()}`,
                   messageId: parsed.messageId,
                   from: fromEmail || fromRaw,
                   to: toEmail || toRaw,
@@ -175,15 +165,16 @@ function fetchEmailsViaImap(config, options = {}) {
                   isRead: false,
                   receivedAt: new Date().toISOString(),
                   isNewEmail: true,
-                  isImapEmail: true,
+                  isGmailEmail: true,
                   contentLength: parsed.text ? parsed.text.length : 0,
+                  provider: "gmail",
                 };
 
                 return processedEmail;
               })
               .catch((parseErr) => {
                 return {
-                  id: `imap-${seqno}-${Date.now()}`,
+                  id: `gmail-${seqno}-${Date.now()}`,
                   messageId: `unknown-${seqno}`,
                   from: "발신자 불명",
                   subject: "파싱 실패한 메일",
@@ -193,9 +184,10 @@ function fetchEmailsViaImap(config, options = {}) {
                   isRead: false,
                   receivedAt: new Date().toISOString(),
                   isNewEmail: true,
-                  isImapEmail: true,
+                  isGmailEmail: true,
                   hasAttachments: false,
                   error: parseErr.message,
+                  provider: "gmail",
                 };
               });
 
@@ -210,13 +202,12 @@ function fetchEmailsViaImap(config, options = {}) {
               }
             });
 
-            console.log(`🎯 모든 파싱 완료 - API 응답 준비`);
             finishWithResults();
           });
         }
 
         fetch.once("error", function (err) {
-          console.error("❌ 메일 가져오기 실패:", err);
+          console.error("❌ Gmail 메일 가져오기 실패:", err);
           if (!isResolved) {
             isResolved = true;
             cleanup();
@@ -225,7 +216,7 @@ function fetchEmailsViaImap(config, options = {}) {
         });
 
         fetch.once("end", function () {
-          console.log(`📥 fetch 완료 - 수집된 메일: ${emailCount}개`);
+          console.log(`📥 Gmail fetch 완료 - 수집된 메일: ${emailCount}개`);
           if (emailCount === 0) {
             finishWithResults();
           }
@@ -234,7 +225,7 @@ function fetchEmailsViaImap(config, options = {}) {
     });
 
     imap.once("error", function (err) {
-      console.error("❌ IMAP 연결 오류:", err);
+      console.error("❌ Gmail IMAP 연결 오류:", err);
       if (!isResolved) {
         isResolved = true;
         cleanup();
@@ -242,18 +233,18 @@ function fetchEmailsViaImap(config, options = {}) {
       }
     });
 
-    console.log("🔄 IMAP 연결 시도 중...");
+    console.log("🔄 Gmail IMAP 연결 시도 중...");
     imap.connect();
   });
 }
 
 /**
- * POST /api/emails/fetch-imap
- * 메일플러그 IMAP으로 메일을 가져와서 바로 반환 (DB 저장 안 함)
+ * POST /api/emails/fetch-gmail-imap
+ * Gmail IMAP으로 메일을 가져와서 바로 반환 (DB 저장 안 함)
  */
 export async function POST(request) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 35000); // 35초로 단축
+  const timeoutId = setTimeout(() => controller.abort(), 35000);
 
   try {
     const body = await request.json();
@@ -274,52 +265,52 @@ export async function POST(request) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    if (!user.mailplugSmtpUser || !user.mailplugSmtpPassword) {
+    if (!user.gmailSmtpUser || !user.gmailSmtpPassword) {
       return NextResponse.json(
         {
-          error: "Mailplug credentials not configured",
+          error: "Gmail credentials not configured",
         },
         { status: 400 }
       );
     }
 
-    console.log(`사용자 ${userId}의 IMAP 메일 가져오기 시작...`);
+    console.log(`사용자 ${userId}의 Gmail IMAP 메일 가져오기 시작...`);
 
-    const imapConfig = createImapConfig(user);
+    const imapConfig = createGmailImapConfig(user);
     const fetchOptions = {};
 
-    const emails = await fetchEmailsViaImap(imapConfig, fetchOptions);
+    const emails = await fetchGmailEmailsViaImap(imapConfig, fetchOptions);
 
     if (emails.length === 0) {
       return NextResponse.json({
         success: true,
-        message: "No emails found",
+        message: "No Gmail emails found",
         count: 0,
-        method: "IMAP",
-        server: "imap.mailplug.co.kr:993",
+        method: "Gmail IMAP",
+        server: "imap.gmail.com:993",
         emails: [],
       });
     }
 
-    console.log(`📧 IMAP 메일 가져오기 성공: ${emails.length}개`);
+    console.log(`📧 Gmail IMAP 메일 가져오기 성공: ${emails.length}개`);
 
     return NextResponse.json({
       success: true,
-      message: `${emails.length} emails fetched successfully via IMAP`,
+      message: `${emails.length} emails fetched successfully via Gmail IMAP`,
       count: emails.length,
-      method: "IMAP",
-      server: "imap.mailplug.co.kr:993",
+      method: "Gmail IMAP",
+      server: "imap.gmail.com:993",
       emails: emails,
     });
   } catch (error) {
-    console.error("IMAP 메일 가져오기 오류:", error);
+    console.error("Gmail IMAP 메일 가져오기 오류:", error);
 
     if (error.name === "AbortError" || error.message.includes("timeout")) {
       return NextResponse.json(
         {
-          error: "IMAP connection timeout",
+          error: "Gmail IMAP connection timeout",
           details: "The operation took too long. Please try again.",
-          method: "IMAP",
+          method: "Gmail IMAP",
         },
         { status: 408 }
       );
@@ -327,9 +318,9 @@ export async function POST(request) {
 
     return NextResponse.json(
       {
-        error: "Failed to fetch emails via IMAP",
+        error: "Failed to fetch emails via Gmail IMAP",
         details: error.message,
-        method: "IMAP",
+        method: "Gmail IMAP",
       },
       { status: 500 }
     );
@@ -339,8 +330,8 @@ export async function POST(request) {
 }
 
 /**
- * GET /api/emails/fetch-imap
- * IMAP 연결 테스트만 수행
+ * GET /api/emails/fetch-gmail-imap
+ * Gmail IMAP 연결 테스트만 수행
  */
 export async function GET(request) {
   try {
@@ -358,10 +349,10 @@ export async function GET(request) {
       where: { id: parseInt(userId) },
     });
 
-    if (!user || !user.mailplugSmtpUser || !user.mailplugSmtpPassword) {
+    if (!user || !user.gmailSmtpUser || !user.gmailSmtpPassword) {
       return NextResponse.json(
         {
-          error: "User not found or credentials not configured",
+          error: "User not found or Gmail credentials not configured",
         },
         { status: 400 }
       );
@@ -369,14 +360,14 @@ export async function GET(request) {
 
     return NextResponse.json({
       success: true,
-      message: "IMAP fetch service is available",
-      server: "imap.mailplug.co.kr:993",
-      method: "IMAP",
+      message: "Gmail IMAP fetch service is available",
+      server: "imap.gmail.com:993",
+      method: "Gmail IMAP",
     });
   } catch (error) {
     return NextResponse.json(
       {
-        error: "Failed to check IMAP fetch status",
+        error: "Failed to check Gmail IMAP fetch status",
         details: error.message,
       },
       { status: 500 }
