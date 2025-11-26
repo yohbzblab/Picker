@@ -20,9 +20,7 @@ export default function InboxPage() {
   const [pagination, setPagination] = useState(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isReceivingImap, setIsReceivingImap] = useState(false);
   const [mailboxStats, setMailboxStats] = useState(null);
-  const [isTesting, setIsTesting] = useState(false);
   const [selectedTestEmail, setSelectedTestEmail] = useState(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [showSmtpSettings, setShowSmtpSettings] = useState(false);
@@ -48,8 +46,27 @@ export default function InboxPage() {
     mailplug: true,
     gmail: true,
   });
-  const [filterInfluencerOnly, setFilterInfluencerOnly] = useState(false);
-  const [influencerStats, setInfluencerStats] = useState(null);
+
+  // 인플루언서 필터 관련 상태
+  const [influencers, setInfluencers] = useState([]);
+  const [selectedInfluencer, setSelectedInfluencer] = useState(null);
+  const [showInfluencerFilter, setShowInfluencerFilter] = useState(false);
+
+  // 새 메일 수신 확인 모달 상태
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+  // 진행상황 모달 관련 상태 (단순화)
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressData, setProgressData] = useState({
+    stage: '시작',
+    message: '메일 수신을 준비하고 있습니다...',
+    isRunning: false,
+    isComplete: false,
+    startEmailCount: 0,
+    currentEmailCount: 0,
+    newEmailCount: 0,
+    error: null
+  });
 
   useEffect(() => {
     if (!loading && !user) {
@@ -57,22 +74,70 @@ export default function InboxPage() {
     }
   }, [user, loading, router]);
 
+  // 메일 수 모니터링 폴링
+  useEffect(() => {
+    let pollInterval;
+
+    if (showProgressModal && progressData.isRunning && !progressData.isComplete) {
+      pollInterval = setInterval(async () => {
+        await checkEmailCount();
+      }, 3000); // 3초마다 메일 수 확인
+    }
+
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [showProgressModal, progressData.isRunning, progressData.isComplete, dbUser]);
+
+  const checkEmailCount = async () => {
+    if (!dbUser) return;
+
+    try {
+      const response = await fetch(`/api/emails/count?userId=${dbUser.id}`);
+      const data = await response.json();
+
+      if (data.success) {
+        const newCount = data.counts.total - progressData.startEmailCount;
+
+        setProgressData(prev => ({
+          ...prev,
+          currentEmailCount: data.counts.total,
+          newEmailCount: newCount,
+          message: newCount > 0
+            ? `${newCount}개의 새로운 메일을 발견했습니다.`
+            : '새로운 메일을 확인하고 있습니다...'
+        }));
+      }
+    } catch (error) {
+      // 메일 수 확인 실패는 조용히 무시
+    }
+  };
+
   // 첫 로드 시에만 설정 확인
   useEffect(() => {
     if (dbUser) {
-      // fetchInboxEmails(); // 데이터베이스에서 메일을 가져오는 함수는 비활성화
+      fetchInboxEmails(); // 데이터베이스에서 메일 가져오기
       fetchMailboxStats();
-      fetchInfluencerStats();
       checkSmtpSettings();
+      fetchInfluencers(); // 인플루언서 목록 가져오기
     }
   }, [dbUser]);
 
-  // 페이지나 필터 변경 시 처리 (현재는 비활성화)
-  // useEffect(() => {
-  //   if (dbUser && (currentPage > 1 || unreadOnly || searchQuery)) {
-  //     fetchInboxEmails();
-  //   }
-  // }, [currentPage, unreadOnly, searchQuery]);
+  // 필터 변경 시 페이지 리셋
+  useEffect(() => {
+    if (dbUser) {
+      setCurrentPage(1);
+    }
+  }, [unreadOnly, searchQuery, selectedInfluencer]);
+
+  // 페이지나 필터 변경 시 처리
+  useEffect(() => {
+    if (dbUser && (currentPage > 1 || unreadOnly || searchQuery || selectedInfluencer)) {
+      fetchInboxEmails();
+    }
+  }, [currentPage, unreadOnly, searchQuery, selectedInfluencer]);
 
   const checkSmtpSettings = async () => {
     try {
@@ -130,20 +195,19 @@ export default function InboxPage() {
     }
   };
 
-  const fetchInfluencerStats = async () => {
+  const fetchInfluencers = async () => {
     try {
-      const response = await fetch(
-        `/api/emails/receive-filtered?userId=${dbUser.id}`
-      );
+      const response = await fetch(`/api/influencers?userId=${dbUser.id}`);
       const data = await response.json();
 
-      if (data.success) {
-        setInfluencerStats(data.statistics);
+      if (response.ok && data.influencers) {
+        setInfluencers(data.influencers);
       }
     } catch (error) {
-      console.error("인플루언서 통계 조회 실패:", error);
+      console.error("인플루언서 목록 조회 실패:", error);
     }
   };
+
 
   const fetchInboxEmails = async () => {
     setIsLoading(true);
@@ -157,6 +221,10 @@ export default function InboxPage() {
 
       if (searchQuery) {
         params.append("search", searchQuery);
+      }
+
+      if (selectedInfluencer) {
+        params.append("influencerEmail", selectedInfluencer.email);
       }
 
       const response = await fetch(`/api/emails/inbox?${params}`);
@@ -177,158 +245,34 @@ export default function InboxPage() {
     }
   };
 
-  const receiveNewEmailsViaImapOLD = async () => {
-    setIsReceivingImap(true);
+
+  const receiveNewEmailsViaImap = async () => {
     try {
-      const promises = [];
-      const allEmails = [];
+      // 1. 현재 메일 수 확인
+      const countResponse = await fetch(`/api/emails/count?userId=${dbUser.id}`);
+      const countData = await countResponse.json();
 
-      // 메일플러그 메일 가져오기
-      if (selectedProviders.mailplug && smtpConfigured) {
-        console.log("📧 메일플러그 메일 가져오기 시작...");
-        const mailplugPromise = fetch("/api/emails/fetch-imap", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: dbUser.id,
-            options: {},
-          }),
-        }).then((res) => res.json());
-        promises.push(mailplugPromise);
-      }
-
-      // Gmail 메일 가져오기
-      if (selectedProviders.gmail && smtpConfigured) {
-        console.log("📧 Gmail 메일 가져오기 시작...");
-        const gmailPromise = fetch("/api/emails/fetch-gmail-imap", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            userId: dbUser.id,
-            options: {},
-          }),
-        }).then((res) => res.json());
-        promises.push(gmailPromise);
-      }
-
-      if (promises.length === 0) {
-        alert("선택된 메일 제공업체가 없거나 SMTP 설정이 완료되지 않았습니다.");
+      if (!countData.success) {
+        alert('메일 수 확인에 실패했습니다.');
         return;
       }
 
-      const results = await Promise.allSettled(promises);
+      const startCount = countData.counts.total;
 
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled") {
-          const data = result.value;
-
-          if (data.success && data.count > 0) {
-            console.log(`📧 받은 메일 데이터 (${data.method}):`, data.emails);
-
-            // IMAP에서 받은 메일을 리스트 형식으로 변환
-            const newEmails = data.emails.map((email) => ({
-              id: email.id,
-              from: email.from,
-              subject: email.subject,
-              preview:
-                email.preview ||
-                email.textContent?.substring(0, 100) + "..." ||
-                "",
-              receivedAt: email.receivedAt,
-              isRead: email.isRead || false,
-              hasAttachments: email.hasAttachments || false,
-              isNewEmail: true,
-              isImapEmail: email.isImapEmail || false,
-              isGmailEmail: email.isGmailEmail || false,
-              content: email.textContent,
-              htmlContent: email.htmlContent,
-              messageId: email.messageId,
-              attachments: email.attachments || [],
-              provider: email.provider || "unknown",
-            }));
-
-            allEmails.push(...newEmails);
-          }
-        } else {
-          console.error("메일 가져오기 실패:", result.reason);
-        }
+      // 2. 모달 표시 및 모니터링 시작
+      setShowProgressModal(true);
+      setProgressData({
+        stage: '메일 수신 중',
+        message: '메일 서버에서 새로운 메일을 가져오고 있습니다...',
+        isRunning: true,
+        isComplete: false,
+        startEmailCount: startCount,
+        currentEmailCount: startCount,
+        newEmailCount: 0,
+        error: null
       });
 
-      if (allEmails.length > 0) {
-        // 날짜순으로 정렬 (최신순)
-        allEmails.sort(
-          (a, b) => new Date(b.receivedAt) - new Date(a.receivedAt)
-        );
-
-        // 기존 메일과 중복 제거 후 병합
-        setEmails((prevEmails) => {
-          const existingIds = new Set(
-            prevEmails.map((email) => email.messageId || email.id)
-          );
-          const newUniqueEmails = allEmails.filter(
-            (email) => !existingIds.has(email.messageId || email.id)
-          );
-
-          console.log(
-            `기존 메일: ${prevEmails.length}개, 신규 메일: ${newUniqueEmails.length}개`
-          );
-
-          // 새로운 메일을 상단에 추가하고 전체를 날짜순으로 정렬
-          const mergedEmails = [...newUniqueEmails, ...prevEmails];
-          mergedEmails.sort(
-            (a, b) => new Date(b.receivedAt) - new Date(a.receivedAt)
-          );
-
-          console.log(`병합된 메일 총: ${mergedEmails.length}개`);
-
-          return mergedEmails;
-        });
-
-        const mailplugCount = allEmails.filter(
-          (email) => email.isImapEmail
-        ).length;
-        const gmailCount = allEmails.filter(
-          (email) => email.isGmailEmail
-        ).length;
-
-        let message = `✅ 총 ${allEmails.length}개의 메일을 가져왔습니다!\n`;
-        if (mailplugCount > 0) message += `메일플러그: ${mailplugCount}개\n`;
-        if (gmailCount > 0) message += `Gmail: ${gmailCount}개\n`;
-        message += "\n메일 목록에서 확인하세요.";
-
-        alert(message);
-      } else {
-        alert("📭 가져올 메일이 없습니다.");
-      }
-
-      // 통계 정보만 업데이트 (fetchInboxEmails 호출 제거)
-      fetchMailboxStats();
-    } catch (error) {
-      console.error("IMAP 메일 가져오기 실패:", error);
-      if (error.name === "TypeError" && error.message.includes("fetch")) {
-        alert(
-          "❌ 네트워크 연결 오류가 발생했습니다.\n인터넷 연결을 확인하고 다시 시도해주세요."
-        );
-      } else {
-        alert(
-          "❌ IMAP 메일 가져오기 중 예상치 못한 오류가 발생했습니다.\n잠시 후 다시 시도해주세요."
-        );
-      }
-    } finally {
-      setIsReceivingImap(false);
-    }
-  };
-
-  const receiveNewEmailsViaImap = async () => {
-    setIsReceivingImap(true);
-    try {
-      // 단순한 인플루언서 필터링 API 호출
-      console.log("🎯 단순 인플루언서 메일 필터링 시작...");
-
+      // 3. 메일 수신 작업 시작
       const response = await fetch("/api/emails/simple-influencer-filter", {
         method: "POST",
         headers: {
@@ -342,162 +286,58 @@ export default function InboxPage() {
       const data = await response.json();
 
       if (!data.success) {
-        alert(`❌ 메일 수신 실패: ${data.error}`);
+        setProgressData(prev => ({
+          ...prev,
+          stage: '오류',
+          message: `메일 수신 실패: ${data.error}`,
+          isRunning: false,
+          isComplete: true,
+          error: data.error
+        }));
         return;
       }
 
-      console.log("🎯 필터링된 메일 수신 결과:", data);
 
-      // 통계 정보 업데이트
-      setInfluencerStats(data.stats);
+      // 4. 최종 메일 수 확인
+      const finalCountResponse = await fetch(`/api/emails/count?userId=${dbUser.id}`);
+      const finalCountData = await finalCountResponse.json();
 
-      // 저장된 메일이 있으면 데이터베이스에서 다시 불러와서 화면 업데이트
-      if (data.savedEmails && data.savedEmails.length > 0) {
-        await fetchInboxEmails();
-      }
+      const finalCount = finalCountData.success ? finalCountData.counts.total : startCount;
+      const totalNew = finalCount - startCount;
 
-      // 결과 메시지 만들기
-      let message = `🎯 인플루언서 메일 필터링 완료!\n\n`;
-      message += `• 전체 가져온 메일: ${data.stats.totalFetched}개\n`;
-      message += `• 인플루언서 메일 매칭: ${data.stats.matched}개\n`;
-      message += `• 데이터베이스 저장: ${data.stats.saved}개\n`;
-      message += `• 중복 메일: ${data.stats.duplicates}개\n\n`;
-      message += `등록된 인플루언서: ${data.stats.influencerCount}명`;
-
-      // 저장된 메일이 있으면 상세 정보 추가
-      if (data.savedEmails && data.savedEmails.length > 0) {
-        message += "\n\n📧 저장된 메일:";
-        let displayCount = 0;
-        data.savedEmails.forEach((email) => {
-          if (displayCount < 3) {
-            // 최대 3개만 표시
-            if (email.influencer && email.influencer.accountId) {
-              // 인플루언서 메일
-              message += `\n- 🎯 ${
-                email.influencer.accountId
-              }: ${email.subject.substring(0, 30)}...`;
-            } else {
-              // 일반 메일
-              message += `\n- 📨 ${email.from}: ${email.subject.substring(0, 30)}...`;
-            }
-            displayCount++;
-          }
-        });
-        if (data.savedEmails.length > 3) {
-          message += `\n... 등 총 ${data.savedEmails.length}개`;
-        }
-      }
-
-      alert(message);
-
-      // 통계 정보 업데이트
-      fetchMailboxStats();
-      fetchInfluencerStats();
-    } catch (error) {
-      console.error("필터링 메일 가져오기 실패:", error);
-      alert(
-        "❌ 메일 가져오기 중 오류가 발생했습니다.\n잠시 후 다시 시도해주세요."
-      );
-    } finally {
-      setIsReceivingImap(false);
-    }
-  };
-
-  const testImapConnection = async () => {
-    setIsTesting(true);
-    try {
-      const response = await fetch(
-        `/api/emails/receive-imap?userId=${dbUser.id}&testOnly=true`
-      );
-      const data = await response.json();
-
-      if (data.success) {
-        alert(`✅ IMAP 연결 테스트 성공!\n서버: ${data.server}`);
-      } else {
-        alert(`❌ IMAP 연결 테스트 실패: ${data.error}`);
-      }
-    } catch (error) {
-      console.error("IMAP 연결 테스트 실패:", error);
-      alert("IMAP 연결 테스트 중 오류가 발생했습니다.");
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  const testDirectPOP3 = async () => {
-    setIsTesting(true);
-    setTestResults(null);
-    try {
-      const response = await fetch(
-        `/api/emails/test-direct-pop3?userId=${dbUser.id}`
-      );
-      const data = await response.json();
-
-      if (data.success) {
-        console.log("🔍 직접 POP3 연결 테스트 결과:", data);
-        setTestResults({
-          type: "directpop3",
-          success: true,
-          message: "직접 POP3 연결 테스트 완료!",
-          data,
-        });
-
-        // 결과를 알림으로 표시
-        let message = `🔍 직접 POP3 연결 테스트 결과:\n\n`;
-        message += `📧 이메일: ${data.config.email}\n`;
-        message += `🖥️ 서버: ${data.config.host}:${data.config.port}\n`;
-        message += `🔧 방법: ${data.config.method}\n`;
-        message += `📊 최종 상태: ${data.test_results.final_status}\n\n`;
-
-        message += `단계별 결과:\n`;
-        data.test_results.steps.forEach((step, index) => {
-          message += `${index + 1}. ${step.action}: ${step.status}\n`;
-          if (step.error) {
-            message += `   에러: ${step.error}\n`;
-          }
-          if (step.data && typeof step.data === "string") {
-            message += `   응답: ${step.data}\n`;
-          }
-        });
-
-        if (
-          data.test_results.raw_responses &&
-          data.test_results.raw_responses.length > 0
-        ) {
-          message += `\n📥 서버 응답들:\n`;
-          data.test_results.raw_responses.forEach((resp, index) => {
-            message += `${index + 1}. ${resp.data}\n`;
-          });
-        }
-
-        alert(message);
-        setShowTestResults(true);
-      } else {
-        setTestResults({
-          type: "directpop3",
-          success: false,
-          message: `직접 POP3 연결 테스트 실패: ${data.error}`,
-          data,
-        });
-        alert(
-          `❌ 직접 POP3 연결 테스트 실패: ${data.error}\n상세 정보: ${
-            data.details || "없음"
-          }`
-        );
-      }
-    } catch (error) {
-      console.error("직접 POP3 연결 테스트 실패:", error);
-      setTestResults({
-        type: "directpop3",
-        success: false,
-        message: "직접 POP3 연결 테스트 중 오류가 발생했습니다.",
-        error: error.message,
+      // 5. 완료 상태 표시
+      setProgressData({
+        stage: '완료',
+        message: `메일 수신이 완료되었습니다! ${totalNew}개의 새로운 메일을 받았습니다.`,
+        isRunning: false,
+        isComplete: true,
+        startEmailCount: startCount,
+        currentEmailCount: finalCount,
+        newEmailCount: totalNew,
+        error: null,
+        stats: data.stats
       });
-      alert("직접 POP3 연결 테스트 중 오류가 발생했습니다.");
-    } finally {
-      setIsTesting(false);
+
+      // 6. 3초 후 모달 닫기 및 목록 새로고침
+      setTimeout(() => {
+        setShowProgressModal(false);
+        fetchInboxEmails();
+        fetchMailboxStats();
+      }, 3000);
+
+    } catch (error) {
+      console.error("메일 수신 실패:", error);
+      setProgressData(prev => ({
+        ...prev,
+        stage: '오류',
+        message: '메일 수신 중 오류가 발생했습니다.',
+        isRunning: false,
+        isComplete: true,
+        error: error.message
+      }));
     }
   };
+
 
   const markEmailsAsRead = async (emailIds, isRead = true) => {
     try {
@@ -577,6 +417,46 @@ export default function InboxPage() {
     }
   };
 
+  // 페이지네이션 숫자 배열 생성 함수
+  const getPaginationNumbers = (currentPage, totalPages) => {
+    const pages = [];
+    const maxVisible = 10; // 최대 표시할 페이지 수
+
+    if (totalPages <= maxVisible) {
+      // 전체 페이지가 10개 이하면 모두 표시
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // 10개 초과일 때 생략 처리
+      const start = Math.max(1, currentPage - 4);
+      const end = Math.min(totalPages, currentPage + 5);
+
+      // 첫 페이지는 항상 표시
+      if (start > 1) {
+        pages.push(1);
+        if (start > 2) {
+          pages.push('...');
+        }
+      }
+
+      // 현재 페이지 주변 페이지들 표시
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+
+      // 마지막 페이지는 항상 표시
+      if (end < totalPages) {
+        if (end < totalPages - 1) {
+          pages.push('...');
+        }
+        pages.push(totalPages);
+      }
+    }
+
+    return pages;
+  };
+
   const handleEmailClick = (email) => {
     // 새로운 메일이면 클릭 시 isNewEmail 플래그 제거
     if (email.isNewEmail) {
@@ -617,7 +497,14 @@ export default function InboxPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-4">
               <div className="flex items-center space-x-4">
-                <h1 className="text-2xl font-bold text-gray-900">📧 수신함</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  📧 수신함
+                  {selectedInfluencer && (
+                    <span className="ml-2 text-lg text-purple-600">
+                      • {selectedInfluencer.accountId}
+                    </span>
+                  )}
+                </h1>
                 {mailboxStats && (
                   <div className="flex items-center space-x-4 text-sm text-gray-600">
                     <span>전체: {mailboxStats.totalEmails}</span>
@@ -627,35 +514,6 @@ export default function InboxPage() {
                 )}
               </div>
             </div>
-            {/* 인플루언서 통계 표시 */}
-            {influencerStats && (
-              <div className="py-2 px-4 bg-purple-50 border-t border-purple-100">
-                <div className="flex items-center space-x-6 text-sm">
-                  <span className="text-purple-700 font-medium">
-                    🎯 인플루언서 필터링
-                  </span>
-                  <span className="text-purple-600">
-                    전체 메일: {influencerStats.totalEmails}
-                  </span>
-                  <span className="text-purple-600 font-semibold">
-                    인플루언서 메일: {influencerStats.influencerEmails}
-                  </span>
-                  <span className="text-purple-600">
-                    일반 메일: {influencerStats.nonInfluencerEmails}
-                  </span>
-                  {influencerStats.byProvider && (
-                    <>
-                      <span className="text-purple-500">
-                        Gmail: {influencerStats.byProvider.gmail}
-                      </span>
-                      <span className="text-purple-500">
-                        메일플러그: {influencerStats.byProvider.mailplug}
-                      </span>
-                    </>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         </header>
 
@@ -663,6 +521,124 @@ export default function InboxPage() {
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* 도구 모음 */}
           <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+            {/* 인플루언서 필터 토글 */}
+            {influencers.length > 0 && (
+              <div className="mb-4">
+                <button
+                  onClick={() => setShowInfluencerFilter(!showInfluencerFilter)}
+                  className="flex items-center justify-between w-full px-4 py-3 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-purple-600">🎯</span>
+                    <span className="text-sm font-medium text-gray-900">
+                      인플루언서 필터
+                    </span>
+                    {selectedInfluencer && (
+                      <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                        @{selectedInfluencer.accountId} 선택됨
+                      </span>
+                    )}
+                    <span className="text-xs text-gray-500">
+                      ({influencers.length}명 등록)
+                    </span>
+                  </div>
+                  <svg
+                    className={`w-5 h-5 text-gray-400 transition-transform ${
+                      showInfluencerFilter ? 'rotate-180' : ''
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* 인플루언서 필터 내용 */}
+                {showInfluencerFilter && (
+                  <div className="mt-2 bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <div className="max-h-64 overflow-y-auto">
+                      <div className="divide-y divide-gray-100">
+                        {/* 전체 보기 옵션 */}
+                        <button
+                          onClick={() => {
+                            setSelectedInfluencer(null);
+                            setShowInfluencerFilter(false);
+                          }}
+                          className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                            !selectedInfluencer ? 'bg-purple-50' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-4">
+                              <span className={`text-sm font-medium ${
+                                !selectedInfluencer ? 'text-purple-700' : 'text-gray-700'
+                              }`}>
+                                전체 메일 보기
+                              </span>
+                            </div>
+                            {!selectedInfluencer && (
+                              <span className="text-purple-600">
+                                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                </svg>
+                              </span>
+                            )}
+                          </div>
+                        </button>
+
+                        {/* 인플루언서 목록 */}
+                        {influencers.map((influencer) => (
+                          <button
+                            key={influencer.id}
+                            onClick={() => {
+                              setSelectedInfluencer(influencer);
+                              setShowInfluencerFilter(false);
+                            }}
+                            className={`w-full px-4 py-3 text-left hover:bg-gray-50 transition-colors ${
+                              selectedInfluencer?.id === influencer.id ? 'bg-purple-50' : ''
+                            }`}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-4 min-w-0">
+                                <div className="flex-shrink-0">
+                                  <span className={`text-sm font-medium ${
+                                    selectedInfluencer?.id === influencer.id ? 'text-purple-700' : 'text-gray-900'
+                                  }`}>
+                                    @{influencer.accountId}
+                                  </span>
+                                </div>
+                                <div className="text-sm text-gray-600 truncate">
+                                  {influencer.email || '이메일 없음'}
+                                </div>
+                                <div className="text-sm text-gray-500 truncate">
+                                  {influencer.fieldData?.name || influencer.fieldData?.이름 || '이름 없음'}
+                                </div>
+                              </div>
+                              {selectedInfluencer?.id === influencer.id && (
+                                <span className="text-purple-600 flex-shrink-0">
+                                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {influencers.length > 5 && (
+                      <div className="px-4 py-2 bg-gray-50 border-t border-gray-200">
+                        <p className="text-xs text-gray-500">
+                          스크롤하여 더 많은 인플루언서를 확인하세요
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* 메일 제공업체 선택 체크박스 */}
             <div className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg border mb-4">
               <span className="text-sm font-medium text-gray-700">
@@ -698,47 +674,20 @@ export default function InboxPage() {
               </label>
             </div>
 
-            {/* 인플루언서 필터링 옵션 */}
-            <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-lg border border-purple-200 mb-4">
-              <span className="text-sm font-medium text-purple-700">
-                🎯 인플루언서 필터링:
-              </span>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={filterInfluencerOnly}
-                  onChange={(e) => setFilterInfluencerOnly(e.target.checked)}
-                  className="w-4 h-4 text-purple-600 bg-gray-100 border-gray-300 rounded focus:ring-purple-500"
-                />
-                <span className="text-sm text-purple-700">
-                  인플루언서 메일만 저장
-                  <span className="text-xs text-purple-500 ml-1">
-                    (체크 시 인플루언서로 등록된 이메일만 저장)
-                  </span>
-                </span>
-              </label>
-            </div>
 
             <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
               <div className="flex flex-wrap gap-2">
                 <button
-                  onClick={receiveNewEmailsViaImap}
+                  onClick={() => setShowConfirmModal(true)}
                   disabled={
-                    isReceivingImap ||
+                    progressData.isRunning ||
                     (!selectedProviders.mailplug && !selectedProviders.gmail)
                   }
                   className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 disabled:opacity-50 font-semibold"
                 >
-                  {isReceivingImap ? "수신 중..." : "📧 새 메일 수신"}
+                  {progressData.isRunning ? "수신 중..." : "📧 새 메일 수신"}
                 </button>
 
-                <button
-                  onClick={testImapConnection}
-                  disabled={isTesting}
-                  className="bg-green-600 text-white px-3 py-2 rounded-md hover:bg-green-700 disabled:opacity-50 text-sm"
-                >
-                  {isTesting ? "테스트 중..." : "🔗 연결 테스트"}
-                </button>
 
                 <button
                   onClick={() => setShowSmtpSettings(true)}
@@ -886,9 +835,22 @@ export default function InboxPage() {
                                 새로운 메일
                               </span>
                             )}
-                            {email.isImapEmail && (
-                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                                IMAP
+                            {email.provider && (
+                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                email.provider === 'gmail'
+                                  ? 'bg-red-100 text-red-800'
+                                  : email.provider === 'mailplug'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : 'bg-gray-100 text-gray-800'
+                              }`}>
+                                {email.provider === 'gmail' ? '📧 Gmail' :
+                                 email.provider === 'mailplug' ? '📨 메일플러그' :
+                                 email.provider}
+                              </span>
+                            )}
+                            {email.isInfluencer && (
+                              <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                                🎯 인플루언서
                               </span>
                             )}
                           </div>
@@ -937,23 +899,38 @@ export default function InboxPage() {
                   개 표시
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-1">
                   <button
                     onClick={() => setCurrentPage(pagination.currentPage - 1)}
                     disabled={!pagination.hasPrev}
-                    className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                   >
                     이전
                   </button>
 
-                  <span className="px-3 py-1">
-                    {pagination.currentPage} / {pagination.totalPages}
-                  </span>
+                  {getPaginationNumbers(pagination.currentPage, pagination.totalPages).map((page, index) => (
+                    <div key={index}>
+                      {page === '...' ? (
+                        <span className="px-3 py-2 text-sm text-gray-500">...</span>
+                      ) : (
+                        <button
+                          onClick={() => setCurrentPage(page)}
+                          className={`px-3 py-2 text-sm border rounded-md ${
+                            page === pagination.currentPage
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                          }`}
+                        >
+                          {page}
+                        </button>
+                      )}
+                    </div>
+                  ))}
 
                   <button
                     onClick={() => setCurrentPage(pagination.currentPage + 1)}
                     disabled={!pagination.hasNext}
-                    className="px-3 py-1 border rounded-md disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-2 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                   >
                     다음
                   </button>
@@ -1112,6 +1089,214 @@ export default function InboxPage() {
           setSenderName={setSenderName}
           onSave={checkSmtpSettings}
         />
+
+        {/* 새 메일 수신 확인 모달 */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+              {/* 모달 헤더 */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  새 메일 수신
+                </h2>
+              </div>
+
+              {/* 모달 본문 */}
+              <div className="px-6 py-6">
+                <div className="mb-6">
+                  <p className="text-gray-700 text-center leading-relaxed">
+                    등록한 인플루언서의 이메일을 이용해<br />
+                    메일을 정리할게요.
+                  </p>
+                </div>
+
+                <div className="bg-blue-50 rounded-lg p-4 mb-4">
+                  <div className="flex items-start gap-3">
+                    <svg className="w-5 h-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    <div className="text-sm text-blue-800">
+                      <p className="font-medium mb-1">처리 내용:</p>
+                      <ul className="space-y-1">
+                        <li>• 메일 서버에서 새로운 메일 가져오기</li>
+                        <li>• 등록된 인플루언서와 매칭</li>
+                        <li>• 자동으로 분류 및 정리</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 모달 푸터 */}
+              <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    receiveNewEmailsViaImap();
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors font-medium"
+                >
+                  진행
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 진행상황 모달 */}
+        {showProgressModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full">
+              {/* 모달 헤더 */}
+              <div className="px-6 py-4 border-b border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+                    <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    메일 수신 진행상황
+                  </h2>
+                  {progressData.isComplete && (
+                    <button
+                      onClick={() => setShowProgressModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 모달 본문 */}
+              <div className="px-6 py-6">
+                {/* 현재 단계 */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${
+                      progressData.error ? 'bg-red-500' :
+                      progressData.isComplete ? 'bg-green-500' : 'bg-blue-500 animate-pulse'
+                    }`}></div>
+                    <span className="text-lg font-medium text-gray-900">
+                      {progressData.stage}
+                    </span>
+                  </div>
+                  <p className="text-gray-600 ml-6">{progressData.message}</p>
+                </div>
+
+                {/* 메일 수 정보 */}
+                {(progressData.isRunning || progressData.isComplete) && (
+                  <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-gray-900 mb-3">메일 현황</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <div className="text-sm text-gray-600">시작 시점</div>
+                        <div className="text-lg font-semibold text-gray-900">{progressData.startEmailCount}개</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-600">현재 메일</div>
+                        <div className="text-lg font-semibold text-gray-900">{progressData.currentEmailCount}개</div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-gray-600">새로 받은 메일</div>
+                        <div className="text-lg font-semibold text-blue-600">{progressData.newEmailCount}개</div>
+                      </div>
+                      {progressData.stats && (
+                        <div>
+                          <div className="text-sm text-gray-600">인플루언서 매칭</div>
+                          <div className="text-lg font-semibold text-purple-600">
+                            {progressData.stats.matched || 0}개
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 완료 시 상세 결과 */}
+                {progressData.isComplete && progressData.stage === '완료' && progressData.savedEmails && (
+                  <div className="bg-green-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-green-800 mb-2">저장된 메일</h3>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {progressData.savedEmails.slice(0, 5).map((email, index) => (
+                        <div key={index} className="text-sm text-green-700 flex items-center gap-2">
+                          {email.influencer ? (
+                            <>
+                              <span className="text-purple-600">🎯</span>
+                              <span className="font-medium">{email.influencer.accountId}</span>
+                              <span>:</span>
+                              <span className="truncate">{email.subject}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>📨</span>
+                              <span className="font-medium">{email.from}</span>
+                              <span>:</span>
+                              <span className="truncate">{email.subject}</span>
+                            </>
+                          )}
+                        </div>
+                      ))}
+                      {progressData.savedEmails.length > 5 && (
+                        <div className="text-sm text-green-600">
+                          ... 등 총 {progressData.savedEmails.length}개
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 오류 정보 */}
+                {progressData.error && (
+                  <div className="bg-red-50 rounded-lg p-4 mb-4">
+                    <h3 className="text-sm font-medium text-red-800 mb-2">오류</h3>
+                    <div className="text-sm text-red-700">
+                      • {progressData.error}
+                    </div>
+                  </div>
+                )}
+
+                {/* 완료되지 않았을 때의 로딩 애니메이션 */}
+                {progressData.isRunning && !progressData.isComplete && !progressData.error && (
+                  <div className="flex items-center justify-center gap-2 text-gray-500">
+                    <svg className="w-5 h-5 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span>메일 수신 중...</span>
+                  </div>
+                )}
+              </div>
+
+              {/* 모달 푸터 */}
+              {progressData.isComplete && (
+                <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+                  <button
+                    onClick={() => {
+                      setShowProgressModal(false);
+                      if (progressData.stage === '완료') {
+                        fetchInboxEmails();
+                        fetchMailboxStats();
+                      }
+                    }}
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    확인
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

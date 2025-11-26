@@ -17,6 +17,7 @@ export async function GET(request) {
     const search = searchParams.get('search')
     const fromDate = searchParams.get('fromDate')
     const toDate = searchParams.get('toDate')
+    const influencerEmail = searchParams.get('influencerEmail')
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
@@ -46,6 +47,10 @@ export async function GET(request) {
       if (toDate) where.receivedAt.lte = new Date(toDate)
     }
 
+    if (influencerEmail) {
+      where.from = { contains: influencerEmail, mode: 'insensitive' }
+    }
+
     // 페이지네이션 계산
     const skip = (page - 1) * limit
 
@@ -67,7 +72,9 @@ export async function GET(request) {
         isRead: true,
         receivedAt: true,
         originalDate: true,
-        attachments: true
+        attachments: true,
+        provider: true,
+        isInfluencer: true
       }
     })
 

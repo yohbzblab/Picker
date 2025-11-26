@@ -17,9 +17,10 @@ export default function SmtpSettingsModal({
   setBrandName,
   senderName,
   setSenderName,
-  onSave
+  onSave,
 }) {
   const [savingSettings, setSavingSettings] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
 
   const handleSaveSmtpSettings = async () => {
     setSavingSettings(true);
@@ -78,6 +79,55 @@ export default function SmtpSettingsModal({
       alert("설정 저장 중 오류가 발생했습니다.");
     } finally {
       setSavingSettings(false);
+    }
+  };
+
+  const handleTestSmtpConnection = async () => {
+    setTestingConnection(true);
+    try {
+      const currentSettings =
+        emailProvider === "mailplug" ? mailplugSettings : gmailSettings;
+
+      // 유효성 검사
+      if (!currentSettings.smtpUser || !currentSettings.smtpPassword) {
+        alert("이메일 주소와 앱 비밀번호를 모두 입력해주세요.");
+        setTestingConnection(false);
+        return;
+      }
+
+      // Gmail인 경우 @gmail.com 체크
+      if (
+        emailProvider === "gmail" &&
+        !currentSettings.smtpUser.includes("@gmail.com")
+      ) {
+        alert("Gmail 주소를 입력해주세요.");
+        setTestingConnection(false);
+        return;
+      }
+
+      const response = await fetch("/api/emails/test-smtp", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          emailProvider,
+          smtpSettings: currentSettings,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert(`✅ ${result.message}`);
+      } else {
+        alert(`❌ ${result.error}`);
+      }
+    } catch (error) {
+      console.error("Error testing SMTP connection:", error);
+      alert("❌ SMTP 연결 테스트 중 오류가 발생했습니다.");
+    } finally {
+      setTestingConnection(false);
     }
   };
 
@@ -155,6 +205,12 @@ export default function SmtpSettingsModal({
                   <li>3. "앱 비밀번호" 클릭</li>
                   <li>4. 앱 선택: "메일", 기기 선택: "기타(맞춤 이름)"</li>
                   <li>5. 생성된 16자리 비밀번호를 아래에 입력</li>
+                </ol>
+                <ol className="text-lg text-red-700 space-y-1">
+                  <li>
+                    !! 발신자의 이메일 주소로 로그인 해 앱 비밀번호를
+                    발급받아주세요!
+                  </li>
                 </ol>
                 <a
                   href="https://myaccount.google.com/apppasswords"
@@ -267,9 +323,7 @@ export default function SmtpSettingsModal({
 
             {(() => {
               const currentSettings =
-                emailProvider === "mailplug"
-                  ? mailplugSettings
-                  : gmailSettings;
+                emailProvider === "mailplug" ? mailplugSettings : gmailSettings;
               const updateSettings =
                 emailProvider === "mailplug"
                   ? setMailplugSettings
@@ -304,9 +358,7 @@ export default function SmtpSettingsModal({
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {emailProvider === "mailplug"
-                        ? "메일플러그"
-                        : "Gmail"}{" "}
+                      {emailProvider === "mailplug" ? "메일플러그" : "Gmail"}{" "}
                       이메일 주소 (발신자)
                     </label>
                     <input
@@ -334,10 +386,8 @@ export default function SmtpSettingsModal({
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {emailProvider === "mailplug"
-                        ? "메일플러그"
-                        : "Gmail"}{" "}
-                      앱 비밀번호 <span className="text-red-500">*</span>
+                      {emailProvider === "mailplug" ? "메일플러그" : "Gmail"} 앱
+                      비밀번호 <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="password"
@@ -406,6 +456,23 @@ export default function SmtpSettingsModal({
               className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors"
             >
               취소
+            </button>
+            <button
+              onClick={handleTestSmtpConnection}
+              disabled={(() => {
+                const currentSettings =
+                  emailProvider === "mailplug"
+                    ? mailplugSettings
+                    : gmailSettings;
+                return (
+                  !currentSettings.smtpUser ||
+                  !currentSettings.smtpPassword ||
+                  testingConnection
+                );
+              })()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
+            >
+              {testingConnection ? "테스트 중..." : "연결 테스트"}
             </button>
             <button
               onClick={handleSaveSmtpSettings}

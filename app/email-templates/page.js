@@ -569,6 +569,47 @@ function TemplateModal({ template, onClose, onSave, userId }) {
     return result
   }, [userVariables, influencerFields, variableInputs, conditionalRules])
 
+  // 미리보기용 렌더링 함수 (변수 부분 색상 적용)
+  const renderPreviewWithHighlight = useCallback((text) => {
+    if (!text) return text
+
+    const parts = []
+    const variableRegex = /\{\{([^}]+)\}\}/g
+    let lastIndex = 0
+    let match
+
+    // 원본 텍스트를 순회하며 변수와 일반 텍스트를 분리
+    while ((match = variableRegex.exec(text)) !== null) {
+      // 변수 앞의 일반 텍스트
+      if (match.index > lastIndex) {
+        const beforeText = text.substring(lastIndex, match.index)
+        parts.push(<span key={`text-${lastIndex}`}>{beforeText}</span>)
+      }
+
+      // 변수 부분 - 치환된 값으로 색상과 밑줄 적용
+      const variableValue = replaceVariables(match[0])
+      parts.push(
+        <span
+          key={`var-${match.index}`}
+          style={{ color: '#281873' }}
+          className="font-medium underline"
+        >
+          {variableValue}
+        </span>
+      )
+
+      lastIndex = match.index + match[0].length
+    }
+
+    // 마지막 일반 텍스트
+    if (lastIndex < text.length) {
+      const afterText = text.substring(lastIndex)
+      parts.push(<span key={`text-${lastIndex}`}>{afterText}</span>)
+    }
+
+    return parts.length > 0 ? parts : text
+  }, [replaceVariables])
+
   // 현재 사용된 변수들 추출 함수
   const getUsedVariables = useCallback(() => {
     const allText = (formData.subject + ' ' + formData.content)
@@ -936,9 +977,9 @@ function TemplateModal({ template, onClose, onSave, userId }) {
                 제목 미리보기
               </label>
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[42px] flex items-center">
-                <p className="text-gray-900 font-medium">
-                  {formData.subject ? replaceVariables(formData.subject) : '제목을 입력해주세요'}
-                </p>
+                <div className="text-gray-900 font-medium">
+                  {formData.subject ? renderPreviewWithHighlight(formData.subject) : '제목을 입력해주세요'}
+                </div>
               </div>
             </div>
 
@@ -949,7 +990,7 @@ function TemplateModal({ template, onClose, onSave, userId }) {
               </label>
               <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
                 <div className="text-gray-900 whitespace-pre-wrap">
-                  {formData.content ? replaceVariables(formData.content) : '내용을 입력해주세요'}
+                  {formData.content ? renderPreviewWithHighlight(formData.content) : '내용을 입력해주세요'}
                 </div>
               </div>
             </div>

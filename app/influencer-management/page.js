@@ -15,6 +15,7 @@ export default function InfluencerManagement() {
   const [influencers, setInfluencers] = useState([])
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState(null)
+  const [expandedInfluencers, setExpandedInfluencers] = useState(new Set())
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -190,6 +191,58 @@ export default function InfluencerManagement() {
   }
 
   const filteredColumns = fields.filter(field => field.isFixed || visibleColumns[field.key])
+
+  const toggleInfluencerExpansion = (influencerId) => {
+    const newExpanded = new Set(expandedInfluencers)
+    if (newExpanded.has(influencerId)) {
+      newExpanded.delete(influencerId)
+    } else {
+      newExpanded.add(influencerId)
+    }
+    setExpandedInfluencers(newExpanded)
+  }
+
+  const fetchInfluencerEmails = async (influencerEmail, limit = 3) => {
+    try {
+      const params = new URLSearchParams({
+        userId: dbUser.id,
+        influencerEmail: influencerEmail,
+        limit: limit.toString()
+      })
+
+      const response = await fetch(`/api/emails/inbox?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        return data.emails || []
+      }
+      return []
+    } catch (error) {
+      console.error('인플루언서 메일 조회 실패:', error)
+      return []
+    }
+  }
+
+  const fetchSentEmails = async (influencerId, limit = 3) => {
+    try {
+      const params = new URLSearchParams({
+        userId: dbUser.id,
+        influencerId: influencerId.toString(),
+        limit: limit.toString()
+      })
+
+      const response = await fetch(`/api/emails/sent?${params}`)
+      const data = await response.json()
+
+      if (data.success) {
+        return data.emails || []
+      }
+      return []
+    } catch (error) {
+      console.error('발송 메일 조회 실패:', error)
+      return []
+    }
+  }
 
   // 동적 셀 렌더링 함수
   const renderCell = (influencer, field) => {
@@ -616,59 +669,24 @@ export default function InfluencerManagement() {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-max">
-                <thead className="bg-gray-50">
-                  <tr>
-                    {filteredColumns.map((field) => (
-                      <th
-                        key={field.key}
-                        className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 relative cursor-help whitespace-nowrap"
-                        onMouseEnter={() => setHoveredColumn(field.key)}
-                        onMouseLeave={() => setHoveredColumn(null)}
-                      >
-                        <div className="flex items-center space-x-1">
-                          <span>{field.label}</span>
-                          <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
+            <div className="divide-y divide-gray-200">
+              {influencers.map((influencer, index) => {
+                const isExpanded = expandedInfluencers.has(influencer.id)
 
-                        {hoveredColumn === field.key && (
-                          <div className="absolute top-full left-0 mt-1 w-64 bg-black text-white text-xs rounded-lg p-2 shadow-lg z-10">
-                            {field.tooltip}
-                            <div className="absolute -top-1 left-4 w-2 h-2 bg-black transform rotate-45"></div>
-                          </div>
-                        )}
-                      </th>
-                    ))}
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200 whitespace-nowrap">
-                      작업
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {influencers.map((influencer, index) => (
-                    <tr key={influencer.id || index} className="hover:bg-gray-50 transition-colors">
-                      {filteredColumns.map((field) => (
-                        <td key={field.key} className="px-4 py-3 text-sm whitespace-nowrap">
-                          {renderCell(influencer, field)}
-                        </td>
-                      ))}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap">
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => router.push(`/influencer-management/edit/${influencer.id}`)}
-                            className="text-purple-600 hover:text-purple-900 text-sm font-medium"
-                          >
-                            수정
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                return (
+                  <InfluencerCard
+                    key={influencer.id || index}
+                    influencer={influencer}
+                    fields={filteredColumns}
+                    isExpanded={isExpanded}
+                    onToggleExpansion={() => toggleInfluencerExpansion(influencer.id)}
+                    onEdit={() => router.push(`/influencer-management/edit/${influencer.id}`)}
+                    fetchInfluencerEmails={fetchInfluencerEmails}
+                    fetchSentEmails={fetchSentEmails}
+                    renderCell={renderCell}
+                  />
+                )
+              })}
             </div>
 
             {influencers.length === 0 && (
@@ -680,7 +698,10 @@ export default function InfluencerManagement() {
                 </div>
                 <h3 className="text-lg font-medium text-gray-900 mb-2">인플루언서가 없습니다</h3>
                 <p className="text-gray-600 mb-4">첫 번째 인플루언서를 추가해보세요.</p>
-                <button className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors">
+                <button
+                  onClick={() => router.push('/influencer-management/add')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                >
                   인플루언서 추가
                 </button>
               </div>
@@ -688,6 +709,233 @@ export default function InfluencerManagement() {
           </div>
         </div>
       </main>
+    </div>
+  )
+}
+
+function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, fetchInfluencerEmails, fetchSentEmails, renderCell }) {
+  const [recentEmails, setRecentEmails] = useState([])
+  const [sentEmails, setSentEmails] = useState([])
+  const [emailsLoading, setEmailsLoading] = useState(false)
+  const [activeTab, setActiveTab] = useState('received')
+
+  useEffect(() => {
+    if (isExpanded) {
+      loadEmails()
+    }
+  }, [isExpanded, influencer.id])
+
+  const loadEmails = async () => {
+    setEmailsLoading(true)
+    try {
+      // 수신 메일 로드 (이메일이 있는 경우에만)
+      if (influencer.email) {
+        const receivedEmails = await fetchInfluencerEmails(influencer.email, 3)
+        setRecentEmails(receivedEmails)
+      } else {
+        setRecentEmails([])
+      }
+
+      // 발송 메일 로드 (인플루언서 ID로)
+      const sentEmailsData = await fetchSentEmails(influencer.id, 3)
+      setSentEmails(sentEmailsData)
+    } catch (error) {
+      console.error('메일 로딩 실패:', error)
+    } finally {
+      setEmailsLoading(false)
+    }
+  }
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) {
+      return date.toLocaleTimeString("ko-KR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } else if (diffDays < 7) {
+      return `${diffDays}일 전`
+    } else {
+      return date.toLocaleDateString("ko-KR")
+    }
+  }
+
+  const getDisplayFields = () => {
+    return fields.filter(field => field.key === 'accountId' || field.key === 'email' ||
+                                 (field.fieldType === 'TEXT' && ['name', '이름', 'followers', '팔로워'].includes(field.key)))
+                 .slice(0, 4)
+  }
+
+  return (
+    <div className="p-6 hover:bg-gray-50 transition-colors">
+      <div className="flex items-center justify-between">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {getDisplayFields().map((field) => (
+            <div key={field.key} className="min-w-0">
+              <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
+              <div className="text-sm text-gray-900">
+                {renderCell(influencer, field)}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex items-center space-x-3 ml-4">
+          <button
+            onClick={onEdit}
+            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+          >
+            수정
+          </button>
+
+          <button
+            onClick={onToggleExpansion}
+            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+          >
+            <svg
+              className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          {/* 모든 필드 정보 */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-900 mb-4">전체 정보</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {fields.map((field) => (
+                <div key={field.key} className="min-w-0">
+                  <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
+                  <div className="text-sm text-gray-900">
+                    {renderCell(influencer, field)}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 메일 섹션 */}
+          {influencer.email && (
+            <div className="space-y-4">
+              <h3 className="text-sm font-semibold text-gray-900">최근 메일</h3>
+
+              {/* 탭 메뉴 */}
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8">
+                  <button
+                    onClick={() => setActiveTab('received')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'received'
+                        ? 'border-purple-500 text-purple-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    수신 메일 ({recentEmails.length})
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('sent')}
+                    className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                      activeTab === 'sent'
+                        ? 'border-purple-500 text-purple-600'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    발신 메일 ({sentEmails.length})
+                  </button>
+                </nav>
+              </div>
+
+              {/* 메일 목록 */}
+              <div className="space-y-3">
+                {emailsLoading ? (
+                  <div className="text-center py-4 text-gray-500">
+                    메일을 불러오는 중...
+                  </div>
+                ) : (
+                  <>
+                    {activeTab === 'received' && (
+                      <>
+                        {recentEmails.length > 0 ? (
+                          recentEmails.map((email, index) => (
+                            <div key={email.id || index} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 truncate">
+                                    {email.subject}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    보낸 사람: {email.from}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-500 ml-4">
+                                  {formatDate(email.receivedAt)}
+                                </div>
+                              </div>
+                              {email.preview && (
+                                <div className="text-xs text-gray-600 truncate mt-2">
+                                  {email.preview}
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            받은 메일이 없습니다
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {activeTab === 'sent' && (
+                      <>
+                        {sentEmails.length > 0 ? (
+                          sentEmails.map((email, index) => (
+                            <div key={email.id || index} className="bg-green-50 rounded-lg p-4 border border-green-200">
+                              <div className="flex justify-between items-start mb-2">
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-sm font-medium text-gray-900 truncate">
+                                    {email.subject}
+                                  </div>
+                                  <div className="text-xs text-gray-600 mt-1">
+                                    받는 사람: {email.to}
+                                  </div>
+                                </div>
+                                <div className="text-xs text-gray-500 ml-4">
+                                  {formatDate(email.sentAt)}
+                                </div>
+                              </div>
+                              {email.content && (
+                                <div className="text-xs text-gray-600 truncate mt-2">
+                                  {email.content.substring(0, 100)}...
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            보낸 메일이 없습니다
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

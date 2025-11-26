@@ -124,10 +124,16 @@ export default function LoginPage() {
               </p>
 
               <div className="flex gap-4 justify-center mt-10">
-                <button className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
+                <button
+                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                >
                   도입 문의
                 </button>
-                <button className="px-8 py-3 bg-white text-purple-600 font-semibold rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors">
+                <button
+                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  className="px-8 py-3 bg-white text-purple-600 font-semibold rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors"
+                >
                   무료 체험해보기
                 </button>
               </div>
@@ -198,7 +204,10 @@ export default function LoginPage() {
                     <strong>영상 삽입</strong>
                   </div>
                   <div className="mt-8 text-center">
-                    <button className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
+                    <button
+                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                    >
                       무료 체험해보기
                     </button>
                   </div>
@@ -226,7 +235,10 @@ export default function LoginPage() {
                     <strong>이미지 삽입</strong>
                   </div>
                   <div className="mt-8 text-center">
-                    <button className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
+                    <button
+                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                    >
                       무료 체험해보기
                     </button>
                   </div>
@@ -264,7 +276,10 @@ export default function LoginPage() {
                     <strong>영상 삽입</strong>
                   </div>
                   <div className="mt-8 text-center">
-                    <button className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors">
+                    <button
+                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
+                    >
                       무료 체험해보기
                     </button>
                   </div>
@@ -283,13 +298,13 @@ export default function LoginPage() {
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  onClick={() => window.open('https://slashpage.com/confidenceinwinter/n5w9812gkxrk424kpgze', '_blank')}
+                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
                   className="px-8 py-4 bg-purple-600 text-white font-bold text-lg rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   인플루언서 마케팅, 1:1 무료 컨설팅 받기
                 </button>
                 <button
-                  onClick={() => window.open('https://slashpage.com/confidenceinwinter/n5w9812gkxrk424kpgze', '_blank')}
+                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
                   className="px-8 py-4 bg-white text-purple-600 font-bold text-lg rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors"
                 >
                   프로그램 사용법 문의하기
