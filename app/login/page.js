@@ -200,8 +200,12 @@ export default function LoginPage() {
                       </div>
                     </li>
                   </ul>
-                  <div className="mt-8 p-8 bg-gray-100 rounded-lg text-center text-gray-500">
-                    <strong>영상 삽입</strong>
+                  <div className="mt-8 text-center">
+                    <img
+                      src="/landing.gif"
+                      alt="피커 인플루언서 컨택 시스템 데모"
+                      className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                    />
                   </div>
                   <div className="mt-8 text-center">
                     <button
