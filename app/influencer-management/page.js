@@ -190,7 +190,6 @@ export default function InfluencerManagement() {
     }
   }
 
-  const filteredColumns = fields.filter(field => field.isFixed || visibleColumns[field.key])
 
   const toggleInfluencerExpansion = (influencerId) => {
     const newExpanded = new Set(expandedInfluencers)
@@ -256,7 +255,6 @@ export default function InfluencerManagement() {
       value = influencer.fieldData[field.key]
     }
 
-    const isEditable = ['BOOLEAN', 'SELECT', 'TEXT', 'NUMBER', 'LONG_TEXT', 'CURRENCY'].includes(field.fieldType)
     const editingKey = `${influencer.id}-${field.key}`
     const isCurrentlyEditing = editingField === editingKey
 
@@ -677,13 +675,14 @@ export default function InfluencerManagement() {
                   <InfluencerCard
                     key={influencer.id || index}
                     influencer={influencer}
-                    fields={filteredColumns}
+                    fields={fields}
                     isExpanded={isExpanded}
                     onToggleExpansion={() => toggleInfluencerExpansion(influencer.id)}
                     onEdit={() => router.push(`/influencer-management/edit/${influencer.id}`)}
                     fetchInfluencerEmails={fetchInfluencerEmails}
                     fetchSentEmails={fetchSentEmails}
                     renderCell={renderCell}
+                    visibleColumns={visibleColumns}
                   />
                 )
               })}
@@ -713,7 +712,7 @@ export default function InfluencerManagement() {
   )
 }
 
-function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, fetchInfluencerEmails, fetchSentEmails, renderCell }) {
+function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, fetchInfluencerEmails, fetchSentEmails, renderCell, visibleColumns }) {
   const [recentEmails, setRecentEmails] = useState([])
   const [sentEmails, setSentEmails] = useState([])
   const [emailsLoading, setEmailsLoading] = useState(false)
@@ -765,39 +764,53 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
   }
 
   const getDisplayFields = () => {
-    return fields.filter(field => field.key === 'accountId' || field.key === 'email' ||
-                                 (field.fieldType === 'TEXT' && ['name', '이름', 'followers', '팔로워'].includes(field.key)))
-                 .slice(0, 4)
+    // visibleColumns 설정에 따라 표시할 필드 결정
+    return fields.filter(field => {
+      // 고정 필드는 항상 표시
+      if (field.isFixed) return true
+      // 사용자가 선택한 컬럼만 표시
+      return visibleColumns[field.key]
+    })
   }
+
+  const displayFields = getDisplayFields()
 
   return (
     <div className="p-6 hover:bg-gray-50 transition-colors">
-      <div className="flex items-center justify-between">
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {getDisplayFields().map((field) => (
-            <div key={field.key} className="min-w-0">
-              <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
-              <div className="text-sm text-gray-900">
-                {renderCell(influencer, field)}
-              </div>
+      <div className="flex flex-col">
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+              {displayFields.map((field) => (
+                <div key={field.key} className="min-w-0">
+                  <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
+                  <div className="text-sm text-gray-900">
+                    {renderCell(influencer, field)}
+                  </div>
+                </div>
+              ))}
             </div>
-          ))}
+          </div>
+
+          <div className="flex items-center space-x-3 ml-4">
+            <button
+              onClick={onEdit}
+              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+            >
+              수정
+            </button>
+          </div>
         </div>
 
-        <div className="flex items-center space-x-3 ml-4">
-          <button
-            onClick={onEdit}
-            className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-          >
-            수정
-          </button>
-
+        {/* 확장 버튼을 카드 하단으로 이동 */}
+        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-center">
           <button
             onClick={onToggleExpansion}
-            className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
           >
+            <span>{isExpanded ? '접기' : '더 보기'}</span>
             <svg
-              className={`w-5 h-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
