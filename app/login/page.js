@@ -1,62 +1,64 @@
-'use client'
+"use client";
 
-import { useAuth } from '@/components/AuthProvider'
-import Footer from '@/components/Footer'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useAuth } from "@/components/AuthProvider";
+import Footer from "@/components/Footer";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth()
-  const router = useRouter()
-  const [showDebugInfo, setShowDebugInfo] = useState(false)
-  const [envInfo, setEnvInfo] = useState({})
+  const { user, loading, signInWithGoogle } = useAuth();
+  const router = useRouter();
+  const [showDebugInfo, setShowDebugInfo] = useState(false);
+  const [envInfo, setEnvInfo] = useState({});
 
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard')
+      router.push("/dashboard");
     }
-  }, [user, loading, router])
+  }, [user, loading, router]);
 
   // URL 쿼리 파라미터에서 오류 확인
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const urlParams = new URLSearchParams(window.location.search);
-      const error = urlParams.get('error');
+      const error = urlParams.get("error");
 
       if (error) {
-        let errorMessage = '';
+        let errorMessage = "";
 
         switch (error) {
-          case 'auth_failed':
-            errorMessage = '인증에 실패했습니다. Google 로그인을 다시 시도해주세요.';
+          case "auth_failed":
+            errorMessage =
+              "인증에 실패했습니다. Google 로그인을 다시 시도해주세요.";
             break;
-          case 'callback_error':
-            errorMessage = '로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+          case "callback_error":
+            errorMessage =
+              "로그인 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
             break;
           default:
-            errorMessage = '로그인 중 오류가 발생했습니다.';
+            errorMessage = "로그인 중 오류가 발생했습니다.";
         }
 
         alert(errorMessage);
 
         // URL에서 오류 파라미터 제거
-        window.history.replaceState({}, '', '/login');
+        window.history.replaceState({}, "", "/login");
       }
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     // 클라이언트 환경에서만 실행
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       setEnvInfo({
         currentUrl: window.location.origin,
         hostname: window.location.hostname,
-        isNgrok: window.location.hostname.includes('ngrok'),
+        isNgrok: window.location.hostname.includes("ngrok"),
         appUrl: process.env.NEXT_PUBLIC_APP_URL,
-        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL
-      })
+        supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      });
     }
-  }, [])
+  }, []);
 
   if (loading) {
     return (
@@ -66,7 +68,7 @@ export default function LoginPage() {
           <p className="mt-4 text-gray-600">로딩 중...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -114,24 +116,39 @@ export default function LoginPage() {
               </h3>
 
               <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                <strong>피커(Picker) :</strong> 인플루언서 마케팅이 쉬워지는 방법
+                <strong>피커(Picker) :</strong> 인플루언서 마케팅이 쉬워지는
+                방법
               </h2>
 
               <p className="text-lg text-gray-600 mb-4 max-w-3xl mx-auto">
-                <strong>인플루언서 맞춤형 메일 컨택으로 회신율을 35배 상승시키고,</strong><br/>
-                업로드까지 번거로운 커뮤니케이션은 간소화하고,<br/>
+                <strong>
+                  인플루언서 맞춤형 메일 컨택으로 회신율을 35배 상승시키고,
+                </strong>
+                <br />
+                업로드까지 번거로운 커뮤니케이션은 간소화하고,
+                <br />
                 전환 추적은 자동화해보세요.
               </p>
 
               <div className="flex gap-4 justify-center mt-10">
                 <button
-                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  onClick={() =>
+                    window.open(
+                      "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                      "_blank"
+                    )
+                  }
                   className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   도입 문의
                 </button>
                 <button
-                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  onClick={() =>
+                    window.open(
+                      "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                      "_blank"
+                    )
+                  }
                   className="px-8 py-3 bg-white text-purple-600 font-semibold rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors"
                 >
                   무료 체험해보기
@@ -146,23 +163,48 @@ export default function LoginPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center mb-12">
               <p className="text-lg text-gray-700 mb-4">
-                브랜드와 어울리는 인플루언서 발굴 후,<br/>
-                맞춤형 메일 컨택 - 기한 내 업로드 - 전환 추적까지…
+                브랜드와 어울리는 인플루언서 발굴 후,
+                <br />
+                <strong>맞춤형 메일 컨택 - 기한 내 업로드 - 전환 추적</strong>
+                까지…
               </p>
 
               <p className="text-lg text-gray-700 mb-2">
-                <strong><em>비효율적</em></strong>이었던 인플루언서 컨택과 관리<strong><em>는 간단</em></strong>해지고,
+                <strong>
+                  <em>비효율적</em>
+                </strong>
+                이었던 인플루언서 컨택과 관리는
+                <strong>
+                  <em> 간단</em>
+                </strong>
+                해지고,
               </p>
               <p className="text-lg text-gray-700 mb-2">
-                <strong><em>복잡</em></strong>했던 커뮤니케이션은 <strong><em>간편</em></strong>해지고,
+                <strong>
+                  <em>복잡</em>
+                </strong>
+                했던 커뮤니케이션은{" "}
+                <strong>
+                  <em>간편</em>
+                </strong>
+                해지고,
               </p>
               <p className="text-lg text-gray-700 mb-8">
-                <strong><em>어려웠</em></strong>던 노출 확인과 전환 추적은 <strong><em>쉬워집</em></strong>니다.
+                <strong>
+                  <em>어려웠던</em>
+                </strong>
+                노출 확인과 전환 추적은{" "}
+                <strong>
+                  <em>쉬워</em>
+                </strong>
+                집니다.
               </p>
 
               <p className="text-lg text-gray-700 mb-2">
-                관리도 어렵고,<br/>
-                전환 추적과 매출 기여 확인은 더 어려웠던<br/>
+                관리도 어렵고,
+                <br />
+                전환 추적과 매출 기여 확인은 더 어려웠던
+                <br />
                 인플루언서 마케팅이 <strong>쉬워집니다.</strong>
               </p>
 
@@ -188,28 +230,49 @@ export default function LoginPage() {
                   1. 인플루언서 컨택 후 회신율 극대화
                 </h3>
                 <div className="bg-white rounded-xl p-8 shadow-sm">
-                  <ul className="space-y-4 text-left max-w-2xl mx-auto">
-                    <li className="flex items-start">
+                  <div className="space-y-4 text-left max-w-2xl mx-auto">
+                    <div className="flex items-start mb-3">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <div>
-                        <p className="font-semibold text-gray-900">회신율 35+배 향상, 메일 전송 시간 75% 감소</p>
-                        <p className="text-gray-600 mt-1">일반적으로 100통에 1통 회신,<br/>
-                        Picker 활용 시 20통에 7통 회신</p>
-                        <p className="text-gray-600 mt-1">20통에 2시간 걸리던 첫 컨택 메일,<br/>
-                        30분만에 작성 완료</p>
-                      </div>
-                    </li>
-                  </ul>
+                      <p className="font-semibold text-gray-900">
+                        회신율 35+배 향상, 메일 전송 시간 75% 감소
+                      </p>
+                    </div>
+                    <div className="flex items-start mb-3">
+                      <span className="text-purple-600 mr-3 mt-1">•</span>
+                      <p className="text-gray-600">
+                        일반적으로 100통에 1통 회신, Picker 활용 시 20통에 7통
+                        회신
+                      </p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-purple-600 mr-3 mt-1">•</span>
+                      <p className="text-gray-600">
+                        20통에 2시간 걸리던 첫 컨택 메일, 30분만에 작성 완료
+                      </p>
+                    </div>
+                  </div>
                   <div className="mt-8 text-center">
+                    {/* 데스크톱용 이미지 */}
                     <img
                       src="/landing.gif"
                       alt="피커 인플루언서 컨택 시스템 데모"
-                      className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                      className="hidden md:block w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                    />
+                    {/* 모바일용 이미지 */}
+                    <img
+                      src="/01_MO.gif"
+                      alt="피커 인플루언서 컨택 시스템 데모"
+                      className="block md:hidden w-full max-w-4xl mx-auto rounded-lg shadow-lg"
                     />
                   </div>
                   <div className="mt-8 text-center">
                     <button
-                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      onClick={() =>
+                        window.open(
+                          "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                          "_blank"
+                        )
+                      }
                       className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
                     >
                       무료 체험해보기
@@ -224,23 +287,42 @@ export default function LoginPage() {
                   2. 첫 업로드까지 팔로업 효율 극대화
                 </h3>
                 <div className="bg-white rounded-xl p-8 shadow-sm">
-                  <ul className="space-y-4 text-left max-w-2xl mx-auto">
-                    <li className="flex items-start">
+                  <div className="space-y-4 text-left max-w-2xl mx-auto">
+                    <div className="flex items-start mb-3">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <div>
-                        <p className="text-gray-700">업로드 기한 미준수율 0%대로 감소,<br/>
-                        개별 질문만 부분 조율 - 상세 가이드는 한 번에 전달,<br/>
-                        정산도 클릭 한 번에 쏙 - 인플루언서 별 특이사항은<br/>
-                        대시보드에서 한 눈에 보기</p>
-                      </div>
-                    </li>
-                  </ul>
-                  <div className="mt-8 p-8 bg-gray-100 rounded-lg text-center text-gray-500">
-                    <strong>이미지 삽입</strong>
+                      <p className="text-gray-700">
+                        업로드 기한 미준수율 0%대로 감소
+                      </p>
+                    </div>
+                    <div className="flex items-start mb-3">
+                      <span className="text-purple-600 mr-3 mt-1">•</span>
+                      <p className="text-gray-700">
+                        개별 질문만 부분 조율 - 상세 가이드는 한 번에 전달
+                      </p>
+                    </div>
+                    <div className="flex items-start">
+                      <span className="text-purple-600 mr-3 mt-1">•</span>
+                      <p className="text-gray-700">
+                        정산도 클릭 한 번에 쏙 - 인플루언서 별 특이사항은
+                        대시보드에서 한 눈에 보기
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-8 text-center">
+                    <img
+                      src="/02.png"
+                      alt="첫 업로드까지 팔로업 효율 극대화"
+                      className="w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                    />
                   </div>
                   <div className="mt-8 text-center">
                     <button
-                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      onClick={() =>
+                        window.open(
+                          "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                          "_blank"
+                        )
+                      }
                       className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
                     >
                       무료 체험해보기
@@ -252,36 +334,59 @@ export default function LoginPage() {
               {/* 기능 3 */}
               <div>
                 <h3 className="text-2xl font-bold text-gray-900 mb-8">
-                  3. 브랜드 핏, 마케팅 퍼널 맞춤형
+                  3. 인플루언서 선별 효율 극대화 (TBD) - 브랜드, 마케팅 퍼널
+                  맞춤형
                 </h3>
                 <div className="bg-white rounded-xl p-8 shadow-sm">
-                  <p className="font-semibold text-gray-900 mb-4">
-                    인플루언서 선별 효율 극대화 (TBD)
-                  </p>
                   <ul className="space-y-3 text-left max-w-2xl mx-auto">
                     <li className="flex items-start">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <p className="text-gray-700">'인지', '고려', '전환' 등 마케팅 각 단계에 맞는 인플루언서 모아 보기</p>
+                      <p className="text-gray-700">
+                        '인지', '고려', '전환' 등 마케팅 각 단계에 맞는
+                        인플루언서 모아 보기
+                      </p>
                     </li>
                     <li className="flex items-start">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <p className="text-gray-700">캠페인 예산 별 인플루언서 조합 확인하기</p>
+                      <p className="text-gray-700">
+                        캠페인 예산 별 인플루언서 조합 확인하기
+                      </p>
                     </li>
                     <li className="flex items-start">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <p className="text-gray-700">이미 컨택한 인플루언서 풀 등록 및 재컨택</p>
+                      <p className="text-gray-700">
+                        이미 컨택한 인플루언서 풀 등록 및 재컨택
+                      </p>
                     </li>
                     <li className="flex items-start">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
-                      <p className="text-gray-700">이미 협업한 인플루언서와 비슷한 인물들로 추천</p>
+                      <p className="text-gray-700">
+                        이미 협업한 인플루언서와 비슷한 인물들로 추천
+                      </p>
                     </li>
                   </ul>
-                  <div className="mt-8 p-8 bg-gray-100 rounded-lg text-center text-gray-500">
-                    <strong>영상 삽입</strong>
+                  <div className="mt-8 text-center">
+                    {/* 데스크톱용 이미지 */}
+                    <img
+                      src="/03_PC.png"
+                      alt="브랜드 핏, 마케팅 퍼널 맞춤형"
+                      className="hidden md:block w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                    />
+                    {/* 모바일용 이미지 */}
+                    <img
+                      src="/03_MO.png"
+                      alt="브랜드 핏, 마케팅 퍼널 맞춤형"
+                      className="block md:hidden w-full max-w-4xl mx-auto rounded-lg shadow-lg"
+                    />
                   </div>
                   <div className="mt-8 text-center">
                     <button
-                      onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                      onClick={() =>
+                        window.open(
+                          "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                          "_blank"
+                        )
+                      }
                       className="px-8 py-3 bg-purple-600 text-white font-semibold rounded-lg hover:bg-purple-700 transition-colors"
                     >
                       무료 체험해보기
@@ -298,17 +403,30 @@ export default function LoginPage() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               <p className="text-xl font-semibold text-gray-900 mb-8">
-                <strong>브랜드 맞춤형 인플루언서 활용 전략 / 마케팅 순서를 추천해 드려요</strong>
+                <strong>
+                  브랜드 맞춤형 인플루언서 활용 전략 / 마케팅 순서를 추천해
+                  드려요
+                </strong>
               </p>
               <div className="flex flex-col sm:flex-row gap-4 justify-center">
                 <button
-                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  onClick={() =>
+                    window.open(
+                      "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                      "_blank"
+                    )
+                  }
                   className="px-8 py-4 bg-purple-600 text-white font-bold text-lg rounded-lg hover:bg-purple-700 transition-colors"
                 >
                   인플루언서 마케팅, 1:1 무료 컨설팅 받기
                 </button>
                 <button
-                  onClick={() => window.open('https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9', '_blank')}
+                  onClick={() =>
+                    window.open(
+                      "https://slashpage.com/buzzbeelab/dwy5rvmjp17qnmp46zn9",
+                      "_blank"
+                    )
+                  }
                   className="px-8 py-4 bg-white text-purple-600 font-bold text-lg rounded-lg border-2 border-purple-600 hover:bg-purple-50 transition-colors"
                 >
                   프로그램 사용법 문의하기
@@ -320,7 +438,7 @@ export default function LoginPage() {
       </main>
 
       {/* 디버그 정보 패널 (개발 환경의 ngrok에서만 표시) */}
-      {process.env.NODE_ENV === 'development' && envInfo.isNgrok && (
+      {process.env.NODE_ENV === "development" && envInfo.isNgrok && (
         <div className="fixed bottom-4 right-4 z-50">
           <button
             onClick={() => setShowDebugInfo(!showDebugInfo)}
@@ -336,7 +454,9 @@ export default function LoginPage() {
                 <div>
                   <span className="font-medium">현재 URL:</span>
                   <br />
-                  <span className="text-xs break-all">{envInfo.currentUrl}</span>
+                  <span className="text-xs break-all">
+                    {envInfo.currentUrl}
+                  </span>
                 </div>
                 <div>
                   <span className="font-medium">설정된 앱 URL:</span>
@@ -346,15 +466,24 @@ export default function LoginPage() {
                 <div>
                   <span className="font-medium">Supabase URL:</span>
                   <br />
-                  <span className="text-xs break-all">{envInfo.supabaseUrl}</span>
+                  <span className="text-xs break-all">
+                    {envInfo.supabaseUrl}
+                  </span>
                 </div>
-                <div className={`p-2 rounded ${envInfo.isNgrok ? 'bg-yellow-100' : 'bg-green-100'}`}>
-                  <span className="font-medium">상태:</span> {envInfo.isNgrok ? '🟡 ngrok 환경' : '🟢 로컬 환경'}
+                <div
+                  className={`p-2 rounded ${
+                    envInfo.isNgrok ? "bg-yellow-100" : "bg-green-100"
+                  }`}
+                >
+                  <span className="font-medium">상태:</span>{" "}
+                  {envInfo.isNgrok ? "🟡 ngrok 환경" : "🟢 로컬 환경"}
                 </div>
               </div>
 
               <div className="mt-3 pt-3 border-t border-gray-200">
-                <h4 className="font-medium text-gray-900 mb-2">📋 Supabase 설정 체크리스트</h4>
+                <h4 className="font-medium text-gray-900 mb-2">
+                  📋 Supabase 설정 체크리스트
+                </h4>
                 <div className="text-xs text-gray-600 space-y-1">
                   <div>1. Site URL: {envInfo.currentUrl}</div>
                   <div>2. Redirect URL: {envInfo.currentUrl}/auth/callback</div>
@@ -376,14 +505,14 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {process.env.NODE_ENV === 'development' && (
+              {process.env.NODE_ENV === "development" && (
                 <button
                   onClick={() => {
-                    console.log('Environment Info:');
-                    console.log('Current URL:', envInfo.currentUrl);
-                    console.log('App URL:', envInfo.appUrl);
-                    console.log('Supabase URL:', envInfo.supabaseUrl);
-                    console.log('Is ngrok:', envInfo.isNgrok);
+                    console.log("Environment Info:");
+                    console.log("Current URL:", envInfo.currentUrl);
+                    console.log("App URL:", envInfo.appUrl);
+                    console.log("Supabase URL:", envInfo.supabaseUrl);
+                    console.log("Is ngrok:", envInfo.isNgrok);
                   }}
                   className="mt-3 w-full bg-blue-500 text-white px-3 py-1 rounded text-xs hover:bg-blue-600 transition-colors"
                 >
@@ -397,5 +526,5 @@ export default function LoginPage() {
 
       <Footer />
     </div>
-  )
+  );
 }
