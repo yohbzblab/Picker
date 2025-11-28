@@ -763,8 +763,8 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
     }
   }
 
+  // 표시할 필드 필터링 (visibleColumns 설정에 따라)
   const getDisplayFields = () => {
-    // visibleColumns 설정에 따라 표시할 필드 결정
     return fields.filter(field => {
       // 고정 필드는 항상 표시
       if (field.isFixed) return true
@@ -779,10 +779,10 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
     <div className="p-6 hover:bg-gray-50 transition-colors">
       <div className="flex flex-col">
         <div className="flex items-start justify-between">
-          <div className="flex-1">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3">
+          <div className="flex-1 overflow-x-auto">
+            <div className="inline-flex gap-x-6 min-w-max pb-2">
               {displayFields.map((field) => (
-                <div key={field.key} className="min-w-0">
+                <div key={field.key} className="flex-shrink-0">
                   <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
                   <div className="text-sm text-gray-900">
                     {renderCell(influencer, field)}
@@ -792,7 +792,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 ml-4">
+          <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
             <button
               onClick={onEdit}
               className="text-purple-600 hover:text-purple-700 text-sm font-medium"
@@ -808,7 +808,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
             onClick={onToggleExpansion}
             className="flex items-center gap-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
           >
-            <span>{isExpanded ? '접기' : '더 보기'}</span>
+            <span>{isExpanded ? '접기' : '메일 보기'}</span>
             <svg
               className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
               fill="none"
@@ -823,21 +823,6 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
 
       {isExpanded && (
         <div className="mt-6 pt-6 border-t border-gray-200">
-          {/* 모든 필드 정보 */}
-          <div className="mb-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">전체 정보</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-              {fields.map((field) => (
-                <div key={field.key} className="min-w-0">
-                  <div className="text-xs font-medium text-gray-500 mb-1">{field.label}</div>
-                  <div className="text-sm text-gray-900">
-                    {renderCell(influencer, field)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
           {/* 메일 섹션 */}
           {influencer.email && (
             <div className="space-y-4">
