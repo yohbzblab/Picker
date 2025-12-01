@@ -179,13 +179,13 @@ function replaceVariables(text, influencerData, userData, userVariables = {}, co
       evaluateConditionalRule(conditionalRules['팔로워수'], influencerData, userData) : followersValue
     result = result.replace(/\{\{팔로워수\}\}/g, finalFollowersValue)
 
-    // 동적 필드 데이터에서 추가 변수들 - 조건문 확인
+    // 동적 필드 데이터에서 추가 변수들 - 조건문 확인 (기존 플랫 구조 지원)
     Object.keys(fieldData).forEach(key => {
       const variablePattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
       let value = fieldData[key]
       let finalValue
 
-      // 조건문이 설정된 경우 조건문 평가
+      // 조건문이 설정된 경우 조건문 평가 (기존 플랫 구조 지원)
       if (conditionalRules && conditionalRules[key]) {
         finalValue = evaluateConditionalRule(conditionalRules[key], influencerData, userData)
       } else {
@@ -203,6 +203,25 @@ function replaceVariables(text, influencerData, userData, userVariables = {}, co
 
       result = result.replace(variablePattern, finalValue)
     })
+
+    // 새로운 그룹 구조의 조건문 변수들 처리
+    if (conditionalRules && typeof conditionalRules === 'object') {
+      Object.entries(conditionalRules).forEach(([fieldName, ruleGroup]) => {
+        if (ruleGroup && ruleGroup.variables) {
+          Object.entries(ruleGroup.variables).forEach(([varKey, varData]) => {
+            const variablePattern = new RegExp(`\\{\\{${varKey}\\}\\}`, 'g')
+
+            // 이 필드의 실제 값을 가져옴 (예: followers 필드의 값)
+            const sourceValue = fieldData[fieldName] || 0
+
+            // 조건 평가
+            const evaluatedValue = evaluateNewConditionalRule(varData, sourceValue, influencerData, userData)
+
+            result = result.replace(variablePattern, evaluatedValue)
+          })
+        }
+      })
+    }
   }
 
   // 사용자 정의 변수들 (조건문 처리 포함)
@@ -292,6 +311,62 @@ function evaluateCondition(condition, fieldData, userData) {
     case 'ne': // 다름
       const neValue = parseFloat(condition.value) || 0
       return (fieldData.followers || 0) !== neValue
+
+    default:
+      return false
+  }
+}
+
+// 새로운 그룹 구조의 조건문 평가 함수
+function evaluateNewConditionalRule(varData, sourceValue, influencerData, userData) {
+  if (!varData || !varData.conditions || !Array.isArray(varData.conditions)) {
+    return varData.defaultValue || ''
+  }
+
+  const numericSourceValue = parseFloat(sourceValue) || 0
+
+  // 조건들을 순서대로 평가
+  for (const condition of varData.conditions) {
+    if (evaluateNewCondition(condition, numericSourceValue)) {
+      return condition.result || ''
+    }
+  }
+
+  // 모든 조건에 맞지 않으면 기본값 반환
+  return varData.defaultValue || ''
+}
+
+// 새로운 구조의 개별 조건 평가 함수
+function evaluateNewCondition(condition, sourceValue) {
+  if (!condition || !condition.operator) {
+    return false
+  }
+
+  switch (condition.operator) {
+    case 'range':
+      const minValue = parseFloat(condition.min) || 0
+      const maxValue = parseFloat(condition.max) || 0
+      return sourceValue >= minValue && sourceValue <= maxValue
+
+    case 'equal':
+      const eqValue = parseFloat(condition.min) || 0
+      return sourceValue === eqValue
+
+    case 'greater':
+      const gtValue = parseFloat(condition.min) || 0
+      return sourceValue > gtValue
+
+    case 'less':
+      const ltValue = parseFloat(condition.min) || 0
+      return sourceValue < ltValue
+
+    case 'greaterEqual':
+      const gteValue = parseFloat(condition.min) || 0
+      return sourceValue >= gteValue
+
+    case 'lessEqual':
+      const lteValue = parseFloat(condition.min) || 0
+      return sourceValue <= lteValue
 
     default:
       return false
