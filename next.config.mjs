@@ -27,6 +27,20 @@ const nextConfig = {
             value: process.env.NODE_ENV === 'development' ? '*' : 'https://foxiest-jerome-untruly.ngrok-free.dev'
           }
         ]
+      },
+      {
+        // 업로드된 이미지에 대한 보안 헤더
+        source: '/uploads/(.*)',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'none'; img-src 'self'; style-src 'unsafe-inline';",
+          },
+        ],
       }
     ]
   },
@@ -41,6 +55,13 @@ const nextConfig = {
         permanent: false
       }
     ]
+  },
+
+  // 이미지 설정
+  images: {
+    domains: [],
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
 
   // 개발 환경 설정
