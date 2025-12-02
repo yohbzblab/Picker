@@ -3,11 +3,11 @@
 import { useAuth } from '@/components/AuthProvider'
 import Navbar from '@/components/Navbar'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
 import { RichTextEditor } from '@/components/TemplateEditor'
 import { VariableEditor, ConditionsModal, UserVariableModal } from '@/components/EmailTemplateComponents'
 
-export default function CreateEmailTemplate() {
+function CreateEmailTemplateContent() {
   const { user, dbUser, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -44,14 +44,6 @@ export default function CreateEmailTemplate() {
     }
   }, [editId, dbUser])
 
-  // formData 변경 추적 (디버깅용)
-  useEffect(() => {
-    console.log('=== FormData changed ===')
-    console.log('formData.content:', formData.content)
-    console.log('formData.content length:', formData.content?.length)
-    console.log('formData:', formData)
-    console.log('=== End FormData change ===')
-  }, [formData])
 
   // 템플릿이 변경될 때 상태 업데이트 및 마이그레이션
   useEffect(() => {
@@ -217,17 +209,13 @@ export default function CreateEmailTemplate() {
   const loadTemplate = async () => {
     try {
       setLoading(true)
-      console.log('Loading template with ID:', editId) // 디버깅용
       const response = await fetch(`/api/email-templates/${editId}?userId=${dbUser.id}`)
 
       if (response.ok) {
         const data = await response.json()
-        console.log('Raw API response:', data) // 원시 API 응답 확인
 
         // API 응답에서 실제 템플릿 데이터 추출
         const template = data.template || data
-        console.log('Extracted template:', template) // 추출된 템플릿 데이터 확인
-        console.log('Loaded template content:', template.content) // 디버깅용
 
         // 상태를 순차적으로 업데이트
         const newFormData = {
@@ -235,12 +223,9 @@ export default function CreateEmailTemplate() {
           subject: template.subject || '',
           content: template.content || ''
         }
-        console.log('Setting form data:', newFormData)
         setFormData(newFormData)
         setUserVariables(template.userVariables || {})
         setConditionalRules(template.conditionalRules || {})
-
-        console.log('Form data updated with content:', template.content) // 디버깅용
       } else {
         alert('템플릿을 불러올 수 없습니다.')
         router.push('/email-templates')
@@ -250,7 +235,6 @@ export default function CreateEmailTemplate() {
       alert('템플릿 로딩 중 오류가 발생했습니다.')
       router.push('/email-templates')
     } finally {
-      console.log('Template loading finished') // 디버깅용
       setLoading(false)
     }
   }
@@ -559,11 +543,11 @@ export default function CreateEmailTemplate() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
-      <main className="min-h-screen bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 bg-white pb-80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
           <div className="mb-8">
             <div className="flex items-center space-x-4 mb-4">
               <button
@@ -583,11 +567,11 @@ export default function CreateEmailTemplate() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-8 min-h-0">
             {/* 왼쪽: 편집 폼 */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="flex flex-col min-h-0">
+              <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-6 overflow-y-auto">
+                <form onSubmit={handleSubmit} className="space-y-6" id="template-form">
                   <div>
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       템플릿 이름
@@ -625,162 +609,20 @@ export default function CreateEmailTemplate() {
                         템플릿을 불러오는 중...
                       </div>
                     ) : (
-                      (() => {
-                        console.log('🎯 Rendering RichTextEditor with value:', formData.content)
-                        console.log('🎯 Value length:', formData.content?.length)
-                        return (
-                          <RichTextEditor
-                            key={`content-editor-${editId || 'new'}`}
-                            value={formData.content}
-                            onChange={handleContentChange}
-                            placeholder="메일 내용을 입력하세요"
-                            onInsertVariable={handleContentInsertVariable}
-                          />
-                        )
-                      })()
+                      <RichTextEditor
+                        key={`content-editor-${editId || 'new'}`}
+                        value={formData.content}
+                        onChange={handleContentChange}
+                        placeholder="메일 내용을 입력하세요"
+                        onInsertVariable={handleContentInsertVariable}
+                        templateId={editId}
+                      />
                     )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                      사용 가능한 변수 (클릭하여 삽입)
-                    </label>
-
-                    {loadingFields ? (
-                      <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
-                    ) : (
-                      <div className="space-y-4">
-                        {/* 사용자 변수들 */}
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-xs font-medium text-gray-700">사용자 변수</h4>
-                            <button
-                              type="button"
-                              onClick={() => openUserVariableModal()}
-                              onMouseDown={(e) => e.preventDefault()}
-                              className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
-                              title="변수 관리"
-                            >
-                              관리
-                            </button>
-                          </div>
-                          <div className="space-y-2">
-                            {Object.keys(userVariables).length === 0 ? (
-                              <p className="text-xs text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
-                            ) : (
-                              Object.entries(userVariables).map(([groupName, group]) => (
-                                <div key={groupName} className="border-l-2 border-purple-200 pl-2">
-                                  <div className="text-xs font-medium text-gray-600 mb-1">{group.displayName}</div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {Object.entries(group.variables || {}).map(([variableKey, variable]) => (
-                                      <button
-                                        key={variableKey}
-                                        type="button"
-                                        onClick={() => handleVariableInsert(variableKey)}
-                                        onMouseDown={(e) => e.preventDefault()}
-                                        className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
-                                        title={`{{${variableKey}}}`}
-                                      >
-                                        {variable.alias || variableKey}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))
-                            )}
-                          </div>
-                        </div>
-
-                        {/* 인플루언서 필드들 (텍스트 타입만) */}
-                        {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').length > 0 && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-700 mb-2">인플루언서 정보</h4>
-                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                              {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').map((field) => (
-                                <button
-                                  key={field.key}
-                                  type="button"
-                                  onClick={() => handleVariableInsert(field.key)}
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors text-left"
-                                  title={field.tooltip || field.label}
-                                >
-                                  {field.label}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
-                        {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
-                          <div>
-                            <h4 className="text-xs font-medium text-gray-700 mb-2">조건문 변수 (숫자 필드)</h4>
-                            <div className="space-y-3">
-                              {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
-                                <div key={field.key} className="border border-gray-200 rounded-lg p-3">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <span className="text-xs font-medium text-gray-900">{field.label}</span>
-                                    <button
-                                      type="button"
-                                      onClick={() => openConditionsModal(field.key)}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors"
-                                      title="조건 변수 관리"
-                                    >
-                                      + 조건 추가
-                                    </button>
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {conditionalRules[field.key] && conditionalRules[field.key].variables ? (
-                                      Object.entries(conditionalRules[field.key].variables).map(([varKey, varData]) => (
-                                        <button
-                                          key={varKey}
-                                          type="button"
-                                          onClick={() => handleVariableInsert(varKey)}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
-                                          title={`{{${varKey}}}`}
-                                        >
-                                          {varData.alias || varKey}
-                                        </button>
-                                      ))
-                                    ) : (
-                                      <span className="text-xs text-gray-400">조건 변수가 없습니다</span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                      </div>
-                    )}
-
-                    <p className="text-xs text-gray-600 mt-3">
-                      변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다. 백스페이스로 변수를 한번에 삭제할 수 있습니다.
-                    </p>
-                  </div>
-
-                  <div className="flex space-x-3 pt-6 border-t">
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={saving}
-                      className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
-                    >
-                      {saving ? '저장 중...' : (editId ? '수정' : '생성')}
-                    </button>
                   </div>
                 </form>
               </div>
+
+
             </div>
 
             {/* 오른쪽: 실시간 미리보기 */}
@@ -912,6 +754,158 @@ export default function CreateEmailTemplate() {
         </div>
       </main>
 
+      {/* 화면 하단 고정 영역 - 변수 관리 + 버튼 */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 max-h-80">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
+          <div className="w-full lg:w-1/2">
+            {/* 변수 관리 영역 */}
+            <div className="pt-4 pb-2">
+              <label className="block text-sm font-medium text-gray-900 mb-3 text-center">
+                사용 가능한 변수 (클릭하여 삽입)
+              </label>
+
+              <div className="max-h-44 overflow-y-auto">
+                {loadingFields ? (
+                  <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
+                ) : (
+                  <div className="space-y-3">
+                    {/* 사용자 변수들 */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-medium text-gray-700">사용자 변수</h4>
+                        <button
+                          type="button"
+                          onClick={() => openUserVariableModal()}
+                          onMouseDown={(e) => e.preventDefault()}
+                          className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
+                          title="변수 관리"
+                        >
+                          관리
+                        </button>
+                      </div>
+                      <div className="space-y-1">
+                        {Object.keys(userVariables).length === 0 ? (
+                          <p className="text-xs text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
+                        ) : (
+                          Object.entries(userVariables).map(([groupName, group]) => (
+                            <div key={groupName} className="border-l-2 border-purple-200 pl-2">
+                              <div className="text-xs font-medium text-gray-600 mb-1">{group.displayName}</div>
+                              <div className="flex flex-wrap gap-1">
+                                {Object.entries(group.variables || {}).map(([variableKey, variable]) => (
+                                  <button
+                                    key={variableKey}
+                                    type="button"
+                                    onClick={() => handleVariableInsert(variableKey)}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                                    title={`{{${variableKey}}}`}
+                                  >
+                                    {variable.alias || variableKey}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 인플루언서 필드들 (텍스트 타입만) */}
+                    {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium text-gray-700 mb-2">인플루언서 정보</h4>
+                        <div className="flex flex-wrap gap-1">
+                          {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').map((field) => (
+                            <button
+                              key={field.key}
+                              type="button"
+                              onClick={() => handleVariableInsert(field.key)}
+                              onMouseDown={(e) => e.preventDefault()}
+                              className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                              title={field.tooltip || field.label}
+                            >
+                              {field.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
+                    {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
+                      <div>
+                        <h4 className="text-xs font-medium text-gray-700 mb-2">조건문 변수 (숫자 필드)</h4>
+                        <div className="space-y-2">
+                          {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
+                            <div key={field.key} className="border border-gray-200 rounded-lg p-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-medium text-gray-900">{field.label}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => openConditionsModal(field.key)}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors"
+                                  title="조건 변수 관리"
+                                >
+                                  + 조건 추가
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {conditionalRules[field.key] && conditionalRules[field.key].variables ? (
+                                  Object.entries(conditionalRules[field.key].variables).map(([varKey, varData]) => (
+                                    <button
+                                      key={varKey}
+                                      type="button"
+                                      onClick={() => handleVariableInsert(varKey)}
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
+                                      title={`{{${varKey}}}`}
+                                    >
+                                      {varData.alias || varKey}
+                                    </button>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-gray-400">조건 변수가 없습니다</span>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <p className="text-xs text-gray-500 mt-2 pb-2 text-center">
+                  변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다.
+                </p>
+              </div>
+            </div>
+
+            {/* 버튼 영역 */}
+            <div className="py-3 border-t border-gray-100">
+              <div className="flex space-x-3">
+                <button
+                  type="button"
+                  onClick={handleCancel}
+                  className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  form="template-form"
+                  disabled={saving}
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                >
+                  {saving ? '저장 중...' : (editId ? '수정' : '생성')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* 조건문 설정 모달 */}
       {showConditionsModal && (
         <ConditionsModal
@@ -960,5 +954,20 @@ export default function CreateEmailTemplate() {
         />
       )}
     </div>
+  )
+}
+
+export default function CreateEmailTemplate() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-gray-500">로딩 중...</div>
+        </main>
+      </div>
+    }>
+      <CreateEmailTemplateContent />
+    </Suspense>
   )
 }
