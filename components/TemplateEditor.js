@@ -53,7 +53,7 @@ export function VariableInput({ value, onChange, placeholder, onInsertVariable }
 }
 
 // 리치 텍스트 에디터 with 변수 지원
-export function RichTextEditor({ value, onChange, placeholder, onInsertVariable }) {
+export function RichTextEditor({ value, onChange, placeholder, onInsertVariable, templateId }) {
   const editorRef = useRef(null)
   const fileInputRef = useRef(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -62,6 +62,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
     italic: false,
     underline: false
   })
+  const [showColorPicker, setShowColorPicker] = useState(false)
+  const colorPickerRef = useRef(null)
 
   // 텍스트의 줄바꿈을 HTML로 변환하는 함수
   const convertNewlinesToHtml = useCallback((text) => {
@@ -81,37 +83,19 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
 
   // value prop이 변경될 때마다 에디터 내용 업데이트
   useEffect(() => {
-    console.log('=== RichTextEditor useEffect triggered ===')
-    console.log('Value received:', { value, hasValue: !!value, valueLength: value?.length })
-    console.log('EditorRef current:', !!editorRef.current)
-
     if (editorRef.current) {
       const currentContent = editorRef.current.innerHTML
       const processedValue = convertNewlinesToHtml(value || '')
       const isEditorFocused = document.activeElement === editorRef.current
 
-      console.log('Current editor content:', currentContent)
-      console.log('Original value:', value)
-      console.log('Processed value to set:', processedValue)
-      console.log('Is editor focused:', isEditorFocused)
-      console.log('Should update:', !isEditorFocused && currentContent !== processedValue)
-
       if (!isEditorFocused && currentContent !== processedValue) {
         if (processedValue.trim() !== '') {
-          console.log('✅ Setting rich editor content:', processedValue)
           editorRef.current.innerHTML = processedValue
-          console.log('✅ Editor content after setting:', editorRef.current.innerHTML)
         } else if (processedValue === '') {
-          console.log('🗑️ Clearing rich editor content')
           editorRef.current.innerHTML = ''
         }
-      } else {
-        console.log('❌ Not updating editor content - conditions not met')
       }
-    } else {
-      console.log('❌ EditorRef is not available')
     }
-    console.log('=== End RichTextEditor useEffect ===')
   }, [value, convertNewlinesToHtml])
 
   // 에디터 내용이 변경되었을 때
@@ -145,6 +129,21 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
       document.removeEventListener('selectionchange', handleSelectionChange)
     }
   }, [handleSelectionChange])
+
+  // 컬러 피커 외부 클릭 감지
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(event.target) &&
+          !event.target.closest('button[title="텍스트 색상 변경"]')) {
+        setShowColorPicker(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   // 변수 삽입 함수
   const insertVariable = useCallback((variable) => {
@@ -245,6 +244,11 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
       const formData = new FormData()
       formData.append('image', file)
 
+      // templateId가 있으면 추가
+      if (templateId) {
+        formData.append('templateId', templateId)
+      }
+
       // 이미지 업로드 API 호출
       const response = await fetch('/api/upload/image', {
         method: 'POST',
@@ -276,11 +280,41 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
     fileInputRef.current?.click()
   }
 
-  const colorOptions = [
-    '#000000', '#333333', '#666666', '#999999', '#CCCCCC',
-    '#FF0000', '#FF6600', '#FFCC00', '#00FF00', '#0066FF',
-    '#6600FF', '#FF00FF', '#FF0066', '#00FFFF', '#FFFF00'
+  // 컬러 팔레트 (검정 + 빨주노초파남보 + 분홍)
+  const baseColors = [
+    { name: '검정', base: '#000000' },
+    { name: '빨강', base: '#FF0000' },
+    { name: '주황', base: '#FF8000' },
+    { name: '노랑', base: '#FFFF00' },
+    { name: '초록', base: '#00FF00' },
+    { name: '파랑', base: '#0080FF' },
+    { name: '남색', base: '#4B0082' },
+    { name: '보라', base: '#8000FF' },
+    { name: '분홍', base: '#FF69B4' }
   ]
+
+  // 각 컬러의 명도별 변화 생성
+  const generateColorVariations = (baseHex) => {
+    const hex = baseHex.replace('#', '')
+    const r = parseInt(hex.substr(0, 2), 16)
+    const g = parseInt(hex.substr(2, 2), 16)
+    const b = parseInt(hex.substr(4, 2), 16)
+
+    const variations = []
+
+    // 5단계 명도 변화 (연한 색 -> 진한 색)
+    for (let i = 0; i < 5; i++) {
+      const factor = (4 - i) * 0.2 + 0.2 // 0.2 ~ 1.0
+      const newR = Math.round(255 - (255 - r) * factor)
+      const newG = Math.round(255 - (255 - g) * factor)
+      const newB = Math.round(255 - (255 - b) * factor)
+
+      const newHex = `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`
+      variations.push(newHex.toUpperCase())
+    }
+
+    return variations
+  }
 
   return (
     <div className="border border-gray-300 rounded-lg overflow-hidden">
@@ -329,20 +363,58 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable 
         <div className="h-6 w-px bg-gray-300"></div>
 
         {/* 폰트 색상 */}
-        <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-600">색상:</span>
-          <div className="flex gap-1">
-            {colorOptions.slice(0, 8).map((color, index) => (
-              <button
-                key={index}
-                type="button"
-                onClick={() => handleColorChange(color)}
-                className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
-                style={{ backgroundColor: color }}
-                title={`색상 변경: ${color}`}
-              />
-            ))}
-          </div>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={() => setShowColorPicker(!showColorPicker)}
+            className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+            title="텍스트 색상 변경"
+          >
+            <div className="w-4 h-4 bg-black border border-gray-400 rounded"></div>
+            <span>색상</span>
+            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* 컬러 팔레트 드롭다운 */}
+          {showColorPicker && (
+            <div
+              ref={colorPickerRef}
+              className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 p-3 w-80 max-h-60 overflow-y-auto"
+            >
+              {/* 컬러 팔레트 - 세로 정렬 */}
+              <div className="space-y-1">
+                {baseColors.map((colorData, rowIndex) => {
+                  // 검은색의 경우 회색 계열 그라데이션 사용
+                  let variations
+                  if (colorData.base === '#000000') {
+                    variations = ['#F5F5F5', '#D3D3D3', '#A9A9A9', '#696969', '#2F2F2F', '#000000']
+                  } else {
+                    variations = generateColorVariations(colorData.base)
+                  }
+
+                  return (
+                    <div key={rowIndex} className="flex gap-1">
+                      {variations.map((color, index) => (
+                        <button
+                          key={`${rowIndex}-${index}`}
+                          type="button"
+                          onClick={() => {
+                            handleColorChange(color)
+                            setShowColorPicker(false)
+                          }}
+                          className="w-6 h-6 rounded border border-gray-300 hover:scale-110 transition-transform"
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="h-6 w-px bg-gray-300"></div>

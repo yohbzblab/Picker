@@ -367,7 +367,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[60]">
+    <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center p-4 z-[60]">
       <div className="bg-white rounded-lg max-w-5xl w-full max-h-[90vh] overflow-hidden">
         <div className="flex h-full max-h-[90vh]">
           {/* 왼쪽: 변수 목록 */}
@@ -707,7 +707,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden mx-4">
         <div className="flex h-full max-h-[90vh]">
           {/* 왼쪽: 그룹 목록 */}

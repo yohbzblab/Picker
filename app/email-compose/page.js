@@ -951,7 +951,7 @@ function EmailComposeContent() {
                                         제목:
                                       </label>
                                       <div className="text-sm bg-white p-3 rounded border mt-1">
-                                        {emailPreview.subject}
+                                        <div dangerouslySetInnerHTML={{ __html: emailPreview.subject }} />
                                       </div>
                                     </div>
 
@@ -960,7 +960,7 @@ function EmailComposeContent() {
                                         본문:
                                       </label>
                                       <div className="text-xs bg-white p-3 rounded border mt-1 max-h-40 overflow-y-auto whitespace-pre-wrap">
-                                        {emailPreview.content}
+                                        <div dangerouslySetInnerHTML={{ __html: emailPreview.content }} />
                                       </div>
                                     </div>
                                   </div>
