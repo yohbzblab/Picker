@@ -16,6 +16,9 @@ export default function InfluencerManagement() {
   const [loading, setLoading] = useState(true)
   const [editingField, setEditingField] = useState(null)
   const [expandedInfluencers, setExpandedInfluencers] = useState(new Set())
+  const [showBulkImportModal, setShowBulkImportModal] = useState(false)
+  const [bulkImportData, setBulkImportData] = useState('')
+  const [bulkImportLoading, setBulkImportLoading] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -199,6 +202,130 @@ export default function InfluencerManagement() {
       newExpanded.add(influencerId)
     }
     setExpandedInfluencers(newExpanded)
+  }
+
+  // 벌크 임포트 함수
+  const handleBulkImport = async () => {
+    if (!bulkImportData.trim()) {
+      alert('데이터를 입력해주세요.')
+      return
+    }
+
+    setBulkImportLoading(true)
+    try {
+      // 줄 단위로 분리
+      const lines = bulkImportData.trim().split('\n')
+      const successfulImports = []
+      const failedImports = []
+
+      for (const line of lines) {
+        if (!line.trim()) continue
+
+        // 탭으로 분리
+        const parts = line.split('\t')
+
+        // 최소한 아이디가 있어야 함
+        if (parts.length === 0 || !parts[0]) continue
+
+        // 데이터 매핑
+        const accountId = parts[0]?.trim()
+        const followers = parts[1]?.trim()
+        const email = parts[2]?.trim()
+        const instagramUrl = parts[3]?.trim()
+        const nickname = parts[4]?.trim()
+        const brandName = parts[5]?.trim()
+        const additionalNotes = parts[6]?.trim()
+
+        // fieldData 구성
+        const fieldData = {
+          email: email || '',
+        }
+
+        // 팔로워 수 처리
+        if (followers) {
+          // 쉼표 제거하고 숫자로 변환
+          const followerCount = parseInt(followers.replace(/,/g, ''), 10)
+          if (!isNaN(followerCount)) {
+            fieldData.followers = followerCount
+          }
+        }
+
+        // 닉네임 처리
+        if (nickname) {
+          fieldData.name = nickname
+        }
+
+        // 인스타그램 URL 처리
+        if (instagramUrl) {
+          fieldData.instagram_url = instagramUrl
+        }
+
+        // 브랜드명 처리
+        if (brandName) {
+          fieldData.brand_name = brandName
+        }
+
+        // 추가 메모 처리
+        if (additionalNotes) {
+          fieldData.notes = additionalNotes
+        }
+
+        try {
+          // API 호출
+          const response = await fetch('/api/influencers', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              userId: dbUser.id,
+              accountId,
+              fieldData
+            })
+          })
+
+          if (response.ok) {
+            const result = await response.json()
+            successfulImports.push(accountId)
+          } else {
+            const error = await response.json()
+            console.error(`Failed to import ${accountId}:`, error)
+            failedImports.push({ accountId, error: error.error })
+          }
+        } catch (error) {
+          console.error(`Error importing ${accountId}:`, error)
+          failedImports.push({ accountId, error: '네트워크 오류' })
+        }
+      }
+
+      // 결과 메시지
+      let message = `임포트 완료\n`
+      message += `성공: ${successfulImports.length}개\n`
+
+      if (failedImports.length > 0) {
+        message += `실패: ${failedImports.length}개\n\n`
+        message += '실패한 항목:\n'
+        failedImports.forEach(item => {
+          message += `- ${item.accountId}: ${item.error}\n`
+        })
+      }
+
+      alert(message)
+
+      // 성공한 항목이 있으면 목록 새로고침
+      if (successfulImports.length > 0) {
+        await loadData()
+      }
+
+      // 모달 닫기 및 초기화
+      setShowBulkImportModal(false)
+      setBulkImportData('')
+    } catch (error) {
+      console.error('Bulk import error:', error)
+      alert('일괄 추가 중 오류가 발생했습니다.')
+    } finally {
+      setBulkImportLoading(false)
+    }
   }
 
   const fetchInfluencerEmails = async (influencerEmail, limit = 3) => {
@@ -658,12 +785,20 @@ export default function InfluencerManagement() {
             <div className="px-6 py-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
-                <button
-                  onClick={() => router.push('/influencer-management/add')}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                >
-                  인플루언서 추가
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowBulkImportModal(true)}
+                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                  >
+                    일괄 추가 (임시)
+                  </button>
+                  <button
+                    onClick={() => router.push('/influencer-management/add')}
+                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  >
+                    인플루언서 추가
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -708,6 +843,64 @@ export default function InfluencerManagement() {
           </div>
         </div>
       </main>
+
+      {/* 벌크 임포트 모달 */}
+      {showBulkImportModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            {/* 배경 오버레이 */}
+            <div
+              className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+              onClick={() => setShowBulkImportModal(false)}
+            />
+
+            {/* 모달 컨텐츠 */}
+            <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden">
+              <div className="px-6 py-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900">
+                  인플루언서 일괄 추가 (임시 기능)
+                </h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  탭으로 구분된 데이터를 붙여넣으세요.
+                </p>
+              </div>
+
+              <div className="p-6">
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    데이터 형식: 아이디[탭]팔로워[탭]이메일[탭]인스타그램주소[탭]닉네임[탭]브랜드명[탭]메모
+                  </label>
+                  <textarea
+                    value={bulkImportData}
+                    onChange={(e) => setBulkImportData(e.target.value)}
+                    className="w-full h-96 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 font-mono text-sm"
+                    placeholder="예시:\nck.neeee\t33,000\trhkdtn0512@naver.com\thttps://www.instagram.com/ck.neeee/\t슈니\t메디큐브\t추가 메모"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3">
+                  <button
+                    onClick={() => {
+                      setShowBulkImportModal(false)
+                      setBulkImportData('')
+                    }}
+                    className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleBulkImport}
+                    disabled={bulkImportLoading || !bulkImportData.trim()}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                  >
+                    {bulkImportLoading ? '처리 중...' : '임포트'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
