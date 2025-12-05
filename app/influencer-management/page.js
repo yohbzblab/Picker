@@ -11,6 +11,7 @@ export default function InfluencerManagement() {
   const [hoveredColumn, setHoveredColumn] = useState(null)
   const [visibleColumns, setVisibleColumns] = useState({})
   const [showColumnSelector, setShowColumnSelector] = useState(false)
+  const [showSearchFilter, setShowSearchFilter] = useState(false)
   const [fields, setFields] = useState([])
   const [influencers, setInfluencers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -19,6 +20,18 @@ export default function InfluencerManagement() {
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
   const [bulkImportData, setBulkImportData] = useState('')
   const [bulkImportLoading, setBulkImportLoading] = useState(false)
+
+  // 검색 및 필터링 상태
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchField, setSearchField] = useState('all') // all, accountId, email, name
+  const [followerFilter, setFollowerFilter] = useState({ min: '', max: '' })
+  const [sortOrder, setSortOrder] = useState('default') // default, followers_desc, followers_asc, name_asc
+  const [filteredInfluencers, setFilteredInfluencers] = useState([])
+
+  // 페이지네이션 상태
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(20)
+  const [paginatedInfluencers, setPaginatedInfluencers] = useState([])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -32,6 +45,87 @@ export default function InfluencerManagement() {
       loadData()
     }
   }, [dbUser])
+
+  // 필터링 로직
+  useEffect(() => {
+    let filtered = [...influencers]
+
+    // 검색 필터링
+    if (searchTerm) {
+      filtered = filtered.filter(influencer => {
+        const term = searchTerm.toLowerCase()
+        switch (searchField) {
+          case 'accountId':
+            return influencer.accountId?.toLowerCase().includes(term)
+          case 'email':
+            return influencer.email?.toLowerCase().includes(term)
+          case 'name':
+            return influencer.fieldData?.name?.toLowerCase().includes(term)
+          case 'all':
+          default:
+            return (
+              influencer.accountId?.toLowerCase().includes(term) ||
+              influencer.email?.toLowerCase().includes(term) ||
+              influencer.fieldData?.name?.toLowerCase().includes(term)
+            )
+        }
+      })
+    }
+
+    // 팔로워 수 필터링
+    if (followerFilter.min || followerFilter.max) {
+      filtered = filtered.filter(influencer => {
+        const followers = influencer.fieldData?.followers
+        if (followers == null) return false
+
+        const minVal = followerFilter.min ? parseInt(followerFilter.min) : 0
+        const maxVal = followerFilter.max ? parseInt(followerFilter.max) : Infinity
+
+        return followers >= minVal && followers <= maxVal
+      })
+    }
+
+    // 정렬
+    if (sortOrder !== 'default') {
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortOrder) {
+          case 'followers_desc':
+            return (b.fieldData?.followers || 0) - (a.fieldData?.followers || 0)
+          case 'followers_asc':
+            return (a.fieldData?.followers || 0) - (b.fieldData?.followers || 0)
+          case 'name_asc':
+            const nameA = a.fieldData?.name || a.accountId || ''
+            const nameB = b.fieldData?.name || b.accountId || ''
+            return nameA.localeCompare(nameB)
+          default:
+            return 0
+        }
+      })
+    }
+
+    setFilteredInfluencers(filtered)
+
+    // 필터링이 변경되면 첫 페이지로 이동
+    setCurrentPage(1)
+  }, [searchTerm, searchField, followerFilter, sortOrder, influencers])
+
+  // 페이지네이션 로직
+  useEffect(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage
+    const endIndex = startIndex + itemsPerPage
+    const paginated = filteredInfluencers.slice(startIndex, endIndex)
+    setPaginatedInfluencers(paginated)
+  }, [filteredInfluencers, currentPage, itemsPerPage])
+
+  // 총 페이지 수 계산
+  const totalPages = Math.ceil(filteredInfluencers.length / itemsPerPage)
+
+  // 페이지 변경 함수
+  const handlePageChange = (page) => {
+    setCurrentPage(page)
+    // 페이지 변경 시 스크롤을 맨 위로 (애니메이션 없이 즉시)
+    window.scrollTo(0, 0)
+  }
 
   const loadData = async () => {
     try {
@@ -781,29 +875,162 @@ export default function InfluencerManagement() {
             )}
           </div>
 
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => setShowBulkImportModal(true)}
-                    className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                  >
-                    일괄 추가 (임시)
-                  </button>
-                  <button
-                    onClick={() => router.push('/influencer-management/add')}
-                    className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                  >
-                    인플루언서 추가
-                  </button>
+          {/* 검색 및 필터링 섹션 */}
+          <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200">
+            <div className="px-4 py-3 border-b border-gray-200">
+              <button
+                onClick={() => setShowSearchFilter(!showSearchFilter)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <h3 className="text-lg font-medium text-gray-900">검색 및 필터링</h3>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform ${
+                    showSearchFilter ? 'transform rotate-180' : ''
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+            </div>
+
+            {showSearchFilter && (
+              <div className="p-4">
+                {/* 검색 영역 */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">검색</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={searchField}
+                      onChange={(e) => setSearchField(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="all">전체</option>
+                      <option value="accountId">계정 ID</option>
+                      <option value="email">이메일</option>
+                      <option value="name">인플루언서 이름</option>
+                    </select>
+                    <input
+                      type="text"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      placeholder="검색어를 입력하세요"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    {searchTerm && (
+                      <button
+                        onClick={() => setSearchTerm('')}
+                        className="px-3 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        초기화
+                      </button>
+                    )}
+                  </div>
                 </div>
+
+                {/* 팔로워 수 필터링 */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">팔로워 수 필터링</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      value={followerFilter.min}
+                      onChange={(e) => setFollowerFilter(prev => ({ ...prev, min: e.target.value }))}
+                      placeholder="최소"
+                      className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <span className="text-gray-500">~</span>
+                    <input
+                      type="number"
+                      value={followerFilter.max}
+                      onChange={(e) => setFollowerFilter(prev => ({ ...prev, max: e.target.value }))}
+                      placeholder="최대"
+                      className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    <span className="text-sm text-gray-600">명</span>
+                    {(followerFilter.min || followerFilter.max) && (
+                      <button
+                        onClick={() => setFollowerFilter({ min: '', max: '' })}
+                        className="px-3 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        초기화
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 정렬 순서 */}
+                <div className="mt-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">정렬 순서</label>
+                  <div className="flex gap-2">
+                    <select
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    >
+                      <option value="default">기본 순서</option>
+                      <option value="followers_desc">팔로워 많은순</option>
+                      <option value="followers_asc">팔로워 적은순</option>
+                      <option value="name_asc">이름순 (가나다)</option>
+                    </select>
+                    {sortOrder !== 'default' && (
+                      <button
+                        onClick={() => setSortOrder('default')}
+                        className="px-3 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                      >
+                        초기화
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* 검색 결과 표시 */}
+                {(searchTerm || followerFilter.min || followerFilter.max || sortOrder !== 'default') && (
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <p className="text-sm text-gray-600">
+                      전체 {influencers.length}명 중 {filteredInfluencers.length}명 검색됨
+                      {filteredInfluencers.length > itemsPerPage && (
+                        <span className="ml-2">
+                          (페이지당 {itemsPerPage}명씩 {totalPages}페이지로 분할)
+                        </span>
+                      )}
+                      {sortOrder !== 'default' && (
+                        <span className="ml-2">
+                          - {sortOrder === 'followers_desc' && '팔로워 많은순'}
+                          {sortOrder === 'followers_asc' && '팔로워 적은순'}
+                          {sortOrder === 'name_asc' && '이름순'}
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowBulkImportModal(true)}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                >
+                  일괄 추가 (임시)
+                </button>
+                <button
+                  onClick={() => router.push('/influencer-management/add')}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                >
+                  인플루언서 추가
+                </button>
               </div>
             </div>
 
-            <div className="divide-y divide-gray-200">
-              {influencers.map((influencer, index) => {
+            <div className="space-y-4">
+              {paginatedInfluencers.map((influencer, index) => {
                 const isExpanded = expandedInfluencers.has(influencer.id)
 
                 return (
@@ -823,23 +1050,93 @@ export default function InfluencerManagement() {
               })}
             </div>
 
-            {influencers.length === 0 && (
-              <div className="text-center py-12">
-                <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
-                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                  </svg>
+            {/* 페이지네이션 */}
+            {filteredInfluencers.length > itemsPerPage && (
+              <div className="mt-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-700">
+                    {filteredInfluencers.length}개 중 {(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, filteredInfluencers.length)}개 표시
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    {/* 이전 페이지 버튼 */}
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-l-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      이전
+                    </button>
+
+                    {/* 페이지 번호 */}
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum
+                      if (totalPages <= 5) {
+                        pageNum = i + 1
+                      } else if (currentPage <= 3) {
+                        pageNum = i + 1
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i
+                      } else {
+                        pageNum = currentPage - 2 + i
+                      }
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => handlePageChange(pageNum)}
+                          className={`px-3 py-2 text-sm font-medium border ${
+                            currentPage === pageNum
+                              ? 'bg-purple-600 text-white border-purple-600'
+                              : 'text-gray-500 bg-white border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    })}
+
+                    {/* 다음 페이지 버튼 */}
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-r-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      다음
+                    </button>
+                  </div>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">인플루언서가 없습니다</h3>
-                <p className="text-gray-600 mb-4">첫 번째 인플루언서를 추가해보세요.</p>
-                <button
-                  onClick={() => router.push('/influencer-management/add')}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
-                >
-                  인플루언서 추가
-                </button>
               </div>
             )}
+
+          {filteredInfluencers.length === 0 && influencers.length > 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">검색 결과가 없습니다</h3>
+              <p className="text-gray-600">다른 검색어나 필터를 시도해보세요.</p>
+            </div>
+          )}
+
+          {influencers.length === 0 && (
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">인플루언서가 없습니다</h3>
+              <p className="text-gray-600 mb-4">첫 번째 인플루언서를 추가해보세요.</p>
+              <button
+                onClick={() => router.push('/influencer-management/add')}
+                className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+              >
+                인플루언서 추가
+              </button>
+            </div>
+          )}
           </div>
         </div>
       </main>
@@ -969,7 +1266,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
   const displayFields = getDisplayFields()
 
   return (
-    <div className="p-6 hover:bg-gray-50 transition-colors">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
       <div className="flex flex-col">
         <div className="flex items-start justify-between">
           <div className="flex-1 overflow-x-auto">
