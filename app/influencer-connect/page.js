@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/components/AuthProvider'
+import InfluencerFilter from '@/components/InfluencerFilter'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback, Suspense, useRef } from 'react'
 
@@ -22,7 +23,15 @@ function InfluencerConnectContent() {
   const [showOriginalTemplate, setShowOriginalTemplate] = useState(false) // 원본 템플릿 토글
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [showTemplateInfo, setShowTemplateInfo] = useState(false) // 템플릿 정보 슬라이드 메뉴
   const previewTimeoutRef = useRef(null) // 미리보기 디바운싱용
+
+  // 필터링 상태
+  const [searchTerm, setSearchTerm] = useState('')
+  const [searchField, setSearchField] = useState('all') // all, accountId, email, name
+  const [followerFilter, setFollowerFilter] = useState({ min: '', max: '' })
+  const [sortOrder, setSortOrder] = useState('default') // default, followers_desc, followers_asc, name_asc
+  const [filteredInfluencers, setFilteredInfluencers] = useState([])
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -46,6 +55,66 @@ function InfluencerConnectContent() {
       router.push('/email-templates')
     }
   }, [dbUser, templateId, router])
+
+  // 필터링 로직
+  useEffect(() => {
+    let filtered = [...influencers]
+
+    // 검색 필터링
+    if (searchTerm) {
+      filtered = filtered.filter(influencer => {
+        const term = searchTerm.toLowerCase()
+        switch (searchField) {
+          case 'accountId':
+            return influencer.accountId?.toLowerCase().includes(term)
+          case 'email':
+            return influencer.email?.toLowerCase().includes(term)
+          case 'name':
+            return influencer.fieldData?.name?.toLowerCase().includes(term)
+          case 'all':
+          default:
+            return (
+              influencer.accountId?.toLowerCase().includes(term) ||
+              influencer.email?.toLowerCase().includes(term) ||
+              influencer.fieldData?.name?.toLowerCase().includes(term)
+            )
+        }
+      })
+    }
+
+    // 팔로워 수 필터링
+    if (followerFilter.min || followerFilter.max) {
+      filtered = filtered.filter(influencer => {
+        const followers = influencer.fieldData?.followers
+        if (followers == null) return false
+
+        const minVal = followerFilter.min ? parseInt(followerFilter.min) : 0
+        const maxVal = followerFilter.max ? parseInt(followerFilter.max) : Infinity
+
+        return followers >= minVal && followers <= maxVal
+      })
+    }
+
+    // 정렬
+    if (sortOrder !== 'default') {
+      filtered = [...filtered].sort((a, b) => {
+        switch (sortOrder) {
+          case 'followers_desc':
+            return (b.fieldData?.followers || 0) - (a.fieldData?.followers || 0)
+          case 'followers_asc':
+            return (a.fieldData?.followers || 0) - (b.fieldData?.followers || 0)
+          case 'name_asc':
+            const nameA = a.fieldData?.name || a.accountId || ''
+            const nameB = b.fieldData?.name || b.accountId || ''
+            return nameA.localeCompare(nameB)
+          default:
+            return 0
+        }
+      })
+    }
+
+    setFilteredInfluencers(filtered)
+  }, [searchTerm, searchField, followerFilter, sortOrder, influencers])
 
   const loadData = async () => {
     try {
@@ -107,6 +176,23 @@ function InfluencerConnectContent() {
       setSelectedInfluencers(newSelection)
       // 새로 체크할 때만 해당 인플루언서로 미리보기 생성
       generatePreview(influencer)
+    }
+  }
+
+  // 전체 선택/해제 기능
+  const handleSelectAll = () => {
+    const unconnectedInfluencers = filteredInfluencers.filter(influencer => !isConnected(influencer))
+
+    if (selectedInfluencers.length === unconnectedInfluencers.length) {
+      // 전체가 선택된 상태라면 전체 해제
+      setSelectedInfluencers([])
+    } else {
+      // 전체 선택
+      setSelectedInfluencers([...unconnectedInfluencers])
+      // 첫 번째 인플루언서로 미리보기 생성
+      if (unconnectedInfluencers.length > 0) {
+        generatePreview(unconnectedInfluencers[0])
+      }
     }
   }
 
@@ -516,9 +602,9 @@ function InfluencerConnectContent() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-            {/* 왼쪽: 연결된 인플루언서 + 전체 인플루언서 목록 */}
-            <div className="lg:col-span-2 space-y-6">
+          <div className="grid grid-cols-1 gap-8">
+            {/* 연결된 인플루언서 + 전체 인플루언서 목록 */}
+            <div className="space-y-6">
 
               {/* 연결된 인플루언서 섹션 */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
@@ -743,6 +829,22 @@ function InfluencerConnectContent() {
                 </div>
               </div>
 
+              {/* 필터링 컴포넌트 */}
+              <InfluencerFilter
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                searchField={searchField}
+                setSearchField={setSearchField}
+                followerFilter={followerFilter}
+                setFollowerFilter={setFollowerFilter}
+                sortOrder={sortOrder}
+                setSortOrder={setSortOrder}
+                filteredInfluencers={filteredInfluencers}
+                totalInfluencers={influencers.length}
+                itemsPerPage={50} // 인플루언서 연결에서는 페이지네이션 없이 많이 보여줌
+                showResults={false} // 인플루언서 목록 섹션에서 결과를 보여주므로 여기서는 숨김
+              />
+
               {/* 전체 인플루언서 목록 */}
               <div className="bg-white rounded-lg shadow-sm border border-gray-200">
                 <div className="p-6 border-b border-gray-200">
@@ -751,24 +853,44 @@ function InfluencerConnectContent() {
                       <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
                       <p className="text-sm text-gray-600 mt-1">
                         체크박스로 여러 인플루언서를 선택한 후 저장하세요. ({selectedInfluencers.length}명 선택됨)
+                        {(searchTerm || followerFilter.min || followerFilter.max || sortOrder !== 'default') && (
+                          <span className="ml-2 text-purple-600">
+                            - 필터링됨: {filteredInfluencers.filter(inf => !isConnected(inf)).length}명 표시 중
+                          </span>
+                        )}
                       </p>
                     </div>
-                    {selectedInfluencers.length > 0 && (
-                      <button
-                        onClick={handleSaveConnections}
-                        disabled={saving}
-                        className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium"
-                      >
-                        {saving ? '저장 중...' : `${selectedInfluencers.length}명 연결하기`}
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {(() => {
+                        const unconnectedInfluencers = filteredInfluencers.filter(influencer => !isConnected(influencer))
+                        const isAllSelected = unconnectedInfluencers.length > 0 && selectedInfluencers.length === unconnectedInfluencers.length
+
+                        return unconnectedInfluencers.length > 0 && (
+                          <button
+                            onClick={handleSelectAll}
+                            className="text-sm bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors font-medium"
+                          >
+                            {isAllSelected ? '전체 해제' : '전체 선택'}
+                          </button>
+                        )
+                      })()}
+                      {selectedInfluencers.length > 0 && (
+                        <button
+                          onClick={handleSaveConnections}
+                          disabled={saving}
+                          className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 font-medium"
+                        >
+                          {saving ? '저장 중...' : `${selectedInfluencers.length}명 연결하기`}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
 
                 <div className="p-6">
                   {(() => {
-                    // 연결되지 않은 인플루언서들만 필터링
-                    const unconnectedInfluencers = influencers.filter(influencer => !isConnected(influencer))
+                    // 필터링된 인플루언서 중 연결되지 않은 인플루언서들만 필터링
+                    const unconnectedInfluencers = filteredInfluencers.filter(influencer => !isConnected(influencer))
 
                     return unconnectedInfluencers.length > 0 ? (
                       <div className="space-y-3">
@@ -873,153 +995,181 @@ function InfluencerConnectContent() {
               </div>
             </div>
 
-            {/* 오른쪽: 템플릿 정보 */}
-            <div className="lg:col-span-3">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 sticky top-8 max-h-[calc(100vh-4rem)] flex flex-col">
-                <div className="p-6 flex-shrink-0">
-                  <h2 className="text-lg font-semibold text-gray-900 mb-4">템플릿 정보</h2>
-                </div>
-                <div className="px-6 pb-6 flex-1 overflow-y-auto">
-                  <div className="space-y-4 text-sm">
+            {/* 우측 고정 버튼 */}
+            <div className="fixed right-6 top-1/2 transform -translate-y-1/2 z-40">
+              <button
+                onClick={() => setShowTemplateInfo(!showTemplateInfo)}
+                className={`w-14 h-14 rounded-full shadow-lg transition-all duration-300 flex items-center justify-center ${
+                  showTemplateInfo
+                    ? 'bg-purple-600 text-white'
+                    : 'bg-white text-purple-600 border-2 border-purple-600 hover:bg-purple-50'
+                }`}
+                title="템플릿 정보"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </button>
+            </div>
+
+            {/* 템플릿 정보 슬라이드 메뉴 */}
+            <div className={`fixed inset-y-0 right-0 w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ${
+              showTemplateInfo ? 'translate-x-0' : 'translate-x-full'
+            }`}>
+              {/* 슬라이드 메뉴 헤더 */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                <h2 className="text-lg font-semibold text-gray-900">템플릿 정보</h2>
+                <button
+                  onClick={() => setShowTemplateInfo(false)}
+                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* 슬라이드 메뉴 내용 */}
+              <div className="h-full overflow-y-auto pb-20">
+                <div className="p-6 space-y-4 text-sm">
+                  <div>
+                    <span className="text-gray-600">템플릿명:</span>
+                    <p className="font-medium">{template.name}</p>
+                  </div>
+
+                  {/* 조건문 변수 정보 표시 */}
+                  {template.conditionalRules && Object.keys(template.conditionalRules).length > 0 && (
                     <div>
-                      <span className="text-gray-600">템플릿명:</span>
-                      <p className="font-medium">{template.name}</p>
-                    </div>
-
-                    {/* 조건문 변수 정보 표시 */}
-                    {template.conditionalRules && Object.keys(template.conditionalRules).length > 0 && (
-                      <div>
-                        <span className="text-gray-600">조건 변수:</span>
-                        <div className="mt-2 space-y-2">
-                          {Object.entries(template.conditionalRules).map(([variableName, rule]) => (
-                            <div key={variableName} className="bg-blue-50 p-3 rounded-lg border">
-                              <div className="flex items-center space-x-2 mb-2">
-                                <span className="text-xs font-medium text-blue-800">{`{{${variableName}}}`}</span>
-                                <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded">조건부</span>
-                              </div>
-
-                              {rule.conditions && rule.conditions.length > 0 && (
-                                <div className="space-y-1">
-                                  {rule.conditions.map((condition, index) => (
-                                    <div key={index} className="text-xs bg-white p-2 rounded border text-gray-700">
-                                      {condition.operator === 'range' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.min).toLocaleString()}~{parseInt(condition.max).toLocaleString()}명 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : condition.operator === 'gte' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.value).toLocaleString()}명 이상 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : condition.operator === 'lte' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.value).toLocaleString()}명 이하 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : condition.operator === 'gt' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.value).toLocaleString()}명 초과 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : condition.operator === 'lt' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.value).toLocaleString()}명 미만 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : condition.operator === 'eq' ? (
-                                        <span>
-                                          팔로워 {parseInt(condition.value).toLocaleString()}명 → <strong>{condition.result}</strong>
-                                        </span>
-                                      ) : (
-                                        <span>
-                                          조건: {condition.operator} → <strong>{condition.result}</strong>
-                                        </span>
-                                      )}
-                                    </div>
-                                  ))}
-                                  {rule.defaultValue && (
-                                    <div className="text-xs bg-gray-100 p-2 rounded border text-gray-600">
-                                      기본값: <strong>{rule.defaultValue}</strong>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
+                      <span className="text-gray-600">조건 변수:</span>
+                      <div className="mt-2 space-y-2">
+                        {Object.entries(template.conditionalRules).map(([variableName, rule]) => (
+                          <div key={variableName} className="bg-blue-50 p-3 rounded-lg border">
+                            <div className="flex items-center space-x-2 mb-2">
+                              <span className="text-xs font-medium text-blue-800">{`{{${variableName}}}`}</span>
+                              <span className="text-xs bg-blue-200 text-blue-700 px-2 py-0.5 rounded">조건부</span>
                             </div>
-                          ))}
+
+                            {rule.conditions && rule.conditions.length > 0 && (
+                              <div className="space-y-1">
+                                {rule.conditions.map((condition, index) => (
+                                  <div key={index} className="text-xs bg-white p-2 rounded border text-gray-700">
+                                    {condition.operator === 'range' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.min).toLocaleString()}~{parseInt(condition.max).toLocaleString()}명 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : condition.operator === 'gte' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.value).toLocaleString()}명 이상 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : condition.operator === 'lte' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.value).toLocaleString()}명 이하 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : condition.operator === 'gt' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.value).toLocaleString()}명 초과 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : condition.operator === 'lt' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.value).toLocaleString()}명 미만 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : condition.operator === 'eq' ? (
+                                      <span>
+                                        팔로워 {parseInt(condition.value).toLocaleString()}명 → <strong>{condition.result}</strong>
+                                      </span>
+                                    ) : (
+                                      <span>
+                                        조건: {condition.operator} → <strong>{condition.result}</strong>
+                                      </span>
+                                    )}
+                                  </div>
+                                ))}
+                                {rule.defaultValue && (
+                                  <div className="text-xs bg-gray-100 p-2 rounded border text-gray-600">
+                                    기본값: <strong>{rule.defaultValue}</strong>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {previewInfluencer && previewContent ? (
+                    <>
+                      <div>
+                        <span className="text-gray-600">제목 (변수 치환됨):</span>
+                        <div className="font-medium text-sm bg-green-50 p-3 rounded border whitespace-pre-wrap">
+                          <div dangerouslySetInnerHTML={{ __html: previewContent.subject }} />
                         </div>
                       </div>
-                    )}
 
-                    {previewInfluencer && previewContent ? (
-                      <>
-                        <div>
-                          <span className="text-gray-600">제목 (변수 치환됨):</span>
-                          <div className="font-medium text-sm bg-green-50 p-3 rounded border whitespace-pre-wrap">
-                            <div dangerouslySetInnerHTML={{ __html: previewContent.subject }} />
-                          </div>
+                      <div>
+                        <span className="text-gray-600">본문 (변수 치환됨):</span>
+                        <div className="font-medium text-xs bg-green-50 p-3 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          <div dangerouslySetInnerHTML={{ __html: previewContent.content }} />
                         </div>
+                      </div>
 
-                        <div>
-                          <span className="text-gray-600">본문 (변수 치환됨):</span>
-                          <div className="font-medium text-xs bg-green-50 p-3 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap">
-                            <div dangerouslySetInnerHTML={{ __html: previewContent.content }} />
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-gray-200">
-                          <button
-                            onClick={() => setShowOriginalTemplate(!showOriginalTemplate)}
-                            className="flex items-center justify-between w-full text-left text-gray-600 hover:text-gray-800 transition-colors"
+                      <div className="pt-3 border-t border-gray-200">
+                        <button
+                          onClick={() => setShowOriginalTemplate(!showOriginalTemplate)}
+                          className="flex items-center justify-between w-full text-left text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                          <span>원본 템플릿</span>
+                          <svg
+                            className={`w-4 h-4 transition-transform ${showOriginalTemplate ? 'rotate-180' : ''}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
                           >
-                            <span>원본 템플릿</span>
-                            <svg
-                              className={`w-4 h-4 transition-transform ${showOriginalTemplate ? 'rotate-180' : ''}`}
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                            </svg>
-                          </button>
-                          {showOriginalTemplate && (
-                            <div className="mt-2 space-y-2">
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">제목:</p>
-                                <p className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">{template.subject}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 mb-1">본문:</p>
-                                <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap">
-                                  {template.content}
-                                </div>
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                        {showOriginalTemplate && (
+                          <div className="mt-2 space-y-2">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">제목:</p>
+                              <p className="text-xs bg-gray-50 p-2 rounded whitespace-pre-wrap">{template.subject}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">본문:</p>
+                              <div className="text-xs bg-gray-50 p-2 rounded max-h-32 overflow-y-auto whitespace-pre-wrap">
+                                {template.content}
                               </div>
                             </div>
-                          )}
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                        <div>
-                          <span className="text-gray-600">제목:</span>
-                          <p className="font-medium whitespace-pre-wrap">{template.subject}</p>
-                        </div>
-                        <div>
-                          <span className="text-gray-600">본문 미리보기:</span>
-                          <div className="font-medium text-xs bg-gray-50 p-3 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap">
-                            {template.content}
-                          </div>
-                        </div>
-                        {selectedInfluencers.length > 0 && (
-                          <div className="bg-yellow-50 p-3 rounded-lg">
-                            <p className="text-xs text-yellow-800">
-                              💡 인플루언서를 선택하면 변수가 치환된 미리보기를 볼 수 있습니다.
-                            </p>
                           </div>
                         )}
-                      </>
-                    )}
-                  </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <span className="text-gray-600">제목:</span>
+                        <p className="font-medium whitespace-pre-wrap">{template.subject}</p>
+                      </div>
+                      <div>
+                        <span className="text-gray-600">본문 미리보기:</span>
+                        <div className="font-medium text-xs bg-gray-50 p-3 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap">
+                          {template.content}
+                        </div>
+                      </div>
+                      {selectedInfluencers.length > 0 && (
+                        <div className="bg-yellow-50 p-3 rounded-lg">
+                          <p className="text-xs text-yellow-800">
+                            💡 인플루언서를 선택하면 변수가 치환된 미리보기를 볼 수 있습니다.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
 
-                {/* 메일 생성하기 버튼 - 스크롤 영역 밖 */}
+                {/* 메일 생성하기 버튼 - 슬라이드 메뉴 하단 고정 */}
                 {connectedInfluencers.length > 0 && (
-                  <div className="p-6 pt-0 flex-shrink-0 border-t border-gray-200">
+                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-200">
                     <button
                       onClick={() => router.push(`/email-compose?templateId=${templateId}`)}
                       className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
@@ -1036,6 +1186,7 @@ function InfluencerConnectContent() {
                 )}
               </div>
             </div>
+
           </div>
         </div>
       </main>

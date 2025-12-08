@@ -74,3 +74,52 @@ export async function POST(request) {
     await prisma.$disconnect()
   }
 }
+
+export async function DELETE(request) {
+  try {
+    const body = await request.json()
+    const { userId, influencerIds } = body
+
+    if (!userId || !Array.isArray(influencerIds) || influencerIds.length === 0) {
+      return NextResponse.json({
+        error: 'User ID and array of influencer IDs are required'
+      }, { status: 400 })
+    }
+
+    // 사용자 소유의 인플루언서인지 확인
+    const ownedInfluencers = await prisma.influencer.findMany({
+      where: {
+        id: { in: influencerIds },
+        userId: parseInt(userId)
+      },
+      select: { id: true }
+    })
+
+    if (ownedInfluencers.length !== influencerIds.length) {
+      return NextResponse.json({
+        error: 'Some influencers not found or not owned by user'
+      }, { status: 403 })
+    }
+
+    // 일괄 삭제 실행
+    const deleteResult = await prisma.influencer.deleteMany({
+      where: {
+        id: { in: influencerIds },
+        userId: parseInt(userId)
+      }
+    })
+
+    return NextResponse.json({
+      message: `Successfully deleted ${deleteResult.count} influencers`,
+      deletedCount: deleteResult.count
+    })
+
+  } catch (error) {
+    console.error('Error deleting influencers:', error)
+    return NextResponse.json({
+      error: 'Failed to delete influencers'
+    }, { status: 500 })
+  } finally {
+    await prisma.$disconnect()
+  }
+}

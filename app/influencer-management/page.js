@@ -21,6 +21,11 @@ export default function InfluencerManagement() {
   const [bulkImportData, setBulkImportData] = useState('')
   const [bulkImportLoading, setBulkImportLoading] = useState(false)
 
+  // 삭제 관련 상태
+  const [isDeleteMode, setIsDeleteMode] = useState(false)
+  const [selectedForDeletion, setSelectedForDeletion] = useState(new Set())
+  const [isDeleting, setIsDeleting] = useState(false)
+
   // 검색 및 필터링 상태
   const [searchTerm, setSearchTerm] = useState('')
   const [searchField, setSearchField] = useState('all') // all, accountId, email, name
@@ -296,6 +301,90 @@ export default function InfluencerManagement() {
       newExpanded.add(influencerId)
     }
     setExpandedInfluencers(newExpanded)
+  }
+
+  // 삭제 모드 토글
+  const toggleDeleteMode = () => {
+    setIsDeleteMode(!isDeleteMode)
+    setSelectedForDeletion(new Set()) // 삭제 모드 전환 시 선택 초기화
+  }
+
+  // 인플루언서 선택/선택 해제
+  const toggleInfluencerSelection = (influencerId) => {
+    const newSelected = new Set(selectedForDeletion)
+    if (newSelected.has(influencerId)) {
+      newSelected.delete(influencerId)
+    } else {
+      newSelected.add(influencerId)
+    }
+    setSelectedForDeletion(newSelected)
+  }
+
+  // 전체 선택/해제
+  const toggleSelectAll = () => {
+    if (selectedForDeletion.size === paginatedInfluencers.length) {
+      // 전체가 선택된 상태라면 전체 해제
+      setSelectedForDeletion(new Set())
+    } else {
+      // 전체 선택
+      const allIds = new Set(paginatedInfluencers.map(influencer => influencer.id))
+      setSelectedForDeletion(allIds)
+    }
+  }
+
+  // 전체 선택 상태 확인
+  const isAllSelected = paginatedInfluencers.length > 0 && selectedForDeletion.size === paginatedInfluencers.length
+  const isPartiallySelected = selectedForDeletion.size > 0 && selectedForDeletion.size < paginatedInfluencers.length
+
+  // 선택된 인플루언서들 삭제
+  const deleteSelectedInfluencers = async () => {
+    if (selectedForDeletion.size === 0) {
+      alert('삭제할 인플루언서를 선택해주세요.')
+      return
+    }
+
+    if (!confirm(`선택한 ${selectedForDeletion.size}명의 인플루언서를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`)) {
+      return
+    }
+
+    setIsDeleting(true)
+    try {
+      const influencerIds = Array.from(selectedForDeletion)
+
+      const response = await fetch('/api/influencers', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: dbUser.id,
+          influencerIds: influencerIds
+        })
+      })
+
+      const result = await response.json()
+
+      if (response.ok) {
+        // UI에서 삭제된 인플루언서들 제거
+        setInfluencers(prev =>
+          prev.filter(influencer => !selectedForDeletion.has(influencer.id))
+        )
+
+        alert(`${result.deletedCount}명의 인플루언서가 성공적으로 삭제되었습니다.`)
+      } else {
+        console.error('삭제 실패:', result.error)
+        alert(`삭제 실패: ${result.error}`)
+      }
+
+      // 삭제 모드 해제
+      setIsDeleteMode(false)
+      setSelectedForDeletion(new Set())
+    } catch (error) {
+      console.error('삭제 중 오류 발생:', error)
+      alert('삭제 중 오류가 발생했습니다.')
+    } finally {
+      setIsDeleting(false)
+    }
   }
 
   // 벌크 임포트 함수
@@ -1014,14 +1103,70 @@ export default function InfluencerManagement() {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
               <div className="flex gap-2">
-                <button
-                  onClick={() => router.push('/influencer-management/add')}
-                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
-                >
-                  인플루언서 추가
-                </button>
+                {isDeleteMode ? (
+                  <>
+                    <span className="text-sm text-gray-600 px-3 py-2">
+                      {selectedForDeletion.size}명 선택됨
+                    </span>
+                    <button
+                      onClick={deleteSelectedInfluencers}
+                      disabled={selectedForDeletion.size === 0 || isDeleting}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    >
+                      {isDeleting ? '삭제 중...' : `${selectedForDeletion.size}명 삭제`}
+                    </button>
+                    <button
+                      onClick={toggleDeleteMode}
+                      className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
+                    >
+                      취소
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={toggleDeleteMode}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                    >
+                      삭제
+                    </button>
+                    <button
+                      onClick={() => router.push('/influencer-management/add')}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    >
+                      인플루언서 추가
+                    </button>
+                  </>
+                )}
               </div>
             </div>
+
+            {/* 삭제 모드일 때 전체 선택 버튼 표시 */}
+            {isDeleteMode && paginatedInfluencers.length > 0 && (
+              <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(input) => {
+                        if (input) {
+                          input.indeterminate = isPartiallySelected
+                        }
+                      }}
+                      onChange={toggleSelectAll}
+                      className="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      {isAllSelected ? '전체 해제' : '전체 선택'}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    현재 페이지: {paginatedInfluencers.length}명
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="space-y-4">
               {paginatedInfluencers.map((influencer, index) => {
@@ -1039,6 +1184,9 @@ export default function InfluencerManagement() {
                     fetchSentEmails={fetchSentEmails}
                     renderCell={renderCell}
                     visibleColumns={visibleColumns}
+                    isDeleteMode={isDeleteMode}
+                    isSelected={selectedForDeletion.has(influencer.id)}
+                    onToggleSelection={() => toggleInfluencerSelection(influencer.id)}
                   />
                 )
               })}
@@ -1196,7 +1344,8 @@ export default function InfluencerManagement() {
   )
 }
 
-function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, fetchInfluencerEmails, fetchSentEmails, renderCell, visibleColumns }) {
+function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, fetchInfluencerEmails, fetchSentEmails, renderCell, visibleColumns, isDeleteMode, isSelected, onToggleSelection }) {
+  const router = useRouter()
   const [recentEmails, setRecentEmails] = useState([])
   const [sentEmails, setSentEmails] = useState([])
   const [emailsLoading, setEmailsLoading] = useState(false)
@@ -1260,9 +1409,30 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
   const displayFields = getDisplayFields()
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow">
+    <div
+      className={`rounded-lg shadow-sm border p-6 hover:shadow-md transition-all cursor-pointer ${
+        isDeleteMode
+          ? isSelected
+            ? 'bg-red-100 border-red-400 shadow-red-200'
+            : 'bg-white border-gray-200 hover:bg-gray-50'
+          : 'bg-white border-gray-200'
+      }`}
+      onClick={isDeleteMode ? onToggleSelection : undefined}
+    >
       <div className="flex flex-col">
         <div className="flex items-start justify-between">
+          {isDeleteMode && (
+            <div className="flex items-center mr-4">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={onToggleSelection}
+                className="h-5 w-5 text-red-600 focus:ring-red-500 border-gray-300 rounded"
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>
+          )}
+
           <div className="flex-1 overflow-x-auto">
             <div className="inline-flex gap-x-6 min-w-max pb-2">
               {displayFields.map((field) => (
@@ -1276,33 +1446,46 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
             </div>
           </div>
 
-          <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
-            <button
-              onClick={onEdit}
-              className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-            >
-              수정
-            </button>
-          </div>
+          {!isDeleteMode && (
+            <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
+              <button
+                onClick={onEdit}
+                className="text-purple-600 hover:text-purple-700 text-sm font-medium"
+              >
+                수정
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* 확장 버튼을 카드 하단으로 이동 */}
-        <div className="mt-4 pt-3 border-t border-gray-100 flex justify-center">
-          <button
-            onClick={onToggleExpansion}
-            className="flex items-center gap-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
-          >
-            <span>{isExpanded ? '접기' : '메일 보기'}</span>
-            <svg
-              className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+        {/* 확장 버튼을 카드 하단으로 이동 - 삭제 모드가 아닐 때만 표시 */}
+        {!isDeleteMode && (
+          <div className="mt-4 pt-3 border-t border-gray-100 flex justify-center">
+            <button
+              onClick={onToggleExpansion}
+              className="flex items-center gap-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          </button>
-        </div>
+              <span>{isExpanded ? '접기' : '메일 보기'}</span>
+              <svg
+                className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        )}
+
+        {/* 삭제 모드일 때는 선택 안내 메시지 표시 */}
+        {isDeleteMode && (
+          <div className="mt-4 pt-3 border-t border-gray-100 text-center">
+            <span className="text-sm text-gray-600">
+              {isSelected ? '삭제할 인플루언서로 선택됨' : '클릭하여 삭제 대상으로 선택'}
+            </span>
+          </div>
+        )}
       </div>
 
       {isExpanded && (
@@ -1350,7 +1533,12 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
                       <>
                         {recentEmails.length > 0 ? (
                           recentEmails.map((email, index) => (
-                            <div key={email.id || index} className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                            <div
+                              key={email.id || index}
+                              className="bg-blue-50 rounded-lg p-4 border border-blue-200 cursor-pointer hover:bg-blue-100 transition-colors"
+                              onClick={() => router.push(`/inbox/${email.id}`)}
+                              title="클릭하여 메일 상세보기"
+                            >
                               <div className="flex justify-between items-start mb-2">
                                 <div className="flex-1 min-w-0">
                                   <div className="text-sm font-medium text-gray-900 truncate">
