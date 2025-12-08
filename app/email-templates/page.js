@@ -172,117 +172,130 @@ export default function EmailTemplates() {
                   className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer"
                   onClick={() => handleTemplateClick(template)}
                 >
-                  <div className="flex items-center justify-between">
-                    {/* 왼쪽 영역: 템플릿 정보 */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-6">
-                        {/* 템플릿 이름 */}
-                        <div className="min-w-0 flex-shrink-0" style={{ width: '200px' }}>
-                          <h3 className="text-lg font-semibold text-gray-900 truncate">{template.name}</h3>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {new Date(template.createdAt).toLocaleDateString('ko-KR')}
-                          </p>
-                        </div>
-
-                        {/* 제목 */}
-                        <div className="min-w-0 flex-shrink-0" style={{ width: '250px' }}>
-                          <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
-                          <p className="text-sm text-gray-600 truncate">{template.subject}</p>
-                        </div>
-
-                        {/* 내용 미리보기 */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-700 mb-1">내용</p>
-                          <div className="text-sm text-gray-600">
-                            <div className="truncate">
-                              {template.content ? template.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : ''}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* 연결된 인플루언서 정보 */}
-                        <div className="min-w-0 flex-shrink-0" style={{ width: '300px' }}>
-                          <p className="text-sm font-medium text-gray-700 mb-2">
-                            연결된 인플루언서 ({template.connections?.length || 0}명)
-                          </p>
-                          <div className="flex items-center space-x-2">
-                            {template.connections && template.connections.length > 0 ? (
-                              <>
-                                {/* 랜덤한 3명의 인플루언서 프로필 */}
-                                <div className="flex -space-x-1">
-                                  {template.connections
-                                    .sort(() => 0.5 - Math.random()) // 랜덤 정렬
-                                    .slice(0, 3) // 최대 3명
-                                    .map((connection, index) => (
-                                      <div
-                                        key={connection.id}
-                                        className="w-8 h-8 bg-purple-100 rounded-full border-2 border-white flex items-center justify-center"
-                                        title={connection.influencer?.name || '이름 없음'}
-                                        style={{ zIndex: 10 - index }}
-                                      >
-                                        <span className="text-purple-600 font-semibold text-xs">
-                                          {connection.influencer?.name?.charAt(0) || '?'}
-                                        </span>
-                                      </div>
-                                    ))}
-                                </div>
-                                {/* 더 많은 인플루언서가 있을 때 +숫자 표시 */}
-                                {template.connections.length > 3 && (
-                                  <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center">
-                                    <span className="text-gray-600 font-semibold text-xs">
-                                      +{template.connections.length - 3}
-                                    </span>
-                                  </div>
-                                )}
-                              </>
-                            ) : (
-                              <div className="flex items-center space-x-2 text-gray-400">
-                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-                                </svg>
-                                <span className="text-sm">연결된 인플루언서 없음</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
+                  {/* 상단 영역: 메인 정보들 */}
+                  <div className="mb-4">
+                    {/* 첫 번째 줄: 템플릿 이름과 액션 버튼들 */}
+                    <div className="flex items-center justify-between mb-3">
+                      {/* 템플릿 이름 */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-gray-900 truncate">{template.name}</h3>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {new Date(template.createdAt).toLocaleDateString('ko-KR')}
+                        </p>
                       </div>
+
+                      {/* 액션 버튼들 */}
+                      <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleInfluencerConnect(template)
+                          }}
+                          className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors whitespace-nowrap"
+                        >
+                          인플루언서 연결
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditTemplate(template)
+                          }}
+                          className="text-gray-400 hover:text-gray-600 p-1.5"
+                          title="수정"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                          </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDeleteTemplate(template.id)
+                          }}
+                          className="text-gray-400 hover:text-red-600 p-1.5"
+                          title="삭제"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  </div>
+
+                  {/* 두 번째 줄: 제목과 연결된 인플루언서 정보 */}
+                  <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-4">
+                    {/* 제목 */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
+                      <p className="text-sm text-gray-600">{template.subject}</p>
                     </div>
 
-                    {/* 오른쪽 영역: 액션 버튼들 */}
-                    <div className="flex items-center space-x-3 ml-6">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleInfluencerConnect(template)
-                        }}
-                        className="text-sm bg-purple-100 text-purple-700 px-4 py-2 rounded-lg hover:bg-purple-200 transition-colors whitespace-nowrap"
-                      >
-                        인플루언서 연결
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleEditTemplate(template)
-                        }}
-                        className="text-gray-400 hover:text-gray-600 p-2"
-                        title="수정"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          handleDeleteTemplate(template.id)
-                        }}
-                        className="text-gray-400 hover:text-red-600 p-2"
-                        title="삭제"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                      </button>
+                    {/* 연결된 인플루언서 정보 */}
+                    <div className="sm:flex-shrink-0 sm:w-80">
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        연결된 인플루언서 ({template.connections?.length || 0}명)
+                      </p>
+                      <div className="flex items-center space-x-2">
+                        {template.connections && template.connections.length > 0 ? (
+                          <>
+                            {/* 랜덤한 3명의 인플루언서 프로필 */}
+                            <div className="flex -space-x-1">
+                              {template.connections
+                                .sort(() => 0.5 - Math.random()) // 랜덤 정렬
+                                .slice(0, 3) // 최대 3명
+                                .map((connection, index) => (
+                                  <div
+                                    key={connection.id}
+                                    className="w-8 h-8 bg-purple-100 rounded-full border-2 border-white flex items-center justify-center"
+                                    title={connection.influencer?.name || '이름 없음'}
+                                    style={{ zIndex: 10 - index }}
+                                  >
+                                    <span className="text-purple-600 font-semibold text-xs">
+                                      {connection.influencer?.name?.charAt(0) || '?'}
+                                    </span>
+                                  </div>
+                                ))}
+                            </div>
+                            {/* 더 많은 인플루언서가 있을 때 +숫자 표시 */}
+                            {template.connections.length > 3 && (
+                              <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center">
+                                <span className="text-gray-600 font-semibold text-xs">
+                                  +{template.connections.length - 3}
+                                </span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex items-center space-x-2 text-gray-400">
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
+                            </svg>
+                            <span className="text-sm">연결된 인플루언서 없음</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 하단 영역: 메일 내용 */}
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="flex items-start gap-2">
+                      <p className="text-sm font-medium text-gray-700 min-w-0 flex-shrink-0">내용:</p>
+                      <div className="flex-1 min-w-0">
+                        <div
+                          className="text-sm overflow-hidden whitespace-pre-wrap"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 5,
+                            WebkitBoxOrient: 'vertical',
+                            lineHeight: '1.5'
+                          }}
+                          dangerouslySetInnerHTML={{
+                            __html: template.content ? template.content.trim() || '내용이 없습니다.' : '내용이 없습니다.'
+                          }}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
