@@ -1015,12 +1015,6 @@ export default function InfluencerManagement() {
               <h2 className="text-lg font-semibold text-gray-900">인플루언서 목록</h2>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setShowBulkImportModal(true)}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
-                >
-                  일괄 추가 (임시)
-                </button>
-                <button
                   onClick={() => router.push('/influencer-management/add')}
                   className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                 >

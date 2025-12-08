@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { PrismaClient } from '../../../generated/prisma'
 import { createTransporterByProvider, sendMailWithRetry, handleEmailProviderError, extractProviderConfig } from '../../../../lib/emailProviders'
+import { createClient } from '../../../../lib/supabase/server'
 
 const prisma = new PrismaClient()
 
@@ -17,12 +18,15 @@ export async function POST(request) {
       }, { status: 400 })
     }
 
-    // 템플릿 데이터 가져오기
+    // 템플릿 데이터 가져오기 (첨부파일 포함)
     const templateData = await prisma.emailTemplate.findFirst({
       where: {
         id: parseInt(templateId),
         userId: parseInt(userId),
         isActive: true
+      },
+      include: {
+        attachments: true
       }
     })
 
@@ -82,12 +86,101 @@ export async function POST(request) {
 
     // 이메일 전송 옵션
     const fromName = senderName || providerConfig.senderName || userData.senderName
+
+    // HTML 콘텐츠 처리
+    const htmlContent = convertToHtml(replacedContent)
+    const textContent = convertToText(replacedContent)
+
+    // 첨부파일 처리
+    let attachments = []
+    if (templateData.attachments && templateData.attachments.length > 0) {
+      try {
+        const supabase = await createClient()
+
+        for (const attachment of templateData.attachments) {
+          try {
+            console.log(`첨부파일 처리 시작:`, {
+              originalName: attachment.originalName,
+              supabasePath: attachment.supabasePath,
+              publicUrl: attachment.publicUrl,
+              bucket: process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'images'
+            })
+
+            // 두 가지 방법으로 파일 다운로드 시도
+            let fileData = null
+
+            // 방법 1: Supabase Storage download 메서드 사용
+            try {
+              const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'images'
+              console.log(`방법 1 시도: bucket="${bucketName}", path="${attachment.supabasePath}"`)
+
+              const { data, error } = await supabase.storage
+                .from(bucketName)
+                .download(attachment.supabasePath)
+
+              if (error) {
+                console.error(`Storage download 에러:`, error)
+              } else if (data) {
+                console.log(`Storage download 성공: ${data.size} bytes`)
+                fileData = data
+              }
+            } catch (downloadError) {
+              console.error(`Download 메서드 예외:`, downloadError)
+            }
+
+            // 방법 2: 공개 URL을 통한 fetch 다운로드
+            if (!fileData && attachment.publicUrl) {
+              try {
+                console.log(`방법 2 시도: 공개 URL fetch - ${attachment.publicUrl}`)
+                const response = await fetch(attachment.publicUrl)
+                console.log(`Fetch 응답: status=${response.status}, ok=${response.ok}`)
+
+                if (response.ok) {
+                  fileData = await response.blob()
+                  console.log(`Fetch 성공: ${fileData.size} bytes`)
+                } else {
+                  console.error(`Fetch 실패: ${response.status} ${response.statusText}`)
+                }
+              } catch (fetchError) {
+                console.error(`공개 URL 다운로드 예외:`, fetchError)
+              }
+            }
+
+            if (!fileData) {
+              console.error(`모든 다운로드 방법 실패: ${attachment.originalName}`)
+              continue
+            }
+
+            // Blob을 Buffer로 변환
+            const arrayBuffer = await fileData.arrayBuffer()
+            const buffer = Buffer.from(arrayBuffer)
+
+            attachments.push({
+              filename: attachment.originalName,
+              content: buffer,
+              contentType: attachment.mimeType
+            })
+
+            console.log(`첨부파일 처리 성공: ${attachment.originalName} (${buffer.length} bytes)`)
+
+          } catch (fileError) {
+            console.error(`첨부파일 처리 중 오류: ${attachment.originalName}`, fileError)
+            continue // 실패한 파일은 건너뛰고 계속 진행
+          }
+        }
+      } catch (supabaseError) {
+        console.error('Supabase 클라이언트 생성 실패:', supabaseError)
+        // Supabase 오류가 있어도 메일은 전송 (첨부파일 없이)
+      }
+    }
+
     const mailOptions = {
       from: fromName ? `"${fromName}" <${providerConfig.smtpUser}>` : providerConfig.smtpUser,
       to: influencerEmail,
       subject: replacedSubject,
-      text: replacedContent, // 일반 텍스트 버전
-      html: replacedContent.replace(/\n/g, '<br>'), // HTML 버전 (간단한 변환)
+      text: textContent, // 일반 텍스트 버전
+      html: htmlContent, // HTML 버전
+      attachments: attachments // 첨부파일 추가
     }
 
     // 재시도 로직을 포함한 메일 발송
@@ -121,10 +214,15 @@ export async function POST(request) {
     return NextResponse.json({
       success: true,
       messageId: info.messageId,
+      attachmentCount: attachments.length,
       preview: {
         to: influencerEmail,
         subject: replacedSubject,
-        content: replacedContent
+        content: replacedContent,
+        attachments: attachments.map(att => ({
+          filename: att.filename,
+          contentType: att.contentType
+        }))
       }
     })
 
@@ -138,6 +236,40 @@ export async function POST(request) {
       error: errorInfo.message
     }, { status: errorInfo.status })
   }
+}
+
+// HTML 콘텐츠 처리 함수
+function convertToHtml(content) {
+  if (!content) return ''
+
+  // 이미 HTML 태그가 포함되어 있는지 확인
+  const hasHtmlTags = /<[^>]+>/g.test(content)
+
+  if (hasHtmlTags) {
+    // 이미 HTML이라면 그대로 반환
+    return content
+  } else {
+    // 일반 텍스트라면 줄바꿈을 <br> 태그로 변환
+    return content.replace(/\n/g, '<br>')
+  }
+}
+
+// 텍스트 콘텐츠 처리 함수 (메일에서 HTML을 지원하지 않는 경우를 위해)
+function convertToText(content) {
+  if (!content) return ''
+
+  // HTML 태그 제거
+  let textContent = content.replace(/<[^>]+>/g, '')
+
+  // HTML 엔티티 디코딩
+  textContent = textContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+
+  return textContent
 }
 
 // 변수 치환 함수 (preview API와 동일)

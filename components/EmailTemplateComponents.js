@@ -819,7 +819,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
                   </div>
                   <p className="text-xs text-gray-600 mt-2">
                     같은 주제의 여러 변수를 관리할 수 있습니다.
-                    변수는 {{그룹명_변수명}} 형태로 사용됩니다.
+                    변수는 {`{{그룹명_변수명}}`} 형태로 사용됩니다.
                   </p>
                 </div>
 

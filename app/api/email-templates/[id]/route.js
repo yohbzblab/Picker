@@ -18,6 +18,9 @@ export async function GET(request, { params }) {
         id: parseInt(id),
         userId: parseInt(userId),
         isActive: true
+      },
+      include: {
+        attachments: true
       }
     })
 
@@ -36,7 +39,7 @@ export async function PUT(request, { params }) {
   try {
     const { id } = await params
     const body = await request.json()
-    const { userId, name, subject, content, variables, userVariables, conditionalRules } = body
+    const { userId, name, subject, content, variables, userVariables, conditionalRules, attachments } = body
 
 
     if (!userId) {
@@ -83,7 +86,45 @@ export async function PUT(request, { params }) {
       data: updateData
     })
 
-    return NextResponse.json({ template })
+    // 첨부파일 업데이트 처리
+    if (attachments !== undefined) {
+      // 기존 첨부파일 삭제
+      await prisma.templateAttachment.deleteMany({
+        where: {
+          templateId: parseInt(id)
+        }
+      })
+
+      // 새로운 첨부파일 추가 (첨부파일이 있는 경우)
+      if (attachments.length > 0) {
+        const attachmentData = attachments.map(attachment => ({
+          templateId: parseInt(id),
+          userId: parseInt(userId),
+          filename: attachment.filename || attachment.name,
+          originalName: attachment.originalName || attachment.name,
+          supabasePath: attachment.path || attachment.supabasePath || '',
+          publicUrl: attachment.url || attachment.publicUrl || '',
+          fileSize: attachment.size || 0,
+          mimeType: attachment.type || 'application/octet-stream'
+        }))
+
+        await prisma.templateAttachment.createMany({
+          data: attachmentData
+        })
+      }
+    }
+
+    // 업데이트된 템플릿과 첨부파일을 함께 반환
+    const updatedTemplate = await prisma.emailTemplate.findFirst({
+      where: {
+        id: parseInt(id)
+      },
+      include: {
+        attachments: true
+      }
+    })
+
+    return NextResponse.json({ template: updatedTemplate })
   } catch (error) {
     console.error('Error updating email template:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

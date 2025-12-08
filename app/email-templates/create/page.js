@@ -5,7 +5,7 @@ import Navbar from '@/components/Navbar'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
 import { RichTextEditor } from '@/components/TemplateEditor'
-import { VariableEditor, ConditionsModal, UserVariableModal } from '@/components/EmailTemplateComponents'
+import { ConditionsModal, UserVariableModal } from '@/components/EmailTemplateComponents'
 
 function CreateEmailTemplateContent() {
   const { user, dbUser, loading: authLoading } = useAuth()
@@ -30,6 +30,10 @@ function CreateEmailTemplateContent() {
   const [editingConditionVariable, setEditingConditionVariable] = useState(null)
   const [userVariables, setUserVariables] = useState({}) // 사용자 정의 변수들 - 새로운 그룹 구조
   const [showUserVariableModal, setShowUserVariableModal] = useState(false)
+  const [activeTab, setActiveTab] = useState('preview') // 미리보기 탭 상태: 'preview' or 'variables'
+  const [attachments, setAttachments] = useState([]) // 첨부파일 목록
+  const [uploadingFiles, setUploadingFiles] = useState([]) // 업로드 중인 파일 목록
+  const [highlightVariables, setHighlightVariables] = useState(true) // 변수 강조 표시 토글
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -226,6 +230,16 @@ function CreateEmailTemplateContent() {
         setFormData(newFormData)
         setUserVariables(template.userVariables || {})
         setConditionalRules(template.conditionalRules || {})
+
+        // 첨부파일 데이터를 프론트엔드 형식으로 변환
+        const attachmentData = (template.attachments || []).map(attachment => ({
+          id: attachment.id,
+          name: attachment.originalName,
+          size: attachment.fileSize,
+          url: attachment.publicUrl,
+          type: attachment.mimeType
+        }))
+        setAttachments(attachmentData)
       } else {
         alert('템플릿을 불러올 수 없습니다.')
         router.push('/email-templates')
@@ -317,8 +331,10 @@ function CreateEmailTemplateContent() {
         ? allSampleData[key]  // 조건문 변수는 평가된 결과 사용
         : (variableInputs[key] !== undefined ? variableInputs[key] : allSampleData[key])
 
-      // HTML을 보존하면서 변수만 치환 - 변수 부분에 스타일 적용
-      const styledValue = `<span style="color: #7c3aed; font-weight: 600; text-decoration: underline;">${valueToUse || `{{${key}}}`}</span>`
+      // HTML을 보존하면서 변수만 치환 - 변수 부분에 스타일 적용 (토글 상태에 따라)
+      const styledValue = highlightVariables
+        ? `<span style="color: #7c3aed; font-weight: 600; text-decoration: underline;">${valueToUse || `{{${key}}}`}</span>`
+        : (valueToUse || `{{${key}}}`)
       result = result.replace(variablePattern, styledValue)
     })
 
@@ -326,13 +342,15 @@ function CreateEmailTemplateContent() {
     Object.keys(variableInputs).forEach(key => {
       if (!allSampleData[key]) {
         const variablePattern = new RegExp(`\\{\\{${key}\\}\\}`, 'g')
-        const styledValue = `<span style="color: #7c3aed; font-weight: 600; text-decoration: underline;">${variableInputs[key] || `{{${key}}}`}</span>`
+        const styledValue = highlightVariables
+          ? `<span style="color: #7c3aed; font-weight: 600; text-decoration: underline;">${variableInputs[key] || `{{${key}}}`}</span>`
+          : (variableInputs[key] || `{{${key}}}`)
         result = result.replace(variablePattern, styledValue)
       }
     })
 
     return result
-  }, [userVariables, influencerFields, variableInputs, conditionalRules, evaluateCondition])
+  }, [userVariables, influencerFields, variableInputs, conditionalRules, evaluateCondition, highlightVariables])
 
   // 미리보기용 렌더링 함수 (변수 부분 색상 적용)
   const renderPreviewWithHighlight = useCallback((text) => {
@@ -401,6 +419,94 @@ function CreateEmailTemplateContent() {
     setShowUserVariableModal(true)
   }
 
+  // 파일 첨부 핸들러
+  const handleFileAttachment = async (files) => {
+    if (!files || files.length === 0) return
+
+    const fileArray = Array.from(files)
+
+    // 파일 크기 검증 (각 파일당 10MB, 전체 25MB 제한)
+    for (const file of fileArray) {
+      if (file.size > 10 * 1024 * 1024) {
+        alert(`파일 "${file.name}"의 크기가 10MB를 초과합니다.`)
+        return
+      }
+    }
+
+    const totalSize = [...attachments, ...fileArray].reduce((sum, file) => sum + (file.size || 0), 0)
+    if (totalSize > 25 * 1024 * 1024) {
+      alert('첨부파일의 총 크기가 25MB를 초과할 수 없습니다.')
+      return
+    }
+
+    // 업로드 중 상태 추가
+    const uploadingFileIds = fileArray.map(() => Math.random().toString(36))
+    setUploadingFiles(prev => [
+      ...prev,
+      ...fileArray.map((file, index) => ({
+        id: uploadingFileIds[index],
+        name: file.name,
+        size: file.size
+      }))
+    ])
+
+    try {
+      // 각 파일을 순차적으로 업로드
+      for (let i = 0; i < fileArray.length; i++) {
+        const file = fileArray[i]
+        const formData = new FormData()
+        formData.append('file', file)
+
+        if (editId) {
+          formData.append('templateId', editId)
+        }
+
+        const response = await fetch('/api/upload/attachment', {
+          method: 'POST',
+          body: formData
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+
+          // 첨부파일 목록에 추가
+          setAttachments(prev => [...prev, {
+            id: data.id || Math.random().toString(36),
+            name: file.name,
+            size: file.size,
+            url: data.url,
+            type: file.type
+          }])
+        } else {
+          throw new Error(`파일 "${file.name}" 업로드에 실패했습니다.`)
+        }
+
+        // 업로드 완료된 파일을 업로드 중 목록에서 제거
+        setUploadingFiles(prev => prev.filter(f => f.id !== uploadingFileIds[i]))
+      }
+    } catch (error) {
+      console.error('파일 업로드 오류:', error)
+      alert(error.message || '파일 업로드 중 오류가 발생했습니다.')
+
+      // 업로드 실패한 파일들을 업로드 중 목록에서 제거
+      setUploadingFiles(prev => prev.filter(f => !uploadingFileIds.includes(f.id)))
+    }
+  }
+
+  // 첨부파일 제거
+  const removeAttachment = (attachmentId) => {
+    setAttachments(prev => prev.filter(file => file.id !== attachmentId))
+  }
+
+  // 파일 크기를 읽기 쉬운 형식으로 변환
+  const formatFileSize = (bytes) => {
+    if (bytes === 0) return '0 Bytes'
+    const k = 1024
+    const sizes = ['Bytes', 'KB', 'MB', 'GB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
 
@@ -422,7 +528,8 @@ function CreateEmailTemplateContent() {
         ...formData,
         userId: dbUser.id,
         userVariables,
-        conditionalRules
+        conditionalRules,
+        attachments
       }
 
       const response = await fetch(url, {
@@ -497,30 +604,6 @@ function CreateEmailTemplateContent() {
   const handleContentInsertVariable = useCallback((fn) => {
     contentInsertFnRef.current = fn
   }, [])
-  const handleSubjectFocus = useCallback(() => {
-    setActiveField('subject')
-  }, [])
-  const handleSubjectBlur = useCallback(() => {
-    // 포커스가 다른 변수 버튼으로 이동하는 경우를 위해 지연 처리
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      // 변수 버튼에 포커스가 있지 않은 경우에만 activeField 초기화
-      if (!activeElement?.closest('button') || activeElement.closest('button')?.type === 'submit') {
-        setActiveField(null)
-      }
-    }, 150)
-  }, [])
-  const handleContentFocus = useCallback(() => setActiveField('content'), [])
-  const handleContentBlur = useCallback(() => {
-    // 포커스가 다른 변수 버튼으로 이동하는 경우를 위해 지연 처리
-    setTimeout(() => {
-      const activeElement = document.activeElement
-      // 변수 버튼에 포커스가 있지 않은 경우에만 activeField 초기화
-      if (!activeElement?.closest('button') || activeElement.closest('button')?.type === 'submit') {
-        setActiveField(null)
-      }
-    }, 150)
-  }, [])
 
   if (authLoading) {
     return (
@@ -546,7 +629,7 @@ function CreateEmailTemplateContent() {
     <div className="min-h-screen bg-white flex flex-col">
       <Navbar />
 
-      <main className="flex-1 bg-white pb-80">
+      <main className="flex-1 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
           <div className="mb-8">
             <div className="flex items-center space-x-4 mb-4">
@@ -590,14 +673,21 @@ function CreateEmailTemplateContent() {
                     <label className="block text-sm font-medium text-gray-900 mb-2">
                       메일 제목
                     </label>
-                    <VariableEditor
-                      value={formData.subject}
-                      onChange={handleSubjectChange}
-                      placeholder="예: 협업 제안드립니다"
-                      onInsertVariable={handleSubjectInsertVariable}
-                      onFocus={handleSubjectFocus}
-                      onBlur={handleSubjectBlur}
-                    />
+                    {loading ? (
+                      <div className="border border-gray-300 rounded-lg p-3 min-h-[120px] flex items-center justify-center text-gray-500">
+                        템플릿을 불러오는 중...
+                      </div>
+                    ) : (
+                      <RichTextEditor
+                        key={`subject-editor-${editId || 'new'}`}
+                        value={formData.subject}
+                        onChange={handleSubjectChange}
+                        placeholder="예: 협업 제안드립니다"
+                        onInsertVariable={handleSubjectInsertVariable}
+                        templateId={editId}
+                        isSubject={true}
+                      />
+                    )}
                   </div>
 
                   <div>
@@ -619,272 +709,104 @@ function CreateEmailTemplateContent() {
                       />
                     )}
                   </div>
+
+                  {/* 파일 첨부 */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                      파일 첨부
+                    </label>
+
+                    {/* 드래그 앤 드롭 영역 */}
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                      onDragOver={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.add('border-purple-400', 'bg-purple-50')
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.remove('border-purple-400', 'bg-purple-50')
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault()
+                        e.currentTarget.classList.remove('border-purple-400', 'bg-purple-50')
+                        const files = e.dataTransfer.files
+                        handleFileAttachment(files)
+                      }}
+                      onClick={() => document.getElementById('attachment-input').click()}
+                    >
+                      <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                      <p className="text-gray-600 mb-1">
+                        <span className="font-medium">클릭하여 파일 선택</span> 또는 드래그하여 업로드
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        파일당 최대 10MB, 총 25MB까지 가능합니다
+                      </p>
+
+                      <input
+                        id="attachment-input"
+                        type="file"
+                        multiple
+                        className="hidden"
+                        onChange={(e) => handleFileAttachment(e.target.files)}
+                      />
+                    </div>
+
+                    {/* 업로드 중인 파일들 */}
+                    {uploadingFiles.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {uploadingFiles.map((file) => (
+                          <div key={file.id} className="flex items-center justify-between p-2 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="flex items-center space-x-2">
+                              <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                              <span className="text-sm font-medium text-blue-800">{file.name}</span>
+                              <span className="text-xs text-blue-600">({formatFileSize(file.size)})</span>
+                            </div>
+                            <span className="text-xs text-blue-600">업로드 중...</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* 첨부된 파일 목록 */}
+                    {attachments.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        <h4 className="text-sm font-medium text-gray-700">첨부된 파일 ({attachments.length})</h4>
+                        {attachments.map((file) => (
+                          <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
+                                <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900">{file.name}</p>
+                                <p className="text-xs text-gray-500">{formatFileSize(file.size)}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeAttachment(file.id)}
+                              className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
+                              title="파일 제거"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </form>
               </div>
 
-
-            </div>
-
-            {/* 오른쪽: 실시간 미리보기 */}
-            <div className="space-y-6">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">실시간 미리보기</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  변수는 샘플 데이터로 치환되어 표시됩니다
-                </p>
-
-                {/* 제목 미리보기 */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    제목 미리보기
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[42px] flex items-center">
-                    <div className="text-gray-900 font-medium">
-                      {formData.subject ? renderPreviewWithHighlight(formData.subject) : '제목을 입력해주세요'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 내용 미리보기 */}
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    내용 미리보기
-                  </label>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
-                    <div className="text-gray-900" style={{ whiteSpace: 'pre-wrap' }}>
-                      {formData.content ? (
-                        <div dangerouslySetInnerHTML={{ __html: replaceVariables(formData.content) }} />
-                      ) : (
-                        <span className="text-gray-400">내용을 입력해주세요</span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 사용된 변수 입력 */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    변수 값 입력 (미리보기용)
-                  </label>
-                  <div className="space-y-3">
-                    {(() => {
-                      const usedVariables = getUsedVariables()
-
-                      if (usedVariables.length === 0) {
-                        return <span className="text-gray-400 text-sm">변수가 없습니다</span>
-                      }
-
-                      return usedVariables.map((variableName, index) => {
-                        // 사용자 변수와 인플루언서 필드의 기본값 가져오기
-                        const userSampleData = {}
-                        Object.entries(userVariables).forEach(([, group]) => {
-                          Object.entries(group.variables || {}).forEach(([variableKey, variable]) => {
-                            userSampleData[variableKey] = variable.defaultValue || `샘플 ${variable.alias || variableKey}`
-                          })
-                        })
-
-                        // 인플루언서 필드 기본값 (텍스트 타입과 숫자 타입만)
-                        const influencerField = influencerFields.find(field => field.key === variableName)
-                        let defaultValue = userSampleData[variableName] || ''
-
-                        if (influencerField) {
-                          switch (influencerField.fieldType) {
-                            case 'TEXT':
-                            case 'LONG_TEXT':
-                              if (variableName === 'name') defaultValue = '김인플루'
-                              else if (variableName === 'accountId') defaultValue = '@sample_influencer'
-                              else defaultValue = `샘플 ${influencerField.label}`
-                              break
-                            case 'NUMBER':
-                              if (variableName === 'followers') defaultValue = '10,000'
-                              else defaultValue = '100'
-                              break
-                            // 다른 타입들은 변수로 사용하지 않음
-                            default:
-                              defaultValue = `샘플 ${influencerField.label}`
-                          }
-                        }
-
-                        // 변수 라벨 표시 (필드의 label 또는 시스템 변수명)
-                        const variableLabel = influencerField ? influencerField.label : variableName
-
-                        // 조건문이 설정되어 있는지 확인
-                        let hasConditions = false
-                        let conditionInfo = null
-
-                        // 조건문 변수 자체인지 확인 (예: followers_tier)
-                        Object.entries(conditionalRules).forEach(([fieldName, ruleGroup]) => {
-                          if (ruleGroup.variables && ruleGroup.variables[variableName]) {
-                            hasConditions = true
-                            conditionInfo = ruleGroup.variables[variableName]
-                          }
-                        })
-
-                        return (
-                          <div key={index} className="space-y-1">
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full min-w-0 flex-shrink-0" title={`변수: {{${variableName}}}`}>
-                                {variableLabel}
-                                {hasConditions && (
-                                  <span className="ml-1 inline-block w-1.5 h-1.5 bg-orange-400 rounded-full" title="조건문 설정됨"></span>
-                                )}
-                              </span>
-                              <input
-                                type="text"
-                                value={variableInputs[variableName] !== undefined ? variableInputs[variableName] : defaultValue}
-                                onChange={(e) => handleVariableInputChange(variableName, e.target.value)}
-                                placeholder={defaultValue || `${variableLabel} 값을 입력하세요`}
-                                className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
-                              />
-                            </div>
-                          </div>
-                        )
-                      })
-                    })()}
-                  </div>
-                  {getUsedVariables().length > 0 && (
-                    <p className="text-xs text-gray-500 mt-2">
-                      입력한 값들이 위 미리보기에 실시간으로 반영됩니다
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </main>
-
-      {/* 화면 하단 고정 영역 - 변수 관리 + 버튼 */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 max-h-80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-center">
-          <div className="w-full lg:w-1/2">
-            {/* 변수 관리 영역 */}
-            <div className="pt-4 pb-2">
-              <label className="block text-sm font-medium text-gray-900 mb-3 text-center">
-                사용 가능한 변수 (클릭하여 삽입)
-              </label>
-
-              <div className="max-h-44 overflow-y-auto">
-                {loadingFields ? (
-                  <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
-                ) : (
-                  <div className="space-y-3">
-                    {/* 사용자 변수들 */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-medium text-gray-700">사용자 변수</h4>
-                        <button
-                          type="button"
-                          onClick={() => openUserVariableModal()}
-                          onMouseDown={(e) => e.preventDefault()}
-                          className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
-                          title="변수 관리"
-                        >
-                          관리
-                        </button>
-                      </div>
-                      <div className="space-y-1">
-                        {Object.keys(userVariables).length === 0 ? (
-                          <p className="text-xs text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
-                        ) : (
-                          Object.entries(userVariables).map(([groupName, group]) => (
-                            <div key={groupName} className="border-l-2 border-purple-200 pl-2">
-                              <div className="text-xs font-medium text-gray-600 mb-1">{group.displayName}</div>
-                              <div className="flex flex-wrap gap-1">
-                                {Object.entries(group.variables || {}).map(([variableKey, variable]) => (
-                                  <button
-                                    key={variableKey}
-                                    type="button"
-                                    onClick={() => handleVariableInsert(variableKey)}
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full hover:bg-purple-200 transition-colors"
-                                    title={`{{${variableKey}}}`}
-                                  >
-                                    {variable.alias || variableKey}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          ))
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 인플루언서 필드들 (텍스트 타입만) */}
-                    {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-700 mb-2">인플루언서 정보</h4>
-                        <div className="flex flex-wrap gap-1">
-                          {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').map((field) => (
-                            <button
-                              key={field.key}
-                              type="button"
-                              onClick={() => handleVariableInsert(field.key)}
-                              onMouseDown={(e) => e.preventDefault()}
-                              className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full hover:bg-blue-200 transition-colors"
-                              title={field.tooltip || field.label}
-                            >
-                              {field.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
-                    {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
-                      <div>
-                        <h4 className="text-xs font-medium text-gray-700 mb-2">조건문 변수 (숫자 필드)</h4>
-                        <div className="space-y-2">
-                          {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
-                            <div key={field.key} className="border border-gray-200 rounded-lg p-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs font-medium text-gray-900">{field.label}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => openConditionsModal(field.key)}
-                                  onMouseDown={(e) => e.preventDefault()}
-                                  className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors"
-                                  title="조건 변수 관리"
-                                >
-                                  + 조건 추가
-                                </button>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {conditionalRules[field.key] && conditionalRules[field.key].variables ? (
-                                  Object.entries(conditionalRules[field.key].variables).map(([varKey, varData]) => (
-                                    <button
-                                      key={varKey}
-                                      type="button"
-                                      onClick={() => handleVariableInsert(varKey)}
-                                      onMouseDown={(e) => e.preventDefault()}
-                                      className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full hover:bg-green-200 transition-colors"
-                                      title={`{{${varKey}}}`}
-                                    >
-                                      {varData.alias || varKey}
-                                    </button>
-                                  ))
-                                ) : (
-                                  <span className="text-xs text-gray-400">조건 변수가 없습니다</span>
-                                )}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                <p className="text-xs text-gray-500 mt-2 pb-2 text-center">
-                  변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다.
-                </p>
-              </div>
-            </div>
-
-            {/* 버튼 영역 */}
-            <div className="py-3 border-t border-gray-100">
-              <div className="flex space-x-3">
+              {/* 버튼 영역 */}
+              <div className="mt-4 flex space-x-3">
                 <button
                   type="button"
                   onClick={handleCancel}
@@ -902,9 +824,315 @@ function CreateEmailTemplateContent() {
                 </button>
               </div>
             </div>
+
+            {/* 오른쪽: 실시간 미리보기 및 변수 관리 */}
+            <div className="flex flex-col min-h-0">
+              <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 flex flex-col">
+                {/* 탭 네비게이션 */}
+                <div className="border-b border-gray-200">
+                  <nav className="flex space-x-8 px-6">
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('preview')}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'preview'
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      실시간 미리보기
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('variables')}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'variables'
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      사용 가능한 변수
+                    </button>
+                  </nav>
+                </div>
+
+                {/* 탭 콘텐츠 */}
+                <div className="flex-1 p-6 flex flex-col overflow-hidden">
+                  {activeTab === 'preview' ? (
+                    <div className="flex-1 flex flex-col">
+                      <p className="text-sm text-gray-600 mb-4">
+                        변수는 샘플 데이터로 치환되어 표시됩니다
+                      </p>
+
+                      {/* 제목 미리보기 */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          제목 미리보기
+                        </label>
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[42px] flex items-center">
+                          <div className="text-gray-900 font-medium">
+                            {formData.subject ? (
+                              <div dangerouslySetInnerHTML={{ __html: replaceVariables(formData.subject) }} />
+                            ) : (
+                              <span className="text-gray-400">제목을 입력해주세요</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 내용 미리보기 */}
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-sm font-medium text-gray-700">
+                            내용 미리보기
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-gray-500">변수 강조</span>
+                            <button
+                              onClick={() => setHighlightVariables(!highlightVariables)}
+                              className={`relative inline-flex h-5 w-10 items-center rounded-full transition-colors ${
+                                highlightVariables ? 'bg-purple-600' : 'bg-gray-300'
+                              }`}
+                              role="switch"
+                              aria-checked={highlightVariables}
+                            >
+                              <span
+                                className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                                  highlightVariables ? 'translate-x-5' : 'translate-x-1'
+                                }`}
+                              />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[200px]">
+                          <div className="text-gray-900" style={{ whiteSpace: 'pre-wrap' }}>
+                            {formData.content ? (
+                              <div dangerouslySetInnerHTML={{ __html: replaceVariables(formData.content) }} />
+                            ) : (
+                              <span className="text-gray-400">내용을 입력해주세요</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* 사용된 변수 입력 */}
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-2">
+                          변수 값 입력 (미리보기용)
+                        </label>
+                        <div className="space-y-3">
+                          {(() => {
+                            const usedVariables = getUsedVariables()
+
+                            if (usedVariables.length === 0) {
+                              return <span className="text-gray-400 text-sm">변수가 없습니다</span>
+                            }
+
+                            return usedVariables.map((variableName, index) => {
+                              // 사용자 변수와 인플루언서 필드의 기본값 가져오기
+                              const userSampleData = {}
+                              Object.entries(userVariables).forEach(([, group]) => {
+                                Object.entries(group.variables || {}).forEach(([variableKey, variable]) => {
+                                  userSampleData[variableKey] = variable.defaultValue || `샘플 ${variable.alias || variableKey}`
+                                })
+                              })
+
+                              // 인플루언서 필드 기본값 (텍스트 타입과 숫자 타입만)
+                              const influencerField = influencerFields.find(field => field.key === variableName)
+                              let defaultValue = userSampleData[variableName] || ''
+
+                              if (influencerField) {
+                                switch (influencerField.fieldType) {
+                                  case 'TEXT':
+                                  case 'LONG_TEXT':
+                                    if (variableName === 'name') defaultValue = '김인플루'
+                                    else if (variableName === 'accountId') defaultValue = '@sample_influencer'
+                                    else defaultValue = `샘플 ${influencerField.label}`
+                                    break
+                                  case 'NUMBER':
+                                    if (variableName === 'followers') defaultValue = '10,000'
+                                    else defaultValue = '100'
+                                    break
+                                  // 다른 타입들은 변수로 사용하지 않음
+                                  default:
+                                    defaultValue = `샘플 ${influencerField.label}`
+                                }
+                              }
+
+                              // 변수 라벨 표시 (필드의 label 또는 시스템 변수명)
+                              const variableLabel = influencerField ? influencerField.label : variableName
+
+                              // 조건문이 설정되어 있는지 확인
+                              let hasConditions = false
+                              let conditionInfo = null
+
+                              // 조건문 변수 자체인지 확인 (예: followers_tier)
+                              Object.entries(conditionalRules).forEach(([fieldName, ruleGroup]) => {
+                                if (ruleGroup.variables && ruleGroup.variables[variableName]) {
+                                  hasConditions = true
+                                  conditionInfo = ruleGroup.variables[variableName]
+                                }
+                              })
+
+                              return (
+                                <div key={index} className="space-y-1">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded-full min-w-0 flex-shrink-0" title={`변수: {{${variableName}}}`}>
+                                      {variableLabel}
+                                      {hasConditions && (
+                                        <span className="ml-1 inline-block w-1.5 h-1.5 bg-orange-400 rounded-full" title="조건문 설정됨"></span>
+                                      )}
+                                    </span>
+                                    <input
+                                      type="text"
+                                      value={variableInputs[variableName] !== undefined ? variableInputs[variableName] : defaultValue}
+                                      onChange={(e) => handleVariableInputChange(variableName, e.target.value)}
+                                      placeholder={defaultValue || `${variableLabel} 값을 입력하세요`}
+                                      className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
+                                    />
+                                  </div>
+                                </div>
+                              )
+                            })
+                          })()}
+                        </div>
+                        {getUsedVariables().length > 0 && (
+                          <p className="text-xs text-gray-500 mt-2">
+                            입력한 값들이 위 미리보기에 실시간으로 반영됩니다
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex flex-col">
+                      <div className="mb-4">
+                        <h4 className="text-sm font-medium text-gray-900 mb-3">
+                          사용 가능한 변수 (클릭하여 삽입)
+                        </h4>
+                      </div>
+
+                      {loadingFields ? (
+                        <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
+                      ) : (
+                        <div className="flex-1 space-y-4">
+                          {/* 사용자 변수들 */}
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h4 className="text-sm font-medium text-gray-700">사용자 변수</h4>
+                              <button
+                                type="button"
+                                onClick={() => openUserVariableModal()}
+                                onMouseDown={(e) => e.preventDefault()}
+                                className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
+                                title="변수 관리"
+                              >
+                                관리
+                              </button>
+                            </div>
+                            <div className="space-y-2">
+                              {Object.keys(userVariables).length === 0 ? (
+                                <p className="text-sm text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
+                              ) : (
+                                Object.entries(userVariables).map(([groupName, group]) => (
+                                  <div key={groupName} className="border-l-3 border-purple-200 pl-3">
+                                    <div className="text-sm font-medium text-gray-600 mb-2">{group.displayName}</div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {Object.entries(group.variables || {}).map(([variableKey, variable]) => (
+                                        <button
+                                          key={variableKey}
+                                          type="button"
+                                          onClick={() => handleVariableInsert(variableKey)}
+                                          onMouseDown={(e) => e.preventDefault()}
+                                          className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                                          title={`{{${variableKey}}}`}
+                                        >
+                                          {variable.alias || variableKey}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
+
+                          {/* 인플루언서 필드들 (텍스트 타입만) */}
+                          {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-3">인플루언서 정보</h4>
+                              <div className="flex flex-wrap gap-2">
+                                {influencerFields.filter(field => field.fieldType === 'TEXT' || field.fieldType === 'LONG_TEXT').map((field) => (
+                                  <button
+                                    key={field.key}
+                                    type="button"
+                                    onClick={() => handleVariableInsert(field.key)}
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    className="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                                    title={field.tooltip || field.label}
+                                  >
+                                    {field.label}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
+                          {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
+                            <div>
+                              <h4 className="text-sm font-medium text-gray-700 mb-3">조건문 변수 (숫자 필드)</h4>
+                              <div className="space-y-3">
+                                {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
+                                  <div key={field.key} className="border border-gray-200 rounded-lg p-3">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <span className="text-sm font-medium text-gray-900">{field.label}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => openConditionsModal(field.key)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors"
+                                        title="조건 변수 관리"
+                                      >
+                                        + 조건 추가
+                                      </button>
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                      {conditionalRules[field.key] && conditionalRules[field.key].variables ? (
+                                        Object.entries(conditionalRules[field.key].variables).map(([varKey, varData]) => (
+                                          <button
+                                            key={varKey}
+                                            type="button"
+                                            onClick={() => handleVariableInsert(varKey)}
+                                            onMouseDown={(e) => e.preventDefault()}
+                                            className="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full hover:bg-green-200 transition-colors"
+                                            title={`{{${varKey}}}`}
+                                          >
+                                            {varData.alias || varKey}
+                                          </button>
+                                        ))
+                                      ) : (
+                                        <span className="text-sm text-gray-400">조건 변수가 없습니다</span>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                          <p className="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
+                            변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* 조건문 설정 모달 */}
       {showConditionsModal && (

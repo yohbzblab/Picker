@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useCallback, Suspense } from 'react'
+import { useEffect, useState, useCallback, Suspense, useRef } from 'react'
 
 function InfluencerConnectContent() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth()
@@ -22,12 +22,22 @@ function InfluencerConnectContent() {
   const [showOriginalTemplate, setShowOriginalTemplate] = useState(false) // 원본 템플릿 토글
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const previewTimeoutRef = useRef(null) // 미리보기 디바운싱용
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
     }
   }, [user, authLoading, router])
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     if (dbUser && templateId) {
@@ -127,15 +137,20 @@ function InfluencerConnectContent() {
       }
     }))
 
-    // 현재 확장된 연결의 미리보기 업데이트
+    // 미리보기 업데이트는 디바운싱 처리 (입력이 멈춘 후에만 실행)
     if (expandedConnections.has(connectionId)) {
-      const connection = connectedInfluencers.find(conn => conn.id === connectionId)
-      if (connection) {
-        // 약간의 지연을 두고 미리보기 업데이트 (입력 중 너무 자주 호출되는 것을 방지)
-        setTimeout(() => {
-          generatePreview(connection.influencer, connectionId)
-        }, 300)
+      // 이전 타이머 취소
+      if (previewTimeoutRef.current) {
+        clearTimeout(previewTimeoutRef.current)
       }
+
+      // 새 타이머 설정 (1초 후 실행)
+      previewTimeoutRef.current = setTimeout(() => {
+        const connection = connectedInfluencers.find(conn => conn.id === connectionId)
+        if (connection) {
+          generatePreview(connection.influencer, connectionId)
+        }
+      }, 1000)
     }
   }
 
@@ -935,15 +950,15 @@ function InfluencerConnectContent() {
                       <>
                         <div>
                           <span className="text-gray-600">제목 (변수 치환됨):</span>
-                          <p className="font-medium text-sm bg-green-50 p-3 rounded border whitespace-pre-wrap">
-                            {previewContent.subject}
-                          </p>
+                          <div className="font-medium text-sm bg-green-50 p-3 rounded border whitespace-pre-wrap">
+                            <div dangerouslySetInnerHTML={{ __html: previewContent.subject }} />
+                          </div>
                         </div>
 
                         <div>
                           <span className="text-gray-600">본문 (변수 치환됨):</span>
                           <div className="font-medium text-xs bg-green-50 p-3 rounded border max-h-40 overflow-y-auto whitespace-pre-wrap">
-                            {previewContent.content}
+                            <div dangerouslySetInnerHTML={{ __html: previewContent.content }} />
                           </div>
                         </div>
 

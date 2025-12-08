@@ -59,6 +59,8 @@ model User {
   templateConnections TemplateInfluencerConnection[]
   emailsSent        EmailSent[]
   emailsReceived    EmailReceived[]
+  templateImages    TemplateImage[]
+  templateAttachments TemplateAttachment[]
 
   @@map("users")
 }
@@ -157,9 +159,53 @@ model EmailTemplate {
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   connections     TemplateInfluencerConnection[]
   emailsSent      EmailSent[]
+  images          TemplateImage[]
+  attachments     TemplateAttachment[]
 
   @@index([userId])
   @@map("email_templates")
+}
+
+model TemplateImage {
+  id              Int      @id @default(autoincrement())
+  templateId      Int      // 연결된 템플릿
+  userId          Int      // 업로드한 사용자
+  filename        String   // 파일명
+  originalName    String   // 원본 파일명
+  supabasePath    String   // Supabase Storage 경로
+  publicUrl       String   // 공개 URL
+  fileSize        Int      // 파일 크기 (bytes)
+  mimeType        String   // MIME 타입 (image/jpeg, image/png 등)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  template        EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([userId])
+  @@map("template_images")
+}
+
+model TemplateAttachment {
+  id              Int      @id @default(autoincrement())
+  templateId      Int      // 연결된 템플릿
+  userId          Int      // 업로드한 사용자
+  filename        String   // 저장된 파일명
+  originalName    String   // 원본 파일명
+  supabasePath    String   // Supabase Storage 경로
+  publicUrl       String   // 공개 URL
+  fileSize        Int      // 파일 크기 (bytes)
+  mimeType        String   // MIME 타입
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  template        EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([templateId])
+  @@index([userId])
+  @@map("template_attachments")
 }
 
 model TemplateInfluencerConnection {

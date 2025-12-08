@@ -32,7 +32,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { userId, name, subject, content, variables, userVariables, conditionalRules } = body
+    const { userId, name, subject, content, variables, userVariables, conditionalRules, attachments } = body
 
 
     if (!userId || !name || !subject || !content) {
@@ -58,7 +58,35 @@ export async function POST(request) {
       data: templateData
     })
 
-    return NextResponse.json({ template }, { status: 201 })
+    // 첨부파일 처리 (첨부파일이 있는 경우)
+    if (attachments && attachments.length > 0) {
+      const attachmentData = attachments.map(attachment => ({
+        templateId: template.id,
+        userId: parseInt(userId),
+        filename: attachment.filename || attachment.name,
+        originalName: attachment.originalName || attachment.name,
+        supabasePath: attachment.path || attachment.supabasePath || '',
+        publicUrl: attachment.url || attachment.publicUrl || '',
+        fileSize: attachment.size || 0,
+        mimeType: attachment.type || 'application/octet-stream'
+      }))
+
+      await prisma.templateAttachment.createMany({
+        data: attachmentData
+      })
+    }
+
+    // 생성된 템플릿과 첨부파일을 함께 반환
+    const createdTemplate = await prisma.emailTemplate.findFirst({
+      where: {
+        id: template.id
+      },
+      include: {
+        attachments: true
+      }
+    })
+
+    return NextResponse.json({ template: createdTemplate }, { status: 201 })
   } catch (error) {
     console.error('Error creating email template:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

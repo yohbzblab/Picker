@@ -159,7 +159,7 @@ export default function EmailTemplates() {
                           lineHeight: '1.4'
                         }}
                       >
-                        {template.content}
+                        {template.content ? template.content.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&') : ''}
                       </div>
                     </div>
                   </div>

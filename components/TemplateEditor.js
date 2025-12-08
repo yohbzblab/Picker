@@ -53,7 +53,7 @@ export function VariableInput({ value, onChange, placeholder, onInsertVariable }
 }
 
 // 리치 텍스트 에디터 with 변수 지원
-export function RichTextEditor({ value, onChange, placeholder, onInsertVariable, templateId }) {
+export function RichTextEditor({ value, onChange, placeholder, onInsertVariable, templateId, isSubject = false }) {
   const editorRef = useRef(null)
   const fileInputRef = useRef(null)
   const [isLoading, setIsLoading] = useState(false)
@@ -417,90 +417,77 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
           )}
         </div>
 
-        <div className="h-6 w-px bg-gray-300"></div>
+{!isSubject && (
+          <>
+            <div className="h-6 w-px bg-gray-300"></div>
 
-        {/* 이미지 삽입 */}
-        <button
-          type="button"
-          onClick={triggerImageUpload}
-          disabled={isLoading}
-          className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
-          title="이미지 삽입"
-        >
-          {isLoading ? (
-            <>
-              <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
-              업로드 중...
-            </>
-          ) : (
-            <>
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              이미지
-            </>
-          )}
-        </button>
+            {/* 이미지 삽입 */}
+            <button
+              type="button"
+              onClick={triggerImageUpload}
+              disabled={isLoading}
+              className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors disabled:opacity-50"
+              title="이미지 삽입"
+            >
+              {isLoading ? (
+                <>
+                  <div className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                  업로드 중...
+                </>
+              ) : (
+                <>
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 002 2z" />
+                  </svg>
+                  이미지
+                </>
+              )}
+            </button>
 
-        {/* 숨겨진 파일 입력 */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleImageUpload}
-          className="hidden"
-        />
+            {/* 숨겨진 파일 입력 */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleImageUpload}
+              className="hidden"
+            />
 
-        <div className="h-6 w-px bg-gray-300"></div>
+            <div className="h-6 w-px bg-gray-300"></div>
+          </>
+        )}
 
-        {/* 기타 포맷팅 */}
-        <button
-          type="button"
-          onClick={() => execCommand('insertUnorderedList')}
-          className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-          title="불릿 목록"
-        >
-          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-          </svg>
-          목록
-        </button>
-        <button
-          type="button"
-          onClick={() => execCommand('insertOrderedList')}
-          className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-          title="번호 목록"
-        >
-          1. 목록
-        </button>
-
-        {/* 텍스트 정렬 */}
-        <div className="flex items-center gap-1 ml-auto">
-          <button
-            type="button"
-            onClick={() => execCommand('justifyLeft')}
-            className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-            title="왼쪽 정렬"
-          >
-            ←
-          </button>
-          <button
-            type="button"
-            onClick={() => execCommand('justifyCenter')}
-            className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-            title="가운데 정렬"
-          >
-            ↔
-          </button>
-          <button
-            type="button"
-            onClick={() => execCommand('justifyRight')}
-            className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
-            title="오른쪽 정렬"
-          >
-            →
-          </button>
-        </div>
+{!isSubject && (
+          <>
+            {/* 텍스트 정렬 */}
+            <div className="flex items-center gap-1 ml-auto">
+              <button
+                type="button"
+                onClick={() => execCommand('justifyLeft')}
+                className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                title="왼쪽 정렬"
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                onClick={() => execCommand('justifyCenter')}
+                className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                title="가운데 정렬"
+              >
+                ↔
+              </button>
+              <button
+                type="button"
+                onClick={() => execCommand('justifyRight')}
+                className="p-1.5 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+                title="오른쪽 정렬"
+              >
+                →
+              </button>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 에디터 영역 */}
@@ -512,7 +499,7 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
         onFocus={() => {
           // 리치 에디터가 포커스될 때 activeField 설정
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('richEditorFocus', { detail: { field: 'content' } }))
+            window.dispatchEvent(new CustomEvent('richEditorFocus', { detail: { field: isSubject ? 'subject' : 'content' } }))
           }
           // 포커스 시 활성 포맷 상태 업데이트
           setTimeout(updateActiveFormats, 0)
@@ -525,7 +512,7 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
             underline: false
           })
         }}
-        className="p-3 focus:outline-none text-black min-h-[200px]"
+        className={`p-3 focus:outline-none text-black ${isSubject ? 'min-h-[80px]' : 'min-h-[200px]'}`}
         style={{
           wordBreak: 'break-word',
           lineHeight: '1.5',

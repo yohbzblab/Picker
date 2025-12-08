@@ -85,12 +85,17 @@ ${replacedContent}`
 
     // 이메일 전송 옵션 (테스트 수신자에게)
     const fromName = senderName || providerConfig.senderName || userData.senderName
+
+    // HTML 콘텐츠 처리
+    const htmlContent = convertToHtml(testContent)
+    const textContentPlain = convertToText(testContent)
+
     const mailOptions = {
       from: fromName ? `"${fromName}" <${providerConfig.smtpUser}>` : providerConfig.smtpUser,
       to: testRecipient, // 테스트 수신자 (로그인한 사용자)
       subject: testSubject,
-      text: testContent, // 일반 텍스트 버전
-      html: testContent.replace(/\n/g, '<br>'), // HTML 버전 (간단한 변환)
+      text: textContentPlain, // 일반 텍스트 버전
+      html: htmlContent, // HTML 버전
     }
 
     // 재시도 로직을 포함한 메일 발송
@@ -146,6 +151,40 @@ ${replacedContent}`
       error: errorInfo.message
     }, { status: errorInfo.status })
   }
+}
+
+// HTML 콘텐츠 처리 함수
+function convertToHtml(content) {
+  if (!content) return ''
+
+  // 이미 HTML 태그가 포함되어 있는지 확인
+  const hasHtmlTags = /<[^>]+>/g.test(content)
+
+  if (hasHtmlTags) {
+    // 이미 HTML이라면 그대로 반환
+    return content
+  } else {
+    // 일반 텍스트라면 줄바꿈을 <br> 태그로 변환
+    return content.replace(/\n/g, '<br>')
+  }
+}
+
+// 텍스트 콘텐츠 처리 함수 (메일에서 HTML을 지원하지 않는 경우를 위해)
+function convertToText(content) {
+  if (!content) return ''
+
+  // HTML 태그 제거
+  let textContent = content.replace(/<[^>]+>/g, '')
+
+  // HTML 엔티티 디코딩
+  textContent = textContent
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+
+  return textContent
 }
 
 // 변수 치환 함수 (send API와 동일)
