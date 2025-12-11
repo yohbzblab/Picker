@@ -2,11 +2,24 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import { useRouter, usePathname } from 'next/navigation'
+import { useState, useRef, useEffect } from 'react'
 
 export default function Navbar() {
   const { user, signOut } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
+  const [isTemplateDropdownOpen, setIsTemplateDropdownOpen] = useState(false)
+  const dropdownRef = useRef(null)
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsTemplateDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
 
   if (!user) return null
 
@@ -15,6 +28,8 @@ export default function Navbar() {
       ? "text-sm text-purple-600 hover:text-purple-700 px-3 py-2 rounded-lg bg-purple-50 transition-colors font-medium"
       : "text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
   }
+
+  const isTemplateActive = pathname === '/email-templates' || pathname === '/survey-templates'
 
   return (
     <nav className="bg-white border-b border-gray-100">
@@ -35,12 +50,49 @@ export default function Navbar() {
             >
               인플루언서 관리
             </button>
-            <button
-              onClick={() => router.push('/email-templates')}
-              className={getActiveClass('/email-templates')}
-            >
-              메일 템플릿
-            </button>
+            <div className="relative" ref={dropdownRef}>
+              <button
+                onMouseEnter={() => setIsTemplateDropdownOpen(true)}
+                className={isTemplateActive
+                  ? "text-sm text-purple-600 hover:text-purple-700 px-3 py-2 rounded-lg bg-purple-50 transition-colors font-medium"
+                  : "text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                }
+              >
+                템플릿
+              </button>
+              {isTemplateDropdownOpen && (
+                <div
+                  className="absolute top-full left-0 mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50"
+                  onMouseEnter={() => setIsTemplateDropdownOpen(true)}
+                  onMouseLeave={() => setIsTemplateDropdownOpen(false)}
+                >
+                  <button
+                    onClick={() => {
+                      router.push('/email-templates')
+                      setIsTemplateDropdownOpen(false)
+                    }}
+                    className={pathname === '/email-templates'
+                      ? "block w-full text-left px-4 py-2 text-sm text-purple-600 bg-purple-50 hover:bg-purple-100"
+                      : "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    }
+                  >
+                    메일 템플릿
+                  </button>
+                  <button
+                    onClick={() => {
+                      router.push('/survey-templates')
+                      setIsTemplateDropdownOpen(false)
+                    }}
+                    className={pathname === '/survey-templates'
+                      ? "block w-full text-left px-4 py-2 text-sm text-purple-600 bg-purple-50 hover:bg-purple-100"
+                      : "block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    }
+                  >
+                    캠페인 템플릿
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               onClick={() => router.push('/inbox')}
               className={getActiveClass('/inbox')}

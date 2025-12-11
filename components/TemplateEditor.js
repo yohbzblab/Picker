@@ -60,7 +60,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
   const [activeFormats, setActiveFormats] = useState({
     bold: false,
     italic: false,
-    underline: false
+    underline: false,
+    fontSize: 'normal'
   })
   const [showColorPicker, setShowColorPicker] = useState(false)
   const colorPickerRef = useRef(null)
@@ -106,16 +107,46 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     }
   }
 
+  // 현재 선택된 텍스트의 폰트 크기를 감지하는 함수
+  const getCurrentFontSize = useCallback(() => {
+    if (editorRef.current && document.activeElement === editorRef.current) {
+      const selection = window.getSelection()
+      if (selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0)
+        let element = range.commonAncestorContainer
+
+        // 텍스트 노드인 경우 부모 요소로 이동
+        if (element.nodeType === Node.TEXT_NODE) {
+          element = element.parentElement
+        }
+
+        // 가장 가까운 스타일이 적용된 요소 찾기
+        while (element && element !== editorRef.current) {
+          const tagName = element.tagName?.toLowerCase()
+          const fontSize = window.getComputedStyle(element).fontSize
+
+          if (tagName === 'h1' || fontSize === '28px' || fontSize === '1.75rem') return 'title'
+          if (tagName === 'h2' || fontSize === '20px' || fontSize === '1.25rem') return 'subtitle'
+          if (tagName === 'h3' || fontSize === '16px' || fontSize === '1rem') return 'normal'
+
+          element = element.parentElement
+        }
+      }
+    }
+    return 'normal'
+  }, [])
+
   // 활성 포맷 상태 업데이트
   const updateActiveFormats = useCallback(() => {
     if (editorRef.current && editorRef.current === document.activeElement) {
       setActiveFormats({
         bold: document.queryCommandState('bold'),
         italic: document.queryCommandState('italic'),
-        underline: document.queryCommandState('underline')
+        underline: document.queryCommandState('underline'),
+        fontSize: getCurrentFontSize()
       })
     }
-  }, [])
+  }, [getCurrentFontSize])
 
   // 커서 위치 변경 시 활성 포맷 업데이트
   const handleSelectionChange = useCallback(() => {
@@ -189,6 +220,21 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
 
   // 키보드 단축키 처리
   const handleKeyDown = (e) => {
+    // Enter: 줄바꿈 처리
+    if (e.key === 'Enter') {
+      e.preventDefault()
+
+      // Shift + Enter는 일반 줄바꿈, Enter만 누르면 <br> 삽입
+      if (e.shiftKey) {
+        // Shift + Enter: 일반 줄바꿈 (paragraph 나누지 않음)
+        execCommand('insertHTML', '<br>')
+      } else {
+        // Enter: 새 줄 생성
+        execCommand('insertHTML', '<br><br>')
+      }
+      return
+    }
+
     // Ctrl/Cmd + B: 볼드
     if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
       e.preventDefault()
@@ -218,6 +264,74 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
   // 폰트 색상 변경
   const handleColorChange = (color) => {
     execCommand('foreColor', color)
+  }
+
+  // 폰트 크기 변경
+  const handleFontSizeChange = (sizeType) => {
+    if (!editorRef.current) return
+
+    const selection = window.getSelection()
+    if (selection.rangeCount === 0) return
+
+    const range = selection.getRangeAt(0)
+    const selectedText = range.toString()
+
+    // 선택된 텍스트가 없으면 전체 줄에 적용
+    if (!selectedText) {
+      // 현재 줄의 전체 내용을 선택
+      const containerElement = range.startContainer.nodeType === Node.TEXT_NODE
+        ? range.startContainer.parentElement
+        : range.startContainer
+
+      // 줄의 시작과 끝을 찾기
+      let lineStart = containerElement
+      while (lineStart.previousSibling) {
+        lineStart = lineStart.previousSibling
+      }
+
+      range.selectNodeContents(containerElement.closest('div') || containerElement)
+    }
+
+    // 기존 스타일 제거
+    const contents = range.extractContents()
+
+    // 새로운 스타일 적용
+    let wrapper
+    switch (sizeType) {
+      case 'title':
+        wrapper = document.createElement('h1')
+        wrapper.style.fontSize = '1.75rem'
+        wrapper.style.fontWeight = 'bold'
+        wrapper.style.margin = '0'
+        wrapper.style.lineHeight = '1.2'
+        break
+      case 'subtitle':
+        wrapper = document.createElement('h2')
+        wrapper.style.fontSize = '1.25rem'
+        wrapper.style.fontWeight = '600'
+        wrapper.style.margin = '0'
+        wrapper.style.lineHeight = '1.3'
+        break
+      case 'normal':
+      default:
+        wrapper = document.createElement('span')
+        wrapper.style.fontSize = '1rem'
+        wrapper.style.fontWeight = 'normal'
+        break
+    }
+
+    wrapper.appendChild(contents)
+    range.insertNode(wrapper)
+
+    // 커서를 wrapper 끝으로 이동
+    range.setStartAfter(wrapper)
+    range.setEndAfter(wrapper)
+    selection.removeAllRanges()
+    selection.addRange(range)
+
+    editorRef.current.focus()
+    handleInput()
+    setTimeout(updateActiveFormats, 0)
   }
 
   // 이미지 업로드
@@ -320,6 +434,48 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     <div className="border border-gray-300 rounded-lg overflow-hidden">
       {/* 도구 모음 */}
       <div className="bg-gray-50 border-b border-gray-300 p-2 flex flex-wrap items-center gap-2">
+        {/* 폰트 크기 선택 */}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => handleFontSizeChange('title')}
+            className={`px-2 py-1 text-sm border border-gray-300 rounded transition-colors ${
+              activeFormats.fontSize === 'title'
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'hover:bg-gray-200'
+            }`}
+            title="제목 (큰 글씨)"
+          >
+            제목
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFontSizeChange('subtitle')}
+            className={`px-2 py-1 text-sm border border-gray-300 rounded transition-colors ${
+              activeFormats.fontSize === 'subtitle'
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'hover:bg-gray-200'
+            }`}
+            title="소제목 (중간 글씨)"
+          >
+            소제목
+          </button>
+          <button
+            type="button"
+            onClick={() => handleFontSizeChange('normal')}
+            className={`px-2 py-1 text-sm border border-gray-300 rounded transition-colors ${
+              activeFormats.fontSize === 'normal'
+                ? 'bg-purple-600 text-white border-purple-600'
+                : 'hover:bg-gray-200'
+            }`}
+            title="일반 (기본 글씨)"
+          >
+            일반
+          </button>
+        </div>
+
+        <div className="h-6 w-px bg-gray-300"></div>
+
         {/* 텍스트 포맷팅 */}
         <div className="flex items-center gap-1">
           <button
@@ -509,7 +665,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
           setActiveFormats({
             bold: false,
             italic: false,
-            underline: false
+            underline: false,
+            fontSize: 'normal'
           })
         }}
         className={`p-3 focus:outline-none text-black ${isSubject ? 'min-h-[80px]' : 'min-h-[200px]'}`}
@@ -522,12 +679,48 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
         data-placeholder={placeholder}
       />
 
-      {/* 플레이스홀더 스타일 */}
+      {/* 플레이스홀더 및 폰트 크기 스타일 */}
       <style jsx>{`
         [contenteditable]:empty:before {
           content: attr(data-placeholder);
           color: #9ca3af;
           pointer-events: none;
+        }
+        [contenteditable] h1 {
+          font-size: 1.75rem !important;
+          font-weight: bold !important;
+          margin: 0 !important;
+          line-height: 1.2 !important;
+          display: block !important;
+        }
+        [contenteditable] h2 {
+          font-size: 1.25rem !important;
+          font-weight: 600 !important;
+          margin: 0 !important;
+          line-height: 1.3 !important;
+          display: block !important;
+        }
+        [contenteditable] h3 {
+          font-size: 1rem !important;
+          font-weight: normal !important;
+          margin: 0 !important;
+          line-height: 1.5 !important;
+          display: block !important;
+        }
+        [contenteditable] span[style*="font-size: 1.75rem"] {
+          font-size: 1.75rem !important;
+          font-weight: bold !important;
+          line-height: 1.2 !important;
+        }
+        [contenteditable] span[style*="font-size: 1.25rem"] {
+          font-size: 1.25rem !important;
+          font-weight: 600 !important;
+          line-height: 1.3 !important;
+        }
+        [contenteditable] span[style*="font-size: 1rem"] {
+          font-size: 1rem !important;
+          font-weight: normal !important;
+          line-height: 1.5 !important;
         }
       `}</style>
     </div>

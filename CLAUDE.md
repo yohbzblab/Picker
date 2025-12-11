@@ -4,15 +4,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-InstaCrawl is a Next.js 15 application for Instagram analytics with Supabase authentication and Prisma ORM. The app allows users to connect their Instagram accounts and analyze their social media data.
+InstaCrawl is a Next.js 15 application for influencer relationship management and email marketing. It enables users to connect Instagram accounts, manage influencers, create email templates with dynamic variables, and send personalized emails via SMTP (Gmail or MailPlug).
 
 ## Key Commands
 
 ### Development
 ```bash
-npm run dev       # Start development server (port 3000)
-npm run build     # Build for production
+npm run dev       # Start development server on port 3001
+npm run build     # Build for production (includes prisma db push)
 npm run start     # Start production server
+yarn dev          # Alternative: Start dev server (port 3001)
 ```
 
 ### Database Management
@@ -42,7 +43,8 @@ npx prisma studio            # Open Prisma Studio GUI
 2. **Database Architecture**:
    - Prisma schema at `prisma/schema.prisma`
    - Generated client outputs to `app/generated/prisma` (non-standard location)
-   - Two main models: `User` and `InstagramAccount`
+   - Key models: User, InstagramAccount, Influencer, EmailTemplate, EmailSent/Received
+   - Dynamic influencer fields system with InfluencerField model
    - User creation happens automatically on first login via `/api/users` endpoint
 
 3. **Instagram Integration**:
@@ -52,9 +54,11 @@ npx prisma studio            # Open Prisma Studio GUI
 
 4. **API Structure**:
    - `/api/users` - User CRUD operations
-   - `/api/instagram/auth` - Initiates Instagram OAuth
-   - `/api/instagram/callback` - Handles Instagram OAuth callback
-   - `/api/instagram/accounts` - Manages Instagram accounts
+   - `/api/instagram/*` - Instagram OAuth flow and account management
+   - `/api/influencers` - Influencer management with dynamic fields
+   - `/api/email-templates` - Email template CRUD with variables and conditions
+   - `/api/emails/*` - Email sending (SMTP), receiving (POP3/IMAP), and management
+   - `/api/upload` - File uploads for images and attachments to Supabase Storage
 
 ## Environment Variables
 
@@ -80,18 +84,32 @@ Required environment variables in `.env`:
 
 4. **Development Setup**: Uses ngrok for HTTPS tunneling required for OAuth callbacks
 
+5. **Email System**:
+   - Dual provider support: Gmail SMTP and MailPlug (Korean enterprise email service)
+   - Template system with variable substitution using {{variableName}} syntax
+   - Conditional logic in templates with {{#if condition}}...{{/if}}
+   - POP3/IMAP support for receiving emails
+   - Bulk sending with personalization per influencer
+   - Image and attachment support via Supabase Storage
+
 ## Current Features
 
 - Google OAuth authentication via Supabase
-- User profile management
+- User profile management with dual email provider support (Gmail/MailPlug)
 - Instagram account connection (OAuth)
-- Settings page for managing connected accounts
-- Responsive UI with TailwindCSS
+- Dynamic influencer management with customizable fields
+- Email template system with variables and conditional logic
+- Bulk email sending with personalization
+- Email inbox with POP3/IMAP support
+- File uploads (images and attachments) via Supabase Storage
+- Settings page for SMTP configuration and connected accounts
+- Responsive UI with TailwindCSS v4
 
 ## File Structure Notes
 
-- App Router structure in `/app` directory
-- API routes in `/app/api`
-- Shared components in `/components`
-- Utility functions in `/lib`
-- Database schema in `/prisma/schema.prisma`
+- Main application is in `/instacrawl` subdirectory
+- App Router structure in `/instacrawl/app` directory
+- API routes in `/instacrawl/app/api`
+- Shared components in `/instacrawl/components`
+- Utility functions in `/instacrawl/lib`
+- Database schema in `/instacrawl/prisma/schema.prisma`

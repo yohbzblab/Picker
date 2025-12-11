@@ -61,6 +61,9 @@ model User {
   emailsReceived    EmailReceived[]
   templateImages    TemplateImage[]
   templateAttachments TemplateAttachment[]
+  surveyTemplates   SurveyTemplate[]
+  surveyResponses   SurveyResponse[]
+  campaignBlocks    CampaignBlock[]
 
   @@map("users")
 }
@@ -136,6 +139,7 @@ model Influencer {
   connections TemplateInfluencerConnection[]
   emailsSent  EmailSent[]
   emailsReceived EmailReceived[]
+  surveyResponses SurveyResponse[]
 
   @@index([userId])
   @@index([accountId])
@@ -309,4 +313,58 @@ enum FieldType {
   CURRENCY      // 통화/금액
   PERCENTAGE    // 퍼센트
   RATING        // 평점 (1-5)
+}
+
+model SurveyTemplate {
+  id          Int      @id @default(autoincrement())
+  userId      Int      // 템플릿 소유자
+  title       String   // 캠페인 제목
+  description String?  @db.Text // 캠페인 설명
+  blocks      Json     // 블럭 ID 배열과 순서 정보 JSON
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  responses   SurveyResponse[]
+
+  @@index([userId])
+  @@map("survey_templates")
+}
+
+model SurveyResponse {
+  id               Int      @id @default(autoincrement())
+  surveyTemplateId Int      // 캠페인 템플릿 ID
+  userId           Int      // 캠페인 소유자
+  influencerId     Int?     // 응답한 인플루언서 (선택적)
+  respondentEmail  String?  // 응답자 이메일 (인플루언서가 없는 경우)
+  respondentName   String?  // 응답자 이름
+  answers          Json     // 답변 데이터 JSON
+  submittedAt      DateTime @default(now())
+
+  surveyTemplate   SurveyTemplate @relation(fields: [surveyTemplateId], references: [id], onDelete: Cascade)
+  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  influencer       Influencer?    @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+
+  @@index([surveyTemplateId])
+  @@index([userId])
+  @@index([influencerId])
+  @@map("survey_responses")
+}
+
+model CampaignBlock {
+  id          Int      @id @default(autoincrement())
+  userId      Int      // 블럭 소유자
+  title       String   // 블럭 제목
+  content     String   @db.Text // 블럭 내용 (HTML)
+  isPublic    Boolean  @default(false) // 공용 블럭 여부 (true: 공용, false: 일반)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isPublic])
+  @@map("campaign_blocks")
 }
