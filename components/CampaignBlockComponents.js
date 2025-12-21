@@ -14,9 +14,36 @@ export function BlockEditor({
   const [title, setTitle] = useState(block?.title || '')
   const [content, setContent] = useState(block?.content || '')
   const [isPublic, setIsPublic] = useState(block?.isPublic || false)
+  const [inputType, setInputType] = useState(block?.inputType || 'NONE')
+  const [inputConfig, setInputConfig] = useState(block?.inputConfig || {})
+  const [isRequired, setIsRequired] = useState(block?.isRequired || false)
   const [saving, setSaving] = useState(false)
+  const [showVariables, setShowVariables] = useState(false)
+  const [influencerFields, setInfluencerFields] = useState([])
+  const [loadingFields, setLoadingFields] = useState(true)
 
   const contentInsertFnRef = useRef(null)
+
+  // 인플루언서 필드 가져오기
+  useEffect(() => {
+    const loadInfluencerFields = async () => {
+      if (!dbUser) return
+
+      try {
+        const response = await fetch(`/api/influencer-fields?userId=${dbUser.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          setInfluencerFields(data.fields || [])
+        }
+      } catch (error) {
+        console.error('Error loading influencer fields:', error)
+      } finally {
+        setLoadingFields(false)
+      }
+    }
+
+    loadInfluencerFields()
+  }, [dbUser])
 
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
@@ -42,6 +69,9 @@ export function BlockEditor({
           title,
           content,
           isPublic,
+          inputType,
+          inputConfig,
+          isRequired,
           userId: dbUser.id
         })
       })
@@ -64,6 +94,13 @@ export function BlockEditor({
   const handleContentInsertVariable = useCallback((fn) => {
     contentInsertFnRef.current = fn
   }, [])
+
+  // 변수 삽입 함수
+  const handleVariableInsert = (variable) => {
+    if (contentInsertFnRef.current) {
+      contentInsertFnRef.current(variable)
+    }
+  }
 
   return (
     <div className="bg-white rounded-lg shadow-lg border border-gray-200 p-6">
@@ -96,15 +133,231 @@ export function BlockEditor({
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-900 mb-2">
-            블럭 내용
-          </label>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-medium text-gray-900">
+              블럭 내용
+            </label>
+            <button
+              type="button"
+              onClick={() => setShowVariables(!showVariables)}
+              className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+            >
+              {showVariables ? '변수 숨기기' : '변수 보기'}
+            </button>
+          </div>
+
+          {/* 변수 목록 */}
+          {showVariables && (
+            <div className="mb-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="mb-3">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">
+                  사용 가능한 변수 (클릭하여 삽입)
+                </h4>
+              </div>
+
+              {loadingFields ? (
+                <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
+              ) : (
+                <div className="space-y-3">
+                  {/* 기본 변수 */}
+                  <div>
+                    <h5 className="text-xs font-medium text-gray-600 mb-2">기본 변수</h5>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleVariableInsert('이름')}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                      >
+                        이름
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleVariableInsert('오늘날짜')}
+                        onMouseDown={(e) => e.preventDefault()}
+                        className="text-xs bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full hover:bg-blue-200 transition-colors"
+                      >
+                        오늘날짜
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 인플루언서 변수 */}
+                  {influencerFields.filter(field =>
+                    field.fieldType === 'TEXT' ||
+                    field.fieldType === 'LONG_TEXT' ||
+                    field.fieldType === 'NUMBER'
+                  ).length > 0 && (
+                    <div>
+                      <h5 className="text-xs font-medium text-gray-600 mb-2">인플루언서 정보</h5>
+                      <div className="flex flex-wrap gap-2">
+                        {influencerFields
+                          .filter(field =>
+                            field.fieldType === 'TEXT' ||
+                            field.fieldType === 'LONG_TEXT' ||
+                            field.fieldType === 'NUMBER'
+                          )
+                          .map(field => (
+                            <button
+                              key={field.key}
+                              type="button"
+                              onClick={() => handleVariableInsert(field.key)}
+                              onMouseDown={(e) => e.preventDefault()}
+                              className="text-xs bg-green-100 text-green-800 px-2.5 py-1 rounded-full hover:bg-green-200 transition-colors"
+                              title={`{{${field.key}}}`}
+                            >
+                              {field.label}
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="text-xs text-gray-500 mt-2">
+                    💡 변수는 캠페인 전송 시 실제 값으로 치환됩니다
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <RichTextEditor
             value={content}
             onChange={handleContentChange}
             placeholder="블럭 내용을 입력하세요"
             onInsertVariable={handleContentInsertVariable}
           />
+        </div>
+
+        {/* 입력 타입 설정 */}
+        <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+          <h4 className="text-sm font-semibold text-gray-900 border-b border-gray-100 pb-2">
+            응답 입력 설정
+          </h4>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              입력 타입
+            </label>
+            <select
+              value={inputType}
+              onChange={(e) => setInputType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="NONE">입력 없음 (정보 전달만)</option>
+              <option value="TEXT">주관식 (짧은 텍스트)</option>
+              <option value="TEXTAREA">주관식 (긴 텍스트)</option>
+              <option value="NUMBER">숫자 입력</option>
+              <option value="DATE">날짜 입력</option>
+              <option value="RADIO">객관식 (단일 선택)</option>
+              <option value="CHECKBOX">체크박스 (다중 선택)</option>
+              <option value="SELECT">드롭다운</option>
+              <option value="FILE">파일 업로드</option>
+            </select>
+          </div>
+
+          {/* 객관식, 체크박스, 드롭다운용 옵션 설정 */}
+          {(inputType === 'RADIO' || inputType === 'CHECKBOX' || inputType === 'SELECT') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                선택 옵션 (한 줄에 하나씩 입력)
+              </label>
+              <textarea
+                value={inputConfig.options?.join('\n') || ''}
+                onChange={(e) => setInputConfig({
+                  ...inputConfig,
+                  options: e.target.value.split('\n').filter(opt => opt.trim())
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                rows="4"
+                placeholder="옵션 1&#10;옵션 2&#10;옵션 3"
+              />
+            </div>
+          )}
+
+          {/* 파일 업로드용 설정 */}
+          {inputType === 'FILE' && (
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  허용 파일 타입
+                </label>
+                <div className="space-y-2">
+                  {['이미지 (jpg, png, gif)', '문서 (pdf, doc, docx)', '모든 파일'].map((type, index) => {
+                    const value = ['image', 'document', 'all'][index]
+                    return (
+                      <label key={value} className="flex items-center">
+                        <input
+                          type="radio"
+                          name="fileType"
+                          value={value}
+                          checked={inputConfig.fileType === value}
+                          onChange={(e) => setInputConfig({
+                            ...inputConfig,
+                            fileType: e.target.value
+                          })}
+                          className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+                        />
+                        <span className="ml-2 text-sm text-gray-700">{type}</span>
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  최대 파일 크기 (MB)
+                </label>
+                <input
+                  type="number"
+                  value={inputConfig.maxSize || 10}
+                  onChange={(e) => setInputConfig({
+                    ...inputConfig,
+                    maxSize: parseInt(e.target.value)
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                  min="1"
+                  max="100"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* 텍스트/숫자 입력용 설정 */}
+          {(inputType === 'TEXT' || inputType === 'TEXTAREA' || inputType === 'NUMBER') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                플레이스홀더 텍스트
+              </label>
+              <input
+                type="text"
+                value={inputConfig.placeholder || ''}
+                onChange={(e) => setInputConfig({
+                  ...inputConfig,
+                  placeholder: e.target.value
+                })}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                placeholder="예: 답변을 입력해주세요"
+              />
+            </div>
+          )}
+
+          {/* 필수 입력 여부 */}
+          {inputType !== 'NONE' && (
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                id="isRequired"
+                checked={isRequired}
+                onChange={(e) => setIsRequired(e.target.checked)}
+                className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+              />
+              <label htmlFor="isRequired" className="ml-2 text-sm text-gray-700">
+                필수 입력 항목으로 설정
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center">
@@ -140,6 +393,71 @@ export function BlockEditor({
   )
 }
 
+// 입력 타입 아이콘 및 라벨 유틸리티
+const getInputTypeDisplay = (inputType, inputConfig = {}) => {
+  // inputConfig가 null이나 undefined인 경우 빈 객체로 설정
+  const config = inputConfig || {}
+
+  const typeMap = {
+    NONE: {
+      icon: '📄',
+      label: '정보 전달만',
+      description: '사용자 입력 없음',
+      color: 'bg-gray-100 text-gray-700'
+    },
+    TEXT: {
+      icon: '📝',
+      label: '짧은 텍스트',
+      description: '한 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    TEXTAREA: {
+      icon: '📄',
+      label: '긴 텍스트',
+      description: '여러 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    NUMBER: {
+      icon: '🔢',
+      label: '숫자',
+      description: '숫자 입력',
+      color: 'bg-green-100 text-green-700'
+    },
+    DATE: {
+      icon: '📅',
+      label: '날짜',
+      description: '날짜 선택',
+      color: 'bg-purple-100 text-purple-700'
+    },
+    RADIO: {
+      icon: '🔘',
+      label: '객관식',
+      description: `단일 선택 (${config.options?.length || 0}개 옵션)`,
+      color: 'bg-orange-100 text-orange-700'
+    },
+    CHECKBOX: {
+      icon: '☑️',
+      label: '체크박스',
+      description: `다중 선택 (${config.options?.length || 0}개 옵션)`,
+      color: 'bg-yellow-100 text-yellow-700'
+    },
+    SELECT: {
+      icon: '📋',
+      label: '드롭다운',
+      description: `선택 (${config.options?.length || 0}개 옵션)`,
+      color: 'bg-indigo-100 text-indigo-700'
+    },
+    FILE: {
+      icon: '📎',
+      label: '파일 업로드',
+      description: `${config.fileType === 'image' ? '이미지' : config.fileType === 'document' ? '문서' : '모든 파일'} (최대 ${config.maxSize || 10}MB)`,
+      color: 'bg-red-100 text-red-700'
+    }
+  }
+
+  return typeMap[inputType] || typeMap.NONE
+}
+
 // 블럭 미리보기 컴포넌트
 export function BlockPreview({ block, onEdit, onDelete, onUse, showActions = true }) {
   const handleDelete = () => {
@@ -148,12 +466,14 @@ export function BlockPreview({ block, onEdit, onDelete, onUse, showActions = tru
     }
   }
 
+  const inputTypeDisplay = getInputTypeDisplay(block.inputType, block.inputConfig)
+
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4 hover:border-purple-300 hover:shadow-sm transition-all">
       <div className="flex justify-between items-start mb-3">
         <div className="flex-1">
           <h4 className="font-medium text-gray-900 mb-1">{block.title}</h4>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 mb-2">
             <span className={`text-xs px-2 py-1 rounded-full ${
               block.isPublic
                 ? 'bg-green-100 text-green-800'
@@ -161,10 +481,26 @@ export function BlockPreview({ block, onEdit, onDelete, onUse, showActions = tru
             }`}>
               {block.isPublic ? '공용' : '개인'}
             </span>
+            {block.isRequired && (
+              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                필수
+              </span>
+            )}
             <span className="text-xs text-gray-500">
               {new Date(block.createdAt).toLocaleDateString('ko-KR')}
             </span>
           </div>
+
+          {/* 답변 형식 표시 */}
+          {block.inputType && block.inputType !== 'NONE' && (
+            <div className="flex items-center space-x-2">
+              <span className={`text-xs px-2 py-1 rounded-full ${inputTypeDisplay.color} flex items-center space-x-1`}>
+                <span>{inputTypeDisplay.icon}</span>
+                <span>{inputTypeDisplay.label}</span>
+              </span>
+              <span className="text-xs text-gray-500">{inputTypeDisplay.description}</span>
+            </div>
+          )}
         </div>
 
         {showActions && (
@@ -248,6 +584,8 @@ export function DraggableBlock({
     }
   }
 
+  const inputTypeDisplay = getInputTypeDisplay(block.inputType, block.inputConfig)
+
   return (
     <div
       draggable
@@ -264,15 +602,33 @@ export function DraggableBlock({
             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
             <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
           </div>
-          <div>
+          <div className="flex-1">
             <h4 className="font-medium text-gray-900 mb-1">{block.title}</h4>
-            <span className={`text-xs px-2 py-1 rounded-full ${
-              block.isPublic
-                ? 'bg-green-100 text-green-800'
-                : 'bg-blue-100 text-blue-800'
-            }`}>
-              {block.isPublic ? '공용' : '개인'}
-            </span>
+            <div className="flex items-center space-x-2 mb-2">
+              <span className={`text-xs px-2 py-1 rounded-full ${
+                block.isPublic
+                  ? 'bg-green-100 text-green-800'
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {block.isPublic ? '공용' : '개인'}
+              </span>
+              {block.isRequired && (
+                <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                  필수
+                </span>
+              )}
+            </div>
+
+            {/* 답변 형식 표시 */}
+            {block.inputType && block.inputType !== 'NONE' && (
+              <div className="flex items-center space-x-2">
+                <span className={`text-xs px-2 py-1 rounded-full ${inputTypeDisplay.color} flex items-center space-x-1`}>
+                  <span>{inputTypeDisplay.icon}</span>
+                  <span>{inputTypeDisplay.label}</span>
+                </span>
+                <span className="text-xs text-gray-500">{inputTypeDisplay.description}</span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -640,6 +996,19 @@ export function BlockBuilder({
     onEditBlock(block, index)
   }
 
+  const handleTogglePageBreak = (index) => {
+    const newBlocks = [...selectedBlocks]
+    const block = newBlocks[index]
+
+    // pageBreakAfter 속성 토글
+    newBlocks[index] = {
+      ...block,
+      pageBreakAfter: !block.pageBreakAfter
+    }
+
+    onBlocksChange(newBlocks)
+  }
+
   return (
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-4">
@@ -651,26 +1020,60 @@ export function BlockBuilder({
 
       <div className="overflow-y-auto min-h-0 flex-shrink-0">
         {selectedBlocks.length > 0 ? (
-          <div className="space-y-3">
+          <div className="space-y-0">
             {selectedBlocks.map((block, index) => (
-              <div
-                key={`${block.id}-${index}`}
-                className={`relative ${
-                  dragOverIndex === index ? 'border-t-2 border-purple-500' : ''
-                }`}
-                onDragOver={(e) => handleDragOver(e, index)}
-                onDragLeave={handleDragLeave}
-                onDrop={(e) => handleDrop(e, index)}
-              >
-                <DraggableBlock
-                  block={block}
-                  index={index}
-                  onEdit={handleEditBlock}
-                  onDelete={handleRemoveBlock}
-                  onMoveUp={handleMoveUp}
-                  onMoveDown={handleMoveDown}
-                  totalBlocks={selectedBlocks.length}
-                />
+              <div key={`${block.id}-${index}`}>
+                {/* 블럭 컨테이너 */}
+                <div
+                  className={`relative ${
+                    dragOverIndex === index ? 'border-t-2 border-purple-500' : ''
+                  }`}
+                  onDragOver={(e) => handleDragOver(e, index)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, index)}
+                >
+                  <DraggableBlock
+                    block={block}
+                    index={index}
+                    onEdit={handleEditBlock}
+                    onDelete={handleRemoveBlock}
+                    onMoveUp={handleMoveUp}
+                    onMoveDown={handleMoveDown}
+                    totalBlocks={selectedBlocks.length}
+                  />
+                </div>
+
+                {/* 구분선 영역 (마지막 블럭이 아닌 경우에만 표시) */}
+                {index < selectedBlocks.length - 1 && (
+                  <div className="flex items-center justify-center py-2 group">
+                    <div
+                      className={`flex-1 h-px transition-all duration-200 cursor-pointer ${
+                        block.pageBreakAfter
+                          ? 'bg-red-400 h-0.5'
+                          : 'bg-gray-200 group-hover:bg-gray-300'
+                      }`}
+                      onClick={() => handleTogglePageBreak(index)}
+                    />
+                    <div
+                      className={`mx-2 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200 cursor-pointer ${
+                        block.pageBreakAfter
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                          : 'bg-gray-100 text-gray-500 hover:bg-purple-100 hover:text-purple-600 group-hover:bg-purple-50'
+                      }`}
+                      onClick={() => handleTogglePageBreak(index)}
+                    >
+                      {block.pageBreakAfter ? '페이지 구분 제거' : '페이지 구분 추가'}
+                    </div>
+                    <div
+                      className={`flex-1 h-px transition-all duration-200 cursor-pointer ${
+                        block.pageBreakAfter
+                          ? 'bg-red-400 h-0.5'
+                          : 'bg-gray-200 group-hover:bg-gray-300'
+                      }`}
+                      onClick={() => handleTogglePageBreak(index)}
+                    />
+                  </div>
+                )}
               </div>
             ))}
             {/* Drop zone at the end */}

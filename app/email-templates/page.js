@@ -169,7 +169,7 @@ export default function EmailTemplates() {
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer relative"
                   onClick={() => handleTemplateClick(template)}
                 >
                   {/* 상단 영역: 메인 정보들 */}
@@ -186,15 +186,6 @@ export default function EmailTemplates() {
 
                       {/* 액션 버튼들 */}
                       <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            handleInfluencerConnect(template)
-                          }}
-                          className="text-xs bg-purple-100 text-purple-700 px-3 py-1.5 rounded-lg hover:bg-purple-200 transition-colors whitespace-nowrap"
-                        >
-                          인플루언서 연결
-                        </button>
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -298,6 +289,20 @@ export default function EmailTemplates() {
                       </div>
                     </div>
                   </div>
+
+                  {/* 우측 하단 인플루언서 연결 버튼 */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleInfluencerConnect(template)
+                    }}
+                    className="absolute bottom-6 right-6 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                    <span>인플루언서 연결</span>
+                  </button>
                 </div>
               ))}
             </div>

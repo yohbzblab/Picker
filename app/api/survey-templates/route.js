@@ -18,10 +18,9 @@ export async function GET(request) {
         isActive: true
       },
       include: {
-        responses: true,
         _count: {
           select: {
-            responses: true
+            surveyResponses: true
           }
         }
       },
@@ -33,7 +32,7 @@ export async function GET(request) {
     // Add response count to each template
     const templatesWithCounts = templates.map(template => ({
       ...template,
-      responses: template._count.responses
+      responses: template._count.surveyResponses
     }))
 
     return NextResponse.json({ templates: templatesWithCounts })

@@ -62,7 +62,6 @@ model User {
   templateImages    TemplateImage[]
   templateAttachments TemplateAttachment[]
   surveyTemplates   SurveyTemplate[]
-  surveyResponses   SurveyResponse[]
   campaignBlocks    CampaignBlock[]
 
   @@map("users")
@@ -316,17 +315,19 @@ enum FieldType {
 }
 
 model SurveyTemplate {
-  id          Int      @id @default(autoincrement())
+  id          String   @id @default(uuid())
   userId      Int      // 템플릿 소유자
   title       String   // 캠페인 제목
   description String?  @db.Text // 캠페인 설명
-  blocks      Json     // 블럭 ID 배열과 순서 정보 JSON
+  blocks      Json?    // 블럭 ID 배열과 순서 정보 JSON
+  questions   Json?    // 레거시 질문 시스템 지원
+  responses   Int      @default(0) // 응답 수
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  user        User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  responses   SurveyResponse[]
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surveyResponses SurveyResponse[]
 
   @@index([userId])
   @@map("survey_templates")
@@ -334,20 +335,17 @@ model SurveyTemplate {
 
 model SurveyResponse {
   id               Int      @id @default(autoincrement())
-  surveyTemplateId Int      // 캠페인 템플릿 ID
-  userId           Int      // 캠페인 소유자
+  templateId       String   // 캠페인 템플릿 ID
+  responses        Json     // 응답 데이터 JSON
   influencerId     Int?     // 응답한 인플루언서 (선택적)
   respondentEmail  String?  // 응답자 이메일 (인플루언서가 없는 경우)
   respondentName   String?  // 응답자 이름
-  answers          Json     // 답변 데이터 JSON
   submittedAt      DateTime @default(now())
 
-  surveyTemplate   SurveyTemplate @relation(fields: [surveyTemplateId], references: [id], onDelete: Cascade)
-  user             User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surveyTemplate   SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   influencer       Influencer?    @relation(fields: [influencerId], references: [id], onDelete: SetNull)
 
-  @@index([surveyTemplateId])
-  @@index([userId])
+  @@index([templateId])
   @@index([influencerId])
   @@map("survey_responses")
 }
@@ -358,6 +356,12 @@ model CampaignBlock {
   title       String   // 블럭 제목
   content     String   @db.Text // 블럭 내용 (HTML)
   isPublic    Boolean  @default(false) // 공용 블럭 여부 (true: 공용, false: 일반)
+
+  // 입력 타입 관련 필드
+  inputType   InputType @default(NONE) // 입력 타입 (없음, 객관식, 주관식 등)
+  inputConfig Json?    // 입력 설정 (옵션, 유효성 검사 등)
+  isRequired  Boolean  @default(false) // 필수 입력 여부
+
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -366,5 +370,18 @@ model CampaignBlock {
 
   @@index([userId])
   @@index([isPublic])
+  @@index([inputType])
   @@map("campaign_blocks")
+}
+
+enum InputType {
+  NONE          // 입력 없음 (정보 전달만)
+  TEXT          // 주관식 텍스트
+  NUMBER        // 주관식 숫자
+  DATE          // 주관식 날짜
+  TEXTAREA      // 주관식 긴 텍스트
+  RADIO         // 객관식 (단일 선택)
+  CHECKBOX      // 체크박스 (다중 선택)
+  SELECT        // 드롭다운
+  FILE          // 파일 업로드
 }

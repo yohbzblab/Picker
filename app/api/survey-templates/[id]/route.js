@@ -8,7 +8,7 @@ export async function GET(request, { params }) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const resolvedParams = await params
-    const templateId = parseInt(resolvedParams.id)
+    const templateId = resolvedParams.id
 
     if (!userId || !templateId) {
       return NextResponse.json({ error: 'User ID and template ID are required' }, { status: 400 })
@@ -20,7 +20,7 @@ export async function GET(request, { params }) {
         userId: parseInt(userId)
       },
       include: {
-        responses: {
+        surveyResponses: {
           include: {
             influencer: true
           },
@@ -46,7 +46,7 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const resolvedParams = await params
-    const templateId = parseInt(resolvedParams.id)
+    const templateId = resolvedParams.id
     const body = await request.json()
     const { title, description, blocks, questions, userId } = body
 
@@ -101,7 +101,7 @@ export async function DELETE(request, { params }) {
     const { searchParams } = new URL(request.url)
     const userId = searchParams.get('userId')
     const resolvedParams = await params
-    const templateId = parseInt(resolvedParams.id)
+    const templateId = resolvedParams.id
 
     if (!userId || !templateId) {
       return NextResponse.json({ error: 'User ID and template ID are required' }, { status: 400 })

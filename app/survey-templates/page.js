@@ -5,6 +5,68 @@ import Navbar from '@/components/Navbar'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 
+// 입력 타입 표시 함수
+const getInputTypeDisplay = (inputType, inputConfig = {}) => {
+  const typeMap = {
+    NONE: {
+      icon: '📄',
+      label: '정보 전달만',
+      description: '사용자 입력 없음',
+      color: 'bg-gray-100 text-gray-700'
+    },
+    TEXT: {
+      icon: '📝',
+      label: '짧은 텍스트',
+      description: '한 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    TEXTAREA: {
+      icon: '📄',
+      label: '긴 텍스트',
+      description: '여러 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    NUMBER: {
+      icon: '🔢',
+      label: '숫자',
+      description: '숫자 입력',
+      color: 'bg-green-100 text-green-700'
+    },
+    DATE: {
+      icon: '📅',
+      label: '날짜',
+      description: '날짜 선택',
+      color: 'bg-purple-100 text-purple-700'
+    },
+    RADIO: {
+      icon: '🔘',
+      label: '객관식',
+      description: `단일 선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-orange-100 text-orange-700'
+    },
+    CHECKBOX: {
+      icon: '☑️',
+      label: '체크박스',
+      description: `다중 선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-yellow-100 text-yellow-700'
+    },
+    SELECT: {
+      icon: '📋',
+      label: '드롭다운',
+      description: `선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-indigo-100 text-indigo-700'
+    },
+    FILE: {
+      icon: '📎',
+      label: '파일 업로드',
+      description: `${inputConfig.fileType === 'image' ? '이미지' : inputConfig.fileType === 'document' ? '문서' : '모든 파일'} (최대 ${inputConfig.maxSize || 10}MB)`,
+      color: 'bg-red-100 text-red-700'
+    }
+  }
+
+  return typeMap[inputType] || typeMap.NONE
+}
+
 export default function SurveyTemplates() {
   const { user, dbUser, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -70,6 +132,26 @@ export default function SurveyTemplates() {
     }
   }
 
+  const handlePreviewTemplate = (template) => {
+    console.log('Preview template clicked:', template.id, template.title)
+
+    // 템플릿 데이터를 sessionStorage에 저장
+    const previewData = {
+      title: template.title,
+      description: template.description,
+      blocks: template.blocks || [],
+      isPreview: true
+    }
+
+    console.log('Setting preview data:', previewData)
+    sessionStorage.setItem('previewTemplate', JSON.stringify(previewData))
+
+    // 새 창에서 미리보기 페이지 열기
+    const previewUrl = `/survey/preview`
+    console.log('Opening preview URL:', previewUrl)
+    window.open(previewUrl, '_blank', 'width=400,height=700,scrollbars=yes')
+  }
+
   const handleTemplateClick = (template) => {
     setSelectedTemplate(template)
     setIsSlideMenuOpen(true)
@@ -78,6 +160,11 @@ export default function SurveyTemplates() {
   const closeSlideMenu = () => {
     setIsSlideMenuOpen(false)
     setSelectedTemplate(null)
+  }
+
+  const handleInfluencerConnect = (template) => {
+    // 템플릿 ID를 쿼리 파라미터로 전달하여 인플루언서 연결 페이지로 이동
+    router.push(`/influencer-connect?templateId=${template.id}`)
   }
 
   if (authLoading || loading) {
@@ -120,15 +207,20 @@ export default function SurveyTemplates() {
           </div>
 
           {templates.length > 0 ? (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-4">
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer relative"
                   onClick={() => handleTemplateClick(template)}
                 >
                   <div className="flex justify-between items-start mb-4">
-                    <h3 className="text-lg font-semibold text-gray-900 flex-1">{template.title}</h3>
+                    <div className="flex-1">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-1">{template.title}</h3>
+                      <p className="text-xs text-gray-400">
+                        {new Date(template.createdAt).toLocaleDateString('ko-KR')}
+                      </p>
+                    </div>
                     <div className="flex items-center space-x-1 ml-2">
                       <button
                         onClick={(e) => {
@@ -140,6 +232,19 @@ export default function SurveyTemplates() {
                       >
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handlePreviewTemplate(template)
+                        }}
+                        className="text-gray-400 hover:text-purple-600 p-1"
+                        title="미리보기"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                         </svg>
                       </button>
                       <button
@@ -161,12 +266,9 @@ export default function SurveyTemplates() {
                     {template.description || '설명이 없습니다.'}
                   </p>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="text-sm">
                     <span className="text-gray-500">
                       블럭 {template.blocks?.length || template.questions?.length || 0}개
-                    </span>
-                    <span className="text-xs text-gray-400">
-                      {new Date(template.createdAt).toLocaleDateString('ko-KR')}
                     </span>
                   </div>
 
@@ -180,6 +282,37 @@ export default function SurveyTemplates() {
                       </div>
                     </div>
                   )}
+
+                  {/* 우측 하단 버튼들 */}
+                  <div className="absolute bottom-6 right-6 flex space-x-2">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        // 실제 설문조사 페이지를 새 창에서 열기
+                        window.open(`/survey/${template.id}`, '_blank', 'width=400,height=700,scrollbars=yes')
+                      }}
+                      className="bg-gray-100 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium flex items-center space-x-1"
+                      title="페이지 미리보기"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span>미리보기</span>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleInfluencerConnect(template)
+                      }}
+                      className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                      </svg>
+                      <span>인플루언서 연결</span>
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -234,62 +367,92 @@ export default function SurveyTemplates() {
               </div>
 
               <div className="mb-6">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">블럭 목록</h4>
-                <div className="space-y-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">캠페인 미리보기</h4>
+                <div className="space-y-6">
                   {/* 새로운 블럭 시스템 지원 */}
-                  {selectedTemplate.blocks?.map((block, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="text-sm font-medium text-gray-900">
-                          {index + 1}. {block.title || `블럭 ${index + 1}`}
-                        </p>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          block.isPublic
-                            ? 'bg-green-100 text-green-800'
-                            : 'bg-blue-100 text-blue-800'
-                        }`}>
-                          {block.isPublic ? '공용' : '개인'}
-                        </span>
+                  {selectedTemplate.blocks?.map((block, index) => {
+                    const inputTypeDisplay = getInputTypeDisplay(block.inputType, block.inputConfig)
+                    return (
+                      <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-medium text-purple-600">
+                              블럭 {index + 1}
+                            </span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              block.isPublic
+                                ? 'bg-green-100 text-green-800'
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {block.isPublic ? '공용' : '개인'}
+                            </span>
+                            {block.isRequired && (
+                              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                                필수
+                              </span>
+                            )}
+                          </div>
+                          <h5 className="text-sm font-medium text-gray-900">
+                            {block.title || `블럭 ${index + 1}`}
+                          </h5>
+                        </div>
+
+                        {/* 답변 형식 표시 */}
+                        {block.inputType && block.inputType !== 'NONE' && (
+                          <div className="flex items-center space-x-2 mb-3">
+                            <span className={`text-xs px-2 py-1 rounded-full ${inputTypeDisplay.color} flex items-center space-x-1`}>
+                              <span>{inputTypeDisplay.icon}</span>
+                              <span>{inputTypeDisplay.label}</span>
+                            </span>
+                            <span className="text-xs text-gray-500">{inputTypeDisplay.description}</span>
+                          </div>
+                        )}
+
+                        <div className="border-t border-gray-100 pt-3">
+                          <div
+                            className="text-sm text-gray-800 campaign-block-content leading-relaxed"
+                            style={{
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}
+                            dangerouslySetInnerHTML={{ __html: block.content || '내용 없음' }}
+                          />
+                        </div>
                       </div>
-                      <div
-                        className="text-sm text-gray-700 campaign-block-content"
-                        style={{
-                          display: '-webkit-box',
-                          WebkitLineClamp: 3,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          whiteSpace: 'pre-wrap',
-                          wordBreak: 'break-word'
-                        }}
-                        dangerouslySetInnerHTML={{ __html: block.content || '내용 없음' }}
-                      />
-                    </div>
-                  )) ||
+                    )
+                  }) ||
                   /* 레거시 질문 시스템 지원 */
                   selectedTemplate.questions?.map((question, index) => (
-                    <div key={index} className="bg-gray-50 rounded-lg p-4">
-                      <p className="text-sm font-medium text-gray-900 mb-2">
-                        {index + 1}. {question.text}
+                    <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+                      <div className="mb-3">
+                        <span className="text-sm font-medium text-purple-600">
+                          질문 {index + 1}
+                        </span>
+                      </div>
+                      <p className="text-sm font-medium text-gray-900 mb-3">
+                        {question.text}
                       </p>
                       {question.type === 'multiple' && question.options && (
-                        <div className="ml-4 space-y-1">
+                        <div className="space-y-2">
                           {question.options.map((option, optIdx) => (
-                            <div key={optIdx} className="flex items-center text-sm text-gray-600">
-                              <span className="w-4 h-4 mr-2 border border-gray-400 rounded"></span>
+                            <div key={optIdx} className="flex items-center text-sm text-gray-700 p-2 bg-gray-50 rounded">
+                              <span className="w-4 h-4 mr-3 border border-gray-400 rounded"></span>
                               {option}
                             </div>
                           ))}
                         </div>
                       )}
                       {question.type === 'text' && (
-                        <div className="ml-4">
-                          <div className="h-8 bg-white border border-gray-300 rounded"></div>
+                        <div className="mt-3">
+                          <div className="h-10 bg-gray-50 border border-gray-300 rounded p-3 text-sm text-gray-400">
+                            텍스트 입력 영역
+                          </div>
                         </div>
                       )}
                       {question.type === 'scale' && (
-                        <div className="ml-4 flex items-center space-x-2">
+                        <div className="mt-3 flex items-center justify-center space-x-3">
                           {[1, 2, 3, 4, 5].map((num) => (
-                            <div key={num} className="w-8 h-8 border border-gray-400 rounded flex items-center justify-center text-sm text-gray-600">
+                            <div key={num} className="w-10 h-10 border-2 border-gray-300 rounded-full flex items-center justify-center text-sm font-medium text-gray-600 bg-gray-50">
                               {num}
                             </div>
                           ))}
@@ -297,7 +460,9 @@ export default function SurveyTemplates() {
                       )}
                     </div>
                   )) || (
-                    <p className="text-sm text-gray-500">블럭이 없습니다.</p>
+                    <div className="bg-gray-50 rounded-lg p-8 text-center">
+                      <p className="text-sm text-gray-500">블럭이 없습니다.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -315,25 +480,40 @@ export default function SurveyTemplates() {
             </div>
 
             <div className="border-t border-gray-200 p-6">
-              <div className="flex space-x-3">
+              <div className="space-y-3">
                 <button
                   onClick={(e) => {
                     e.stopPropagation()
-                    handleEditTemplate(selectedTemplate)
+                    // 실제 설문조사 페이지를 새 창에서 열기
+                    window.open(`/survey/${selectedTemplate.id}`, '_blank', 'width=400,height=700,scrollbars=yes')
                   }}
-                  className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                  className="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center justify-center space-x-2"
                 >
-                  캠페인 수정
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  <span>페이지 미리보기</span>
                 </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    router.push(`/survey-templates/${selectedTemplate.id}/responses`)
-                  }}
-                  className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                >
-                  응답 보기
-                </button>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      handleEditTemplate(selectedTemplate)
+                    }}
+                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                  >
+                    캠페인 수정
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/survey-templates/${selectedTemplate.id}/responses`)
+                    }}
+                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                  >
+                    응답 보기
+                  </button>
+                </div>
               </div>
             </div>
           </div>

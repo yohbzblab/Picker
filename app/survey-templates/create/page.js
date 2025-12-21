@@ -6,6 +6,176 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback } from 'react'
 import { BlockLibrary, BlockBuilder, BlockEditor } from '@/components/CampaignBlockComponents'
 
+// 입력 타입 표시 함수
+const getInputTypeDisplay = (inputType, inputConfig = {}) => {
+  const typeMap = {
+    NONE: {
+      icon: '📄',
+      label: '정보 전달만',
+      description: '사용자 입력 없음',
+      color: 'bg-gray-100 text-gray-700'
+    },
+    TEXT: {
+      icon: '📝',
+      label: '짧은 텍스트',
+      description: '한 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    TEXTAREA: {
+      icon: '📄',
+      label: '긴 텍스트',
+      description: '여러 줄 텍스트 입력',
+      color: 'bg-blue-100 text-blue-700'
+    },
+    NUMBER: {
+      icon: '🔢',
+      label: '숫자',
+      description: '숫자 입력',
+      color: 'bg-green-100 text-green-700'
+    },
+    DATE: {
+      icon: '📅',
+      label: '날짜',
+      description: '날짜 선택',
+      color: 'bg-purple-100 text-purple-700'
+    },
+    RADIO: {
+      icon: '🔘',
+      label: '객관식',
+      description: `단일 선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-orange-100 text-orange-700'
+    },
+    CHECKBOX: {
+      icon: '☑️',
+      label: '체크박스',
+      description: `다중 선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-yellow-100 text-yellow-700'
+    },
+    SELECT: {
+      icon: '📋',
+      label: '드롭다운',
+      description: `선택 (${inputConfig.options?.length || 0}개 옵션)`,
+      color: 'bg-indigo-100 text-indigo-700'
+    },
+    FILE: {
+      icon: '📎',
+      label: '파일 업로드',
+      description: `${inputConfig.fileType === 'image' ? '이미지' : inputConfig.fileType === 'document' ? '문서' : '모든 파일'} (최대 ${inputConfig.maxSize || 10}MB)`,
+      color: 'bg-red-100 text-red-700'
+    }
+  }
+
+  return typeMap[inputType] || typeMap.NONE
+}
+
+// 입력 타입별 미리보기 렌더링 함수
+const renderInputPreview = (inputType, inputConfig = {}) => {
+  const baseClasses = "w-full px-3 py-2 border border-gray-300 rounded-lg bg-white text-gray-500 text-sm"
+
+  switch (inputType) {
+    case 'TEXT':
+      return (
+        <input
+          type="text"
+          placeholder={inputConfig.placeholder || '답변을 입력해주세요'}
+          className={baseClasses}
+          disabled
+        />
+      )
+    case 'TEXTAREA':
+      return (
+        <textarea
+          placeholder={inputConfig.placeholder || '답변을 입력해주세요'}
+          className={`${baseClasses} resize-none`}
+          rows={3}
+          disabled
+        />
+      )
+    case 'NUMBER':
+      return (
+        <input
+          type="number"
+          placeholder={inputConfig.placeholder || '숫자를 입력해주세요'}
+          className={baseClasses}
+          disabled
+        />
+      )
+    case 'DATE':
+      return (
+        <input
+          type="date"
+          className={baseClasses}
+          disabled
+        />
+      )
+    case 'RADIO':
+      return (
+        <div className="space-y-2">
+          {(inputConfig.options || ['옵션 1', '옵션 2']).map((option, index) => (
+            <label key={index} className="flex items-center">
+              <input
+                type="radio"
+                name="preview-radio"
+                className="text-purple-600 border-gray-300"
+                disabled
+              />
+              <span className="ml-2 text-sm text-gray-700">{option}</span>
+            </label>
+          ))}
+        </div>
+      )
+    case 'CHECKBOX':
+      return (
+        <div className="space-y-2">
+          {(inputConfig.options || ['옵션 1', '옵션 2']).map((option, index) => (
+            <label key={index} className="flex items-center">
+              <input
+                type="checkbox"
+                className="text-purple-600 border-gray-300 rounded"
+                disabled
+              />
+              <span className="ml-2 text-sm text-gray-700">{option}</span>
+            </label>
+          ))}
+        </div>
+      )
+    case 'SELECT':
+      return (
+        <select className={baseClasses} disabled>
+          <option>선택해주세요</option>
+          {(inputConfig.options || ['옵션 1', '옵션 2']).map((option, index) => (
+            <option key={index}>{option}</option>
+          ))}
+        </select>
+      )
+    case 'FILE':
+      return (
+        <div>
+          <input
+            type="file"
+            className={baseClasses}
+            disabled
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            {inputConfig.fileType === 'image' && '이미지 파일만 업로드 가능'}
+            {inputConfig.fileType === 'document' && 'PDF, DOC, DOCX 파일만 업로드 가능'}
+            {(!inputConfig.fileType || inputConfig.fileType === 'all') && '모든 파일 형식 업로드 가능'}
+            {` (최대 ${inputConfig.maxSize || 10}MB)`}
+          </p>
+        </div>
+      )
+    default:
+      return (
+        <textarea
+          placeholder="답변을 입력해주세요"
+          className={`${baseClasses} resize-none`}
+          rows={3}
+          disabled
+        />
+      )
+  }
+}
+
 export default function CreateSurveyTemplate() {
   const { user, dbUser, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -338,23 +508,83 @@ export default function CreateSurveyTemplate() {
                     <div className="p-4 overflow-y-auto min-h-0 flex-1">
                       {title && (
                         <div className="mb-4 pb-4 border-b border-gray-200">
-                          <h2 className="text-xl font-bold text-gray-900">{title}</h2>
-                          {description && (
-                            <p className="text-gray-600 mt-2">{description}</p>
-                          )}
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h2 className="text-xl font-bold text-gray-900">{title}</h2>
+                              {description && (
+                                <p className="text-gray-600 mt-2">{description}</p>
+                              )}
+                            </div>
+                            {selectedBlocks.length > 0 && (
+                              <button
+                                onClick={() => {
+                                  // 임시 템플릿 데이터를 sessionStorage에 저장
+                                  const previewData = {
+                                    title,
+                                    description,
+                                    blocks: selectedBlocks,
+                                    isPreview: true
+                                  }
+                                  sessionStorage.setItem('previewTemplate', JSON.stringify(previewData))
+
+                                  // 새 창에서 미리보기 페이지 열기
+                                  const previewUrl = `/survey/preview`
+                                  window.open(previewUrl, '_blank', 'width=400,height=700,scrollbars=yes')
+                                }}
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center space-x-2"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                                <span>페이지 미리보기</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       )}
 
                       {selectedBlocks.length > 0 ? (
                         <div className="space-y-4">
-                          {selectedBlocks.map((block, index) => (
-                            <div key={`preview-${block.id}-${index}`} className="bg-gray-50 rounded-lg p-4">
-                              <div
-                                className="text-gray-900 campaign-block-content"
-                                dangerouslySetInnerHTML={{ __html: block.content }}
-                              />
-                            </div>
-                          ))}
+                          {selectedBlocks.map((block, index) => {
+                            const inputTypeDisplay = getInputTypeDisplay(block.inputType, block.inputConfig)
+                            return (
+                              <div key={`preview-${block.id}-${index}`} className="bg-gray-50 rounded-lg p-4">
+                                {/* 블럭 정보 헤더 */}
+                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-200">
+                                  <div className="flex items-center space-x-2">
+                                    <h5 className="text-sm font-medium text-gray-900">{block.title}</h5>
+                                    {block.isRequired && (
+                                      <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
+                                        필수
+                                      </span>
+                                    )}
+                                  </div>
+                                  {block.inputType && block.inputType !== 'NONE' && (
+                                    <div className="flex items-center space-x-2">
+                                      <span className={`text-xs px-2 py-1 rounded-full ${inputTypeDisplay.color} flex items-center space-x-1`}>
+                                        <span>{inputTypeDisplay.icon}</span>
+                                        <span>{inputTypeDisplay.label}</span>
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+
+                                {/* 블럭 내용 */}
+                                <div
+                                  className="text-gray-900 campaign-block-content mb-3"
+                                  dangerouslySetInnerHTML={{ __html: block.content }}
+                                />
+
+                                {/* 입력 타입별 미리보기 */}
+                                {block.inputType && block.inputType !== 'NONE' && (
+                                  <div className="mt-3 pt-3 border-t border-gray-200">
+                                    <div className="text-xs text-gray-500 mb-2">👀 사용자에게 표시될 입력 형태:</div>
+                                    {renderInputPreview(block.inputType, block.inputConfig)}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
                         </div>
                       ) : (
                         <div className="text-center text-gray-500 py-12">

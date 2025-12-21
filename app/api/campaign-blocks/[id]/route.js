@@ -52,7 +52,7 @@ export async function PUT(request, { params }) {
     const resolvedParams = await params
     const blockId = parseInt(resolvedParams.id)
     const body = await request.json()
-    const { title, content, isPublic } = body
+    const { title, content, isPublic, inputType, inputConfig, isRequired } = body
 
     if (!userId || !blockId) {
       return NextResponse.json({ error: 'User ID and block ID are required' }, { status: 400 })
@@ -82,7 +82,10 @@ export async function PUT(request, { params }) {
       data: {
         title,
         content,
-        ...(isPublic !== undefined && { isPublic })
+        ...(isPublic !== undefined && { isPublic }),
+        ...(inputType !== undefined && { inputType }),
+        ...(inputConfig !== undefined && { inputConfig }),
+        ...(isRequired !== undefined && { isRequired })
       },
       include: {
         user: {

@@ -56,7 +56,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { title, content, isPublic = false, userId } = body
+    const { title, content, isPublic = false, inputType = 'NONE', inputConfig = {}, isRequired = false, userId } = body
 
     if (!title || !content || !userId) {
       return NextResponse.json({ error: 'Title, content, and userId are required' }, { status: 400 })
@@ -67,6 +67,9 @@ export async function POST(request) {
         title,
         content,
         isPublic,
+        inputType,
+        inputConfig,
+        isRequired,
         userId: parseInt(userId)
       },
       include: {
