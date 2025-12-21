@@ -14,6 +14,12 @@ export default function EmailTemplates() {
   const [isSlideMenuOpen, setIsSlideMenuOpen] = useState(false)
   const [templateConnections, setTemplateConnections] = useState([])
 
+  // 캠페인 연결 관련 상태
+  const [showCampaignModal, setShowCampaignModal] = useState(false)
+  const [selectedEmailTemplate, setSelectedEmailTemplate] = useState(null)
+  const [surveyTemplates, setSurveyTemplates] = useState([])
+  const [loadingSurveys, setLoadingSurveys] = useState(false)
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
@@ -99,6 +105,85 @@ export default function EmailTemplates() {
   const handleInfluencerConnect = (template) => {
     // 템플릿 ID를 쿼리 파라미터로 전달하여 인플루언서 연결 페이지로 이동
     router.push(`/influencer-connect?templateId=${template.id}`)
+  }
+
+  // 캠페인 연결 관련 함수들
+  const handleCampaignConnect = async (template) => {
+    setSelectedEmailTemplate(template)
+    setLoadingSurveys(true)
+
+    try {
+      // 사용자의 캠페인 템플릿 목록 가져오기
+      const response = await fetch(`/api/survey-templates?userId=${dbUser.id}`)
+      if (response.ok) {
+        const data = await response.json()
+        setSurveyTemplates(data.templates || [])
+      }
+    } catch (error) {
+      console.error('Error loading survey templates:', error)
+    } finally {
+      setLoadingSurveys(false)
+      setShowCampaignModal(true)
+    }
+  }
+
+  const handleConnectToSurvey = async (surveyTemplateId) => {
+    try {
+      const response = await fetch('/api/email-survey-connections', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          emailTemplateId: selectedEmailTemplate.id,
+          surveyTemplateId: surveyTemplateId,
+          userId: dbUser.id
+        })
+      })
+
+      if (response.ok) {
+        // 성공 시 템플릿 목록 새로고침
+        await loadData()
+        setShowCampaignModal(false)
+        setSelectedEmailTemplate(null)
+        alert('캠페인이 성공적으로 연결되었습니다!')
+      } else {
+        const errorData = await response.json()
+        alert(`연결 실패: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('Error connecting campaign:', error)
+      alert('캠페인 연결 중 오류가 발생했습니다.')
+    }
+  }
+
+  const handleDisconnectFromSurvey = async (emailTemplate) => {
+    if (!confirm('정말로 캠페인 연결을 해제하시겠습니까?')) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/email-survey-connections?emailTemplateId=${emailTemplate.id}&userId=${dbUser.id}`, {
+        method: 'DELETE'
+      })
+
+      if (response.ok) {
+        await loadData()
+        alert('캠페인 연결이 해제되었습니다.')
+      } else {
+        const errorData = await response.json()
+        alert(`연결 해제 실패: ${errorData.error}`)
+      }
+    } catch (error) {
+      console.error('Error disconnecting campaign:', error)
+      alert('캠페인 연결 해제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const closeCampaignModal = () => {
+    setShowCampaignModal(false)
+    setSelectedEmailTemplate(null)
+    setSurveyTemplates([])
   }
 
   const handleTemplateClick = async (template) => {
@@ -214,19 +299,60 @@ export default function EmailTemplates() {
                   </div>
                   </div>
 
-                  {/* 두 번째 줄: 제목과 연결된 인플루언서 정보 */}
-                  <div className="flex flex-col sm:flex-row sm:items-start gap-4 mb-4">
-                    {/* 제목 */}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
-                      <p className="text-sm text-gray-600">{template.subject}</p>
+                  {/* 두 번째 줄: 제목, 연결된 캠페인, 연결된 인플루언서 정보 */}
+                  <div className="flex flex-col gap-4 mb-4">
+                    {/* 연결된 캠페인 정보 */}
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
+                        {template.surveyTemplate ? (
+                          <div className="flex items-center space-x-2">
+                            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                              {template.surveyTemplate.title}
+                            </div>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDisconnectFromSurvey(template)
+                              }}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="캠페인 연결 해제"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                              </svg>
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-gray-400">연결된 캠페인 없음</span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleCampaignConnect(template)
+                              }}
+                              className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
+                            >
+                              캠페인 연결
+                            </button>
+                          </div>
+                        )}
+                      </div>
                     </div>
 
-                    {/* 연결된 인플루언서 정보 */}
-                    <div className="sm:flex-shrink-0 sm:w-80">
-                      <p className="text-sm font-medium text-gray-700 mb-2">
-                        연결된 인플루언서 ({template.connections?.length || 0}명)
-                      </p>
+                    {/* 제목과 연결된 인플루언서 정보 */}
+                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
+                      {/* 제목 */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
+                        <p className="text-sm text-gray-600">{template.subject}</p>
+                      </div>
+
+                      {/* 연결된 인플루언서 정보 */}
+                      <div className="sm:flex-shrink-0 sm:w-80">
+                        <p className="text-sm font-medium text-gray-700 mb-2">
+                          연결된 인플루언서 ({template.connections?.length || 0}명)
+                        </p>
                       <div className="flex items-center space-x-2">
                         {template.connections && template.connections.length > 0 ? (
                           <>
@@ -265,6 +391,7 @@ export default function EmailTemplates() {
                             <span className="text-sm">연결된 인플루언서 없음</span>
                           </div>
                         )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -469,6 +596,81 @@ export default function EmailTemplates() {
                 </div>
               </div>
             </div>
+        </div>
+      )}
+
+      {/* 캠페인 연결 모달 */}
+      {showCampaignModal && selectedEmailTemplate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-900">캠페인 연결</h2>
+              <button
+                onClick={closeCampaignModal}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="mb-4">
+              <p className="text-sm text-gray-600">선택한 메일 템플릿: <strong>{selectedEmailTemplate.name}</strong></p>
+            </div>
+
+            {loadingSurveys ? (
+              <div className="text-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">캠페인 목록을 불러오는 중...</p>
+              </div>
+            ) : surveyTemplates.length > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-gray-700 mb-3">연결할 캠페인을 선택하세요:</p>
+                {surveyTemplates.map((survey) => (
+                  <div
+                    key={survey.id}
+                    className="border border-gray-200 rounded-lg p-4 hover:border-purple-300 cursor-pointer transition-colors"
+                    onClick={() => handleConnectToSurvey(survey.id)}
+                  >
+                    <h3 className="font-medium text-gray-900 mb-1">{survey.title}</h3>
+                    <p className="text-sm text-gray-600 mb-2">{survey.description || '설명 없음'}</p>
+                    <p className="text-xs text-gray-500">
+                      생성일: {new Date(survey.createdAt).toLocaleDateString('ko-KR')}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-gray-100 rounded-full mx-auto mb-4 flex items-center justify-center">
+                  <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                  </svg>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">연결할 캠페인이 없습니다</h3>
+                <p className="text-gray-600 mb-4">먼저 캠페인 템플릿을 생성해주세요.</p>
+                <button
+                  onClick={() => {
+                    closeCampaignModal()
+                    router.push('/survey-templates')
+                  }}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                >
+                  캠페인 템플릿 만들기
+                </button>
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={closeCampaignModal}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                취소
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

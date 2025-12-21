@@ -1,13 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import SurveyRenderer from '@/components/SurveyRenderer'
 
 export default function SurveyPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const templateId = params.templateId
+  const refId = searchParams.get('ref')
 
   const [template, setTemplate] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -30,31 +32,40 @@ export default function SurveyPage() {
       const response = await fetch(`/api/survey/${templateId}`)
 
       if (response.ok) {
-        const data = await response.json()
-        setTemplate(data.template)
-        // Initialize responses for each block
-        const initialResponses = {}
-        data.template.blocks?.forEach((block, index) => {
-          initialResponses[`block_${index}`] = ''
-        })
-        setResponses(initialResponses)
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const data = await response.json()
+          setTemplate(data.template)
 
-        // 페이지 구분선 기반으로 페이지 나누기
-        if (data.template.blocks && data.template.blocks.length > 0) {
-          const newPages = []
-          let currentPage = []
-
-          data.template.blocks.forEach((block, index) => {
-            currentPage.push({ block, index })
-
-            // 구분선이 있거나 마지막 블럭인 경우 페이지 종료
-            if (block.pageBreakAfter || index === data.template.blocks.length - 1) {
-              newPages.push(currentPage)
-              currentPage = []
-            }
+          // Initialize responses for each block
+          const initialResponses = {}
+          data.template.blocks?.forEach((block, index) => {
+            initialResponses[`block_${index}`] = ''
           })
+          setResponses(initialResponses)
 
-          setPages(newPages)
+          // 페이지 구분선 기반으로 페이지 나누기
+          if (data.template.blocks && data.template.blocks.length > 0) {
+            const newPages = []
+            let currentPage = []
+
+            data.template.blocks.forEach((block, index) => {
+              currentPage.push({ block, index })
+
+              // 구분선이 있거나 마지막 블럭인 경우 페이지 종료
+              if (block.pageBreakAfter || index === data.template.blocks.length - 1) {
+                newPages.push(currentPage)
+                currentPage = []
+              }
+            })
+
+            setPages(newPages)
+          }
+        } else {
+          const text = await response.text()
+          console.error('Expected JSON but received:', text)
+          setError('서버에서 잘못된 응답을 받았습니다.')
+          return
         }
       } else if (response.status === 404) {
         setError('캠페인을 찾을 수 없습니다.')
@@ -117,13 +128,21 @@ export default function SurveyPage() {
         body: JSON.stringify({
           templateId,
           responses,
-          submittedAt: new Date().toISOString()
+          submittedAt: new Date().toISOString(),
+          refId: refId // 인플루언서 추적을 위한 참조 ID 포함
         })
       })
 
       if (response.ok) {
+        const contentType = response.headers.get('content-type')
+        if (contentType && contentType.includes('application/json')) {
+          const result = await response.json()
+          console.log('Survey submitted successfully:', result)
+        }
         setSubmitted(true)
       } else {
+        const text = await response.text()
+        console.error('Survey submission failed:', text)
         alert('응답 제출에 실패했습니다.')
       }
     } catch (error) {

@@ -1,7 +1,6 @@
 import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import "../globals.css";
 import GoogleAnalytics from "@/components/GoogleAnalytics";
-import ConditionalAuthWrapper from "@/components/ConditionalAuthWrapper";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -14,23 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Picker",
-  description: "Instagram Analytics Service",
-  other: {
-    'facebook-domain-verification': '2iu4y6r9ntykuywmz91t8dqpeu11uu',
-  },
+  title: "Survey - Picker",
+  description: "Instagram Analytics Service Survey",
 };
 
-export default function RootLayout({ children }) {
+export default function SurveyLayout({ children }) {
+  // survey 페이지는 AuthProvider를 완전히 우회하고 독립적인 레이아웃 사용
   return (
     <html lang="ko">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <GoogleAnalytics />
-        <ConditionalAuthWrapper>
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-purple-50">
           {children}
-        </ConditionalAuthWrapper>
+        </div>
       </body>
     </html>
   );

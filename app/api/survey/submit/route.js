@@ -6,7 +6,7 @@ const prisma = new PrismaClient()
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { templateId, responses, submittedAt } = body
+    const { templateId, responses, submittedAt, refId } = body
 
     // 템플릿이 존재하는지 확인
     const template = await prisma.surveyTemplate.findUnique({
@@ -22,12 +22,36 @@ export async function POST(request) {
       )
     }
 
+    // refId가 있는 경우 인플루언서 ID 찾기
+    let influencerId = null
+    if (refId) {
+      try {
+        // 데이터베이스에서 ref → influencer 매핑 찾기
+        const connection = await prisma.surveyInfluencerConnection.findFirst({
+          where: {
+            templateId: templateId,
+            linkRef: refId
+          }
+        })
+
+        if (connection) {
+          influencerId = connection.influencerId
+          console.log(`Found influencer ${influencerId} for ref ${refId}`)
+        } else {
+          console.log(`No connection found for refId: ${refId}`)
+        }
+      } catch (error) {
+        console.error('Error finding connection for refId:', error)
+      }
+    }
+
     // 응답 저장
     const surveyResponse = await prisma.surveyResponse.create({
       data: {
         templateId,
         responses,
-        submittedAt: new Date(submittedAt)
+        submittedAt: new Date(submittedAt),
+        influencerId: influencerId
       }
     })
 

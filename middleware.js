@@ -5,7 +5,9 @@ export async function middleware(request) {
 
   // public 경로 정의 (인증 없이 접근 가능)
   const publicPaths = ['/login', '/auth'];
-  const isPublicPath = publicPaths.some(path => pathname.startsWith(path));
+  const isPublicPath = publicPaths.some(path => pathname.startsWith(path)) ||
+    (pathname.startsWith('/survey/') && pathname !== '/survey/preview') ||
+    (pathname.startsWith('/api/survey/'));
 
   // 쿠키에서 토큰 확인 (서버 사이드에서는 쿠키로 토큰 전달 필요)
   const token = request.cookies.get('picker_auth_token')?.value;

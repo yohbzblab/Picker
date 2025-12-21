@@ -10,7 +10,7 @@ export async function POST(request) {
 
   try {
     const body = await request.json()
-    const { templateId, influencerId, userId, userVariables, senderName } = body
+    const { templateId, influencerId, userId, userVariables, senderName, campaignFormLink } = body
 
     if (!templateId || !influencerId || !userId) {
       return NextResponse.json({
@@ -66,8 +66,8 @@ export async function POST(request) {
     }
 
     // 변수 치환
-    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables, templateData.conditionalRules)
-    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables, templateData.conditionalRules)
+    const replacedSubject = replaceVariables(templateData.subject, influencerData, userData, userVariables, templateData.conditionalRules, campaignFormLink)
+    const replacedContent = replaceVariables(templateData.content, influencerData, userData, userVariables, templateData.conditionalRules, campaignFormLink)
 
     // 현재 선택된 이메일 제공업체 확인
     const emailProvider = userData.emailProvider || 'mailplug'
@@ -273,7 +273,7 @@ function convertToText(content) {
 }
 
 // 변수 치환 함수 (preview API와 동일)
-function replaceVariables(text, influencerData, userData, userVariables = {}, conditionalRules = {}) {
+function replaceVariables(text, influencerData, userData, userVariables = {}, conditionalRules = {}, campaignFormLink = null) {
   if (!text) return text
 
   let result = text
@@ -373,6 +373,11 @@ function replaceVariables(text, influencerData, userData, userVariables = {}, co
   if (userData) {
     result = result.replace(/\{\{브랜드명\}\}/g, userData.brandName || userData.email || '브랜드')
     result = result.replace(/\{\{발신자이름\}\}/g, userData.senderName || userData.email || '발신자')
+  }
+
+  // 캠페인 폼 링크 변수 처리
+  if (campaignFormLink) {
+    result = result.replace(/\{\{campaignFormLink\}\}/g, campaignFormLink)
   }
 
   return result

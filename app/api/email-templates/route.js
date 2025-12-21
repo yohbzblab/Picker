@@ -17,6 +17,9 @@ export async function GET(request) {
         userId: parseInt(userId),
         isActive: true
       },
+      include: {
+        surveyTemplate: true  // 연결된 캠페인 템플릿 정보 포함
+      },
       orderBy: {
         createdAt: 'desc'
       }
@@ -32,7 +35,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { userId, name, subject, content, variables, userVariables, conditionalRules, attachments } = body
+    const { userId, name, subject, content, variables, userVariables, conditionalRules, attachments, surveyTemplateId } = body
 
 
     if (!userId || !name || !subject || !content) {
@@ -51,7 +54,8 @@ export async function POST(request) {
       content,
       variables: variables || extractedVariables,
       userVariables: userVariables || {},
-      conditionalRules: conditionalRules || {}
+      conditionalRules: conditionalRules || {},
+      surveyTemplateId: surveyTemplateId ? surveyTemplateId.toString() : null
     }
 
     const template = await prisma.emailTemplate.create({

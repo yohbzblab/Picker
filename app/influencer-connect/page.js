@@ -33,6 +33,14 @@ function InfluencerConnectContent() {
   const [sortOrder, setSortOrder] = useState('default') // default, followers_desc, followers_asc, name_asc
   const [filteredInfluencers, setFilteredInfluencers] = useState([])
 
+  // 네비게이션 탭 상태
+  const [activeTab, setActiveTab] = useState('mail') // 'mail' 또는 'campaign'
+
+  // 캠페인 탭 클릭 핸들러
+  const handleCampaignTabClick = () => {
+    router.push(`/survey-influencer-connect?templateId=${templateId}`)
+  }
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login')
@@ -589,13 +597,40 @@ function InfluencerConnectContent() {
               <div>
                 <button
                   onClick={() => router.push('/email-templates')}
-                  className="text-purple-600 hover:text-purple-700 text-sm font-medium mb-2 flex items-center"
+                  className="text-purple-600 hover:text-purple-700 text-sm font-medium mb-4 flex items-center"
                 >
                   <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                   </svg>
                   메일 템플릿으로 돌아가기
                 </button>
+
+                {/* 네비게이션 탭 */}
+                <div className="border-b border-gray-200 mb-6">
+                  <nav className="-mb-px flex space-x-8">
+                    <button
+                      onClick={() => setActiveTab('mail')}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'mail'
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      메일
+                    </button>
+                    <button
+                      onClick={handleCampaignTabClick}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                        activeTab === 'campaign'
+                          ? 'border-purple-500 text-purple-600'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      캠페인
+                    </button>
+                  </nav>
+                </div>
+
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 연결</h1>
                 <p className="text-gray-600">템플릿 "{template.name}"에 인플루언서를 연결하고 미리보기를 확인하세요.</p>
               </div>

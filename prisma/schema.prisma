@@ -63,6 +63,7 @@ model User {
   templateAttachments TemplateAttachment[]
   surveyTemplates   SurveyTemplate[]
   campaignBlocks    CampaignBlock[]
+  surveyConnections SurveyInfluencerConnection[]
 
   @@map("users")
 }
@@ -139,6 +140,7 @@ model Influencer {
   emailsSent  EmailSent[]
   emailsReceived EmailReceived[]
   surveyResponses SurveyResponse[]
+  surveyConnections SurveyInfluencerConnection[]
 
   @@index([userId])
   @@index([accountId])
@@ -155,17 +157,20 @@ model EmailTemplate {
   variables       Json?    // 사용 가능한 변수 목록 (레거시)
   userVariables   Json?    // 사용자 정의 변수 { "변수명": ["값1", "값2", ...] }
   conditionalRules Json?   // 조건문 규칙 { "변수명": { "conditions": [...], "defaultValue": "" } }
+  surveyTemplateId String?  // 연결된 캠페인 템플릿 ID (선택적)
   isActive        Boolean  @default(true)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
   user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  surveyTemplate  SurveyTemplate? @relation(fields: [surveyTemplateId], references: [id], onDelete: SetNull)
   connections     TemplateInfluencerConnection[]
   emailsSent      EmailSent[]
   images          TemplateImage[]
   attachments     TemplateAttachment[]
 
   @@index([userId])
+  @@index([surveyTemplateId])
   @@map("email_templates")
 }
 
@@ -328,6 +333,8 @@ model SurveyTemplate {
 
   user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   surveyResponses SurveyResponse[]
+  surveyConnections SurveyInfluencerConnection[]
+  emailTemplates EmailTemplate[]  // 연결된 메일 템플릿들
 
   @@index([userId])
   @@map("survey_templates")
@@ -384,4 +391,26 @@ enum InputType {
   CHECKBOX      // 체크박스 (다중 선택)
   SELECT        // 드롭다운
   FILE          // 파일 업로드
+}
+
+model SurveyInfluencerConnection {
+  id            Int      @id @default(autoincrement())
+  templateId    String   // Survey 템플릿 ID
+  influencerId  Int      // 인플루언서 ID
+  userId        Int      // 소유자 (보안을 위해)
+  linkRef       String   @unique // 고유 참조 ID (랜덤 문자열)
+  link          String   // 생성된 전체 링크
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  template      SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  influencer    Influencer     @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, influencerId]) // 중복 연결 방지
+  @@index([templateId])
+  @@index([influencerId])
+  @@index([userId])
+  @@index([linkRef])
+  @@map("survey_influencer_connections")
 }

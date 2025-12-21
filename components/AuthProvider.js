@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { tokenManager } from "@/lib/auth/token";
 
 const AuthContext = createContext({});
@@ -61,7 +61,13 @@ export default function AuthProvider({ children }) {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
+  const pathname = usePathname();
   const supabase = createClient();
+
+  // survey 페이지인 경우 로그인 없이 접근 허용
+  if (pathname.startsWith('/survey/') && pathname !== '/survey/preview') {
+    return children;
+  }
 
   // 캐시에서 사용자 정보를 로드하는 함수
   const loadFromCache = useCallback(() => {
@@ -293,8 +299,12 @@ export default function AuthProvider({ children }) {
         setUser(null);
         setDbUser(null);
 
-        // 현재 도메인에서 로그인 페이지로 리다이렉트
-        router.push("/login");
+        // survey 페이지에서는 로그아웃 시 리다이렉트하지 않음
+        const currentPath = window.location.pathname;
+        if (!currentPath.startsWith('/survey/') || currentPath === '/survey/preview') {
+          // 현재 도메인에서 로그인 페이지로 리다이렉트
+          router.push("/login");
+        }
       }
     });
 

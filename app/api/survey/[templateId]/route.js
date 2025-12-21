@@ -5,7 +5,8 @@ const prisma = new PrismaClient()
 
 export async function GET(request, { params }) {
   try {
-    const { templateId } = params
+    const resolvedParams = await params
+    const { templateId } = resolvedParams
 
     // templateId로 캠페인 템플릿 조회
     const template = await prisma.surveyTemplate.findUnique({
