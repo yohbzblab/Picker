@@ -28,7 +28,6 @@ export async function GET(request) {
     console.error('Error fetching influencers:', error)
     return NextResponse.json({ error: 'Failed to fetch influencers' }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -70,7 +69,6 @@ export async function POST(request) {
     console.error('Error creating influencer:', error)
     return NextResponse.json({ error: 'Failed to create influencer' }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -119,6 +117,5 @@ export async function DELETE(request) {
       error: 'Failed to delete influencers'
     }, { status: 500 })
   } finally {
-    await prisma.$disconnect()
   }
 }

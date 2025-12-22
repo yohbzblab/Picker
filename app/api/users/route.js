@@ -46,7 +46,7 @@ export async function GET(request) {
 
     if (userId) {
       // userId로 직접 조회
-      const { PrismaClient } = await import('../../generated/prisma')
+      const { prisma } = await import('@/lib/prisma')
       user = await prisma.user.findUnique({
         where: { id: parseInt(userId) }
       })

@@ -215,6 +215,7 @@ function InfluencerConnectContent() {
       // 카드를 확장할 때 해당 인플루언서로 미리보기 업데이트
       const connection = connectedInfluencers.find(conn => conn.id === connectionId)
       if (connection) {
+        console.log('Generating preview for connection:', connectionId, connection.userVariables)
         generatePreview(connection.influencer, connectionId)
       }
     }
@@ -242,6 +243,7 @@ function InfluencerConnectContent() {
       previewTimeoutRef.current = setTimeout(() => {
         const connection = connectedInfluencers.find(conn => conn.id === connectionId)
         if (connection) {
+          console.log('Updating preview with new variable:', variableName, value)
           generatePreview(connection.influencer, connectionId)
         }
       }, 1000)
@@ -416,35 +418,36 @@ function InfluencerConnectContent() {
       // 템플릿의 모든 사용자 변수에 대해 기본값 설정
       if (template.userVariables) {
         Object.keys(template.userVariables).forEach(key => {
-          customUserVariables[key] = [`샘플 ${key}`] // 기본 샘플 값
+          const options = template.userVariables[key]
+          // 기본값은 옵션 배열의 첫 번째 값 또는 샘플 값
+          const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : `샘플 ${key}`
+          customUserVariables[key] = [defaultValue]
         })
       }
 
       if (connectionId) {
         // 연결된 인플루언서의 저장된 사용자 변수 가져오기
         const connection = connectedInfluencers.find(conn => conn.id === connectionId)
-        if (connection && connection.userVariables) {
-          // 저장된 값으로 오버라이드
-          Object.entries(connection.userVariables).forEach(([key, value]) => {
-            if (value && value.trim()) {
+
+        // 현재 편집 중인 값들을 먼저 확인 (가장 최신 값)
+        if (connectionUserVariables[connectionId]) {
+          Object.entries(connectionUserVariables[connectionId]).forEach(([key, value]) => {
+            // 값이 있으면 배열로 감싸서 저장 (빈 문자열도 유효한 값으로 처리)
+            if (value !== undefined && value !== null) {
               customUserVariables[key] = [value]
             }
           })
         }
 
-        // 현재 편집 중인 값들도 반영
-        if (connectionUserVariables[connectionId]) {
-          Object.entries(connectionUserVariables[connectionId]).forEach(([key, value]) => {
-            if (value && value.trim()) {
-              customUserVariables[key] = [value]
+        // 저장된 값이 있고 현재 편집 중인 값이 없는 경우에만 사용
+        if (connection && connection.userVariables) {
+          Object.entries(connection.userVariables).forEach(([key, value]) => {
+            // 현재 편집 중인 값이 없는 경우에만 저장된 값 사용
+            if (!connectionUserVariables[connectionId] || connectionUserVariables[connectionId][key] === undefined) {
+              if (value !== undefined && value !== null) {
+                customUserVariables[key] = [value]
+              }
             }
-          })
-        }
-      } else {
-        // 선택된 인플루언서의 경우 샘플 값 사용
-        if (template.userVariables) {
-          Object.keys(template.userVariables).forEach(key => {
-            customUserVariables[key] = [`샘플 ${key}`]
           })
         }
       }
@@ -469,6 +472,8 @@ function InfluencerConnectContent() {
         setPreviewContent(data.preview)
       } else {
         console.error('미리보기 생성에 실패했습니다.')
+        const errorData = await previewResponse.json()
+        console.error('미리보기 에러:', errorData)
       }
     } catch (error) {
       console.error('Error generating preview:', error)
@@ -634,6 +639,21 @@ function InfluencerConnectContent() {
                 <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 연결</h1>
                 <p className="text-gray-600">템플릿 "{template.name}"에 인플루언서를 연결하고 미리보기를 확인하세요.</p>
               </div>
+
+              {/* 메일 생성하기 버튼 */}
+              {connectedInfluencers.length > 0 && (
+                <div className="flex items-center space-x-4">
+                  <button
+                    onClick={() => router.push(`/email-compose?templateId=${templateId}`)}
+                    className="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center space-x-2 shadow-sm"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    <span>메일 생성하기</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1065,7 +1085,7 @@ function InfluencerConnectContent() {
               </div>
 
               {/* 슬라이드 메뉴 내용 */}
-              <div className="h-full overflow-y-auto pb-20">
+              <div className="h-full overflow-y-auto">
                 <div className="p-6 space-y-4 text-sm">
                   <div>
                     <span className="text-gray-600">템플릿명:</span>
@@ -1202,23 +1222,6 @@ function InfluencerConnectContent() {
                   )}
                 </div>
 
-                {/* 메일 생성하기 버튼 - 슬라이드 메뉴 하단 고정 */}
-                {connectedInfluencers.length > 0 && (
-                  <div className="absolute bottom-0 left-0 right-0 p-6 bg-white border-t border-gray-200">
-                    <button
-                      onClick={() => router.push(`/email-compose?templateId=${templateId}`)}
-                      className="w-full bg-purple-600 text-white px-4 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium flex items-center justify-center space-x-2"
-                    >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                      </svg>
-                      <span>메일 생성하기</span>
-                    </button>
-                    <p className="text-xs text-gray-500 mt-2 text-center">
-                      연결된 인플루언서들에게 메일을 작성하고 전송할 수 있습니다.
-                    </p>
-                  </div>
-                )}
               </div>
             </div>
 

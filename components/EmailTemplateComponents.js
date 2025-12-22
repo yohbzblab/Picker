@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useEffect, useState, useCallback } from 'react'
+import React, { useRef, useEffect, useState, useCallback } from 'react'
 
 // 변수 에디터 컴포넌트 - 버튼으로만 변수 삽입
 export function VariableEditor({ value, onChange, placeholder, isMultiline = false, onInsertVariable, onFocus, onBlur }) {
@@ -618,265 +618,241 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
 
 // 사용자 변수 모달
 export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVariables }) => {
-  const [newGroupName, setNewGroupName] = useState('')
-  const [selectedGroup, setSelectedGroup] = useState(null)
   const [newVariableName, setNewVariableName] = useState('')
-  const [newVariableAlias, setNewVariableAlias] = useState('')
+  const [newVariableDefaultValue, setNewVariableDefaultValue] = useState('')
+  const [editingVariable, setEditingVariable] = useState(null)
+  const [editValue, setEditValue] = useState('')
+
+  // 복잡한 구조를 간단한 구조로 자동 마이그레이션
+  const migrateComplexStructure = (variables) => {
+    const migrated = {}
+    Object.entries(variables).forEach(([key, value]) => {
+      if (Array.isArray(value) || typeof value === 'string') {
+        // 이미 간단한 구조
+        migrated[key] = Array.isArray(value) ? value : [value]
+      } else if (value && typeof value === 'object' && value.variables) {
+        // 복잡한 그룹 구조 -> 개별 변수로 변환
+        Object.entries(value.variables).forEach(([varKey, varData]) => {
+          migrated[varKey] = [varData.defaultValue || '기본값']
+        })
+      } else {
+        // 기타 구조
+        migrated[key] = [String(value) || '기본값']
+      }
+    })
+    return migrated
+  }
+
+  // 모달이 열릴 때 복잡한 구조 체크 및 마이그레이션
+  React.useEffect(() => {
+    if (isOpen && userVariables) {
+      const needsMigration = Object.values(userVariables).some(value =>
+        value && typeof value === 'object' && !Array.isArray(value)
+      )
+
+      if (needsMigration) {
+        console.log('Migrating complex user variables structure...')
+        const migratedVariables = migrateComplexStructure(userVariables)
+        setUserVariables(migratedVariables)
+      }
+    }
+  }, [isOpen, userVariables, setUserVariables])
 
   if (!isOpen) return null
 
-  // 그룹 추가
-  const addGroup = () => {
-    if (newGroupName.trim() && !userVariables[newGroupName]) {
-      setUserVariables(prev => ({
-        ...prev,
-        [newGroupName]: {
-          displayName: newGroupName,
-          variables: {}
-        }
-      }))
-      setNewGroupName('')
-    }
-  }
-
-  // 그룹 삭제
-  const deleteGroup = (groupName) => {
-    if (confirm(`"${groupName}" 그룹과 모든 변수를 삭제하시겠습니까?`)) {
-      setUserVariables(prev => {
-        const updated = { ...prev }
-        delete updated[groupName]
-        return updated
-      })
-      if (selectedGroup === groupName) {
-        setSelectedGroup(null)
-      }
-    }
-  }
-
   // 변수 추가
   const addVariable = () => {
-    if (selectedGroup && newVariableName.trim()) {
-      const variableKey = `${selectedGroup}_${newVariableName.replace(/\s+/g, '_').toLowerCase()}`
+    if (newVariableName.trim()) {
+      // 변수명에서 공백 제거하고 소문자로 변환
+      const variableKey = newVariableName.trim().replace(/\s+/g, '_').toLowerCase()
+
+      // 이미 존재하는 변수명인지 확인
+      if (userVariables[variableKey]) {
+        alert('이미 존재하는 변수명입니다.')
+        return
+      }
 
       setUserVariables(prev => ({
         ...prev,
-        [selectedGroup]: {
-          ...prev[selectedGroup],
-          variables: {
-            ...prev[selectedGroup].variables,
-            [variableKey]: {
-              alias: newVariableAlias || newVariableName,
-              defaultValue: ''
-            }
-          }
-        }
+        [variableKey]: [newVariableDefaultValue || '기본값']
       }))
       setNewVariableName('')
-      setNewVariableAlias('')
+      setNewVariableDefaultValue('')
     }
   }
 
   // 변수 삭제
-  const deleteVariable = (groupName, variableKey) => {
-    setUserVariables(prev => ({
-      ...prev,
-      [groupName]: {
-        ...prev[groupName],
-        variables: Object.fromEntries(
-          Object.entries(prev[groupName].variables).filter(([key]) => key !== variableKey)
-        )
-      }
-    }))
+  const deleteVariable = (variableKey) => {
+    if (confirm(`"${variableKey}" 변수를 삭제하시겠습니까?`)) {
+      setUserVariables(prev => {
+        const updated = { ...prev }
+        delete updated[variableKey]
+        return updated
+      })
+    }
   }
 
-  // 변수 별칭 수정
-  const updateVariableAlias = (groupName, variableKey, newAlias) => {
-    setUserVariables(prev => ({
-      ...prev,
-      [groupName]: {
-        ...prev[groupName],
-        variables: {
-          ...prev[groupName].variables,
-          [variableKey]: {
-            ...prev[groupName].variables[variableKey],
-            alias: newAlias
-          }
-        }
-      }
-    }))
+  // 변수 수정 시작
+  const startEditing = (variableKey, currentValue) => {
+    setEditingVariable(variableKey)
+    setEditValue(Array.isArray(currentValue) ? currentValue[0] : currentValue || '')
+  }
+
+  // 변수 수정 저장
+  const saveEdit = () => {
+    if (editingVariable) {
+      setUserVariables(prev => ({
+        ...prev,
+        [editingVariable]: [editValue || '기본값']
+      }))
+      setEditingVariable(null)
+      setEditValue('')
+    }
+  }
+
+  // 변수 수정 취소
+  const cancelEdit = () => {
+    setEditingVariable(null)
+    setEditValue('')
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-30 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden mx-4">
-        <div className="flex h-full max-h-[90vh]">
-          {/* 왼쪽: 그룹 목록 */}
-          <div className="w-1/3 bg-gray-50 p-4 border-r overflow-y-auto">
-            <h3 className="font-medium text-gray-900 mb-4">변수 그룹</h3>
-
-            {/* 새 그룹 추가 */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={newGroupName}
-                onChange={(e) => setNewGroupName(e.target.value)}
-                placeholder="그룹명 (예: 팔로워 수)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black text-sm font-medium mb-2"
-                onKeyDown={(e) => e.key === 'Enter' && addGroup()}
-              />
-              <button
-                onClick={addGroup}
-                className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
-              >
-                그룹 추가
-              </button>
-            </div>
-
-            {/* 그룹 목록 */}
-            <div className="space-y-2">
-              {Object.keys(userVariables).map((groupName) => (
-                <div
-                  key={groupName}
-                  className={`p-3 rounded-lg cursor-pointer ${
-                    selectedGroup === groupName
-                      ? 'bg-purple-100 border-purple-500 border-2'
-                      : 'bg-white border border-gray-200 hover:bg-gray-100'
-                  }`}
-                  onClick={() => setSelectedGroup(groupName)}
-                >
-                  <div className="flex justify-between items-center">
-                    <span className="font-medium text-gray-900 text-sm">
-                      {userVariables[groupName].displayName || groupName}
-                    </span>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        deleteGroup(groupName)
-                      }}
-                      className="text-red-500 hover:text-red-700 text-xs"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                  <span className="text-xs text-gray-500">
-                    {Object.keys(userVariables[groupName].variables || {}).length}개 변수
-                  </span>
-                </div>
-              ))}
-            </div>
-
-            {Object.keys(userVariables).length === 0 && (
-              <div className="text-center py-4 text-gray-500 text-sm">
-                그룹을 추가해주세요
-              </div>
-            )}
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden mx-4">
+        <div className="p-6">
+          {/* 헤더 */}
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">사용자 변수 관리</h2>
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           </div>
 
-          {/* 오른쪽: 변수 관리 */}
-          <div className="flex-1 p-6 overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-gray-900">
-                {selectedGroup
-                  ? `"${userVariables[selectedGroup]?.displayName || selectedGroup}" 변수 관리`
-                  : '변수 관리'}
-              </h2>
-              <button
-                onClick={onClose}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
+          {/* 설명 */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-sm text-blue-700">
+              <strong>변수 사용법:</strong> 템플릿에서 <code className="bg-blue-100 px-1 rounded">{'{{변수명}}'}</code> 형태로 변수를 삽입하면,
+              인플루언서 연결 페이지에서 각 인플루언서별로 개별 값을 설정할 수 있습니다.
+            </p>
+          </div>
 
-            {selectedGroup ? (
-              <>
-                {/* 새 변수 추가 */}
-                <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-                  <h3 className="font-medium text-gray-900 mb-3">새 변수 추가</h3>
-                  <div className="space-y-2">
-                    <input
-                      type="text"
-                      value={newVariableName}
-                      onChange={(e) => setNewVariableName(e.target.value)}
-                      placeholder="변수명 (예: small, medium, large)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black font-medium text-sm"
-                    />
-                    <input
-                      type="text"
-                      value={newVariableAlias}
-                      onChange={(e) => setNewVariableAlias(e.target.value)}
-                      placeholder="별칭 (예: 소규모, 중규모, 대규모)"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black font-medium text-sm"
-                    />
-                    <button
-                      onClick={addVariable}
-                      className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-                    >
-                      변수 추가
-                    </button>
-                  </div>
-                  <p className="text-xs text-gray-600 mt-2">
-                    같은 주제의 여러 변수를 관리할 수 있습니다.
-                    변수는 {`{{그룹명_변수명}}`} 형태로 사용됩니다.
+          {/* 새 변수 추가 폼 */}
+          <div className="bg-gray-50 rounded-lg p-4 mb-6">
+            <h3 className="font-medium text-gray-900 mb-3">새 변수 추가</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  변수명 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newVariableName}
+                  onChange={(e) => setNewVariableName(e.target.value)}
+                  placeholder="예: 할인율, 제품명, 특별혜택"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  onKeyDown={(e) => e.key === 'Enter' && addVariable()}
+                />
+                {newVariableName && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    템플릿에서 <code>{`{{${newVariableName.trim().replace(/\s+/g, '_').toLowerCase()}}}`}</code> 형태로 사용됩니다.
                   </p>
-                </div>
-
-                {/* 변수 목록 */}
-                <div className="space-y-3">
-                  {Object.entries(userVariables[selectedGroup]?.variables || {}).map(([variableKey, variable]) => (
-                    <div key={variableKey} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <code className="text-sm bg-gray-100 px-2 py-1 rounded text-purple-600 font-mono">
-                              {`{{${variableKey}}}`}
-                            </code>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <span className="text-xs text-gray-500">별칭:</span>
-                            <input
-                              type="text"
-                              value={variable.alias}
-                              onChange={(e) => updateVariableAlias(selectedGroup, variableKey, e.target.value)}
-                              className="flex-1 px-2 py-1 text-sm border border-gray-300 rounded text-black font-medium"
-                              placeholder="별칭 입력"
-                            />
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteVariable(selectedGroup, variableKey)}
-                          className="ml-4 text-red-500 hover:text-red-700 text-sm px-3 py-1 rounded border hover:bg-red-50"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {Object.keys(userVariables[selectedGroup]?.variables || {}).length === 0 && (
-                  <div className="text-center py-8 text-gray-500">
-                    이 그룹에 변수가 없습니다. 위에서 변수를 추가해보세요.
-                  </div>
                 )}
-              </>
-            ) : (
-              <div className="text-center py-12 text-gray-500">
-                왼쪽에서 그룹을 선택하거나 새 그룹을 만들어주세요.
               </div>
-            )}
-
-            {/* 닫기 버튼 */}
-            <div className="flex justify-end mt-6">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  기본값
+                </label>
+                <input
+                  type="text"
+                  value={newVariableDefaultValue}
+                  onChange={(e) => setNewVariableDefaultValue(e.target.value)}
+                  placeholder="기본값 (선택사항)"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+                  onKeyDown={(e) => e.key === 'Enter' && addVariable()}
+                />
+              </div>
               <button
-                onClick={onClose}
+                onClick={addVariable}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
               >
-                완료
+                변수 추가
               </button>
             </div>
+          </div>
+
+          {/* 기존 변수 목록 */}
+          <div className="max-h-80 overflow-y-auto">
+            <h3 className="font-medium text-gray-900 mb-3">기존 변수</h3>
+            {Object.keys(userVariables).length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                변수가 없습니다. 위에서 새 변수를 추가해보세요.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {Object.entries(userVariables).map(([variableKey, variableValue]) => (
+                  <div key={variableKey} className="flex items-center justify-between p-3 bg-white border border-gray-200 rounded-lg">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900 mb-1">
+                        <code className="bg-gray-100 px-2 py-1 rounded text-sm">{`{{${variableKey}}}`}</code>
+                      </div>
+                      <div className="text-sm text-gray-600">
+                        기본값: {editingVariable === variableKey ? (
+                          <div className="flex items-center space-x-2 mt-1">
+                            <input
+                              type="text"
+                              value={editValue}
+                              onChange={(e) => setEditValue(e.target.value)}
+                              className="px-2 py-1 border border-gray-300 rounded text-sm"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') saveEdit()
+                                if (e.key === 'Escape') cancelEdit()
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              onClick={saveEdit}
+                              className="text-green-600 hover:text-green-700 text-xs"
+                            >
+                              저장
+                            </button>
+                            <button
+                              onClick={cancelEdit}
+                              className="text-gray-500 hover:text-gray-700 text-xs"
+                            >
+                              취소
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="cursor-pointer hover:bg-gray-100 px-1 rounded" onClick={() => startEditing(variableKey, variableValue)}>
+                            {Array.isArray(variableValue) ? variableValue[0] : variableValue || '기본값'}
+                            <span className="text-xs text-gray-400 ml-1">(클릭하여 수정)</span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => startEditing(variableKey, variableValue)}
+                        className="text-blue-500 hover:text-blue-700 text-sm"
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => deleteVariable(variableKey)}
+                        className="text-red-500 hover:text-red-700 text-sm"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

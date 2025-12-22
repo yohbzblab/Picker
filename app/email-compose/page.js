@@ -270,19 +270,26 @@ function EmailComposeContent() {
         if (!connection) continue;
 
         try {
-          // 저장된 사용자 변수 사용
-          let customUserVariables = template.userVariables || {};
+          // 사용자 변수 준비 - 연결별로 저장된 개별 변수 사용
+          let customUserVariables = {};
 
+          // 템플릿의 기본 변수 값 설정
+          if (template.userVariables) {
+            Object.entries(template.userVariables).forEach(([key, options]) => {
+              // 옵션 배열의 첫 번째 값을 기본값으로 사용
+              const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : '';
+              customUserVariables[key] = [defaultValue];
+            });
+          }
+
+          // 연결별로 저장된 사용자 변수로 오버라이드
           if (connection.userVariables) {
-            customUserVariables = {
-              ...template.userVariables,
-              ...Object.fromEntries(
-                Object.entries(connection.userVariables).map(([key, value]) => [
-                  key,
-                  [value],
-                ])
-              ),
-            };
+            Object.entries(connection.userVariables).forEach(([key, value]) => {
+              // 값이 있으면 배열로 감싸서 저장
+              if (value !== undefined && value !== null) {
+                customUserVariables[key] = [value];
+              }
+            });
           }
 
           const response = await fetch("/api/emails/send-test", {
@@ -367,19 +374,26 @@ function EmailComposeContent() {
         if (!connection) continue;
 
         try {
-          // 저장된 사용자 변수 사용
-          let customUserVariables = template.userVariables || {};
+          // 사용자 변수 준비 - 연결별로 저장된 개별 변수 사용
+          let customUserVariables = {};
 
+          // 템플릿의 기본 변수 값 설정
+          if (template.userVariables) {
+            Object.entries(template.userVariables).forEach(([key, options]) => {
+              // 옵션 배열의 첫 번째 값을 기본값으로 사용
+              const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : '';
+              customUserVariables[key] = [defaultValue];
+            });
+          }
+
+          // 연결별로 저장된 사용자 변수로 오버라이드
           if (connection.userVariables) {
-            customUserVariables = {
-              ...template.userVariables,
-              ...Object.fromEntries(
-                Object.entries(connection.userVariables).map(([key, value]) => [
-                  key,
-                  [value],
-                ])
-              ),
-            };
+            Object.entries(connection.userVariables).forEach(([key, value]) => {
+              // 값이 있으면 배열로 감싸서 저장
+              if (value !== undefined && value !== null) {
+                customUserVariables[key] = [value];
+              }
+            });
           }
 
           const response = await fetch("/api/emails/send", {

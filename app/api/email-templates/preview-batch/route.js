@@ -71,15 +71,25 @@ export async function POST(request) {
 
       try {
         // 사용자 변수 처리
-        let customUserVariables = templateData.userVariables || {}
+        let customUserVariables = {}
 
+        // 템플릿의 기본 변수 값 설정
+        if (templateData.userVariables) {
+          Object.entries(templateData.userVariables).forEach(([key, options]) => {
+            // 옵션 배열의 첫 번째 값을 기본값으로 사용
+            const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : ''
+            customUserVariables[key] = [defaultValue]
+          })
+        }
+
+        // 연결별로 저장된 사용자 변수로 오버라이드
         if (connection.userVariables) {
-          customUserVariables = {
-            ...templateData.userVariables,
-            ...Object.fromEntries(
-              Object.entries(connection.userVariables).map(([key, value]) => [key, [value]])
-            )
-          }
+          Object.entries(connection.userVariables).forEach(([key, value]) => {
+            // 값이 있으면 배열로 감싸서 저장
+            if (value !== undefined && value !== null) {
+              customUserVariables[key] = [value]
+            }
+          })
         }
 
         // 변수 치환

@@ -28,7 +28,7 @@ function CreateEmailTemplateContent() {
   const [conditionalRules, setConditionalRules] = useState({}) // 조건문 규칙들 - 새로운 그룹 구조
   const [showConditionsModal, setShowConditionsModal] = useState(false)
   const [editingConditionVariable, setEditingConditionVariable] = useState(null)
-  const [userVariables, setUserVariables] = useState({}) // 사용자 정의 변수들 - 새로운 그룹 구조
+  const [userVariables, setUserVariables] = useState({}) // 사용자 정의 변수들 - 간단한 구조: {변수명: [기본값]}
   const [showUserVariableModal, setShowUserVariableModal] = useState(false)
   const [activeTab, setActiveTab] = useState('preview') // 미리보기 탭 상태: 'preview' or 'variables'
   const [attachments, setAttachments] = useState([]) // 첨부파일 목록
@@ -48,46 +48,33 @@ function CreateEmailTemplateContent() {
     }
   }, [editId, dbUser])
 
-
-  // 템플릿이 변경될 때 상태 업데이트 및 마이그레이션
-  useEffect(() => {
-    if (editId) {
-      // 기존 형식 마이그레이션 체크 (필요시)
-      const migratedVariables = migrateUserVariables(userVariables)
-      const migratedRules = migrateConditionalRules(conditionalRules)
-      setUserVariables(migratedVariables)
-      setConditionalRules(migratedRules)
-    }
-  }, [editId])
-
-  // 기존 사용자 변수 형식을 새 형식으로 마이그레이션
+  // 기존 그룹 구조를 간단한 구조로 마이그레이션
   const migrateUserVariables = (variables) => {
     if (!variables) return {}
 
-    // 이미 새 형식인지 확인 (그룹 구조를 가지고 있는지)
+    // 이미 간단한 형식인지 확인 (값이 배열인지)
     const firstKey = Object.keys(variables)[0]
-    if (firstKey && variables[firstKey] && typeof variables[firstKey] === 'object' && 'displayName' in variables[firstKey]) {
+    if (firstKey && Array.isArray(variables[firstKey])) {
       return variables // 이미 새 형식
     }
 
-    // 기존 형식 {"변수명": []} -> 새 형식으로 변환
+    // 복잡한 그룹 구조를 간단한 구조로 변환
     const migrated = {}
-    Object.entries(variables).forEach(([key, value]) => {
-      // 기존 변수를 "기타" 그룹으로 마이그레이션
-      if (!migrated['기타']) {
-        migrated['기타'] = {
-          displayName: '기타',
-          variables: {}
-        }
-      }
-      migrated['기타'].variables[key] = {
-        alias: key,
-        defaultValue: Array.isArray(value) && value[0] ? value[0] : ''
+    Object.entries(variables).forEach(([groupName, group]) => {
+      if (group && group.variables) {
+        Object.entries(group.variables).forEach(([variableKey, variable]) => {
+          migrated[variableKey] = [variable.defaultValue || '기본값']
+        })
+      } else {
+        // 직접 변수가 저장된 경우 (이전 형식)
+        migrated[groupName] = Array.isArray(group) ? group : [group || '기본값']
       }
     })
 
-    return Object.keys(migrated).length > 0 ? migrated : {}
+    return migrated
   }
+
+
 
   // 기존 조건문 형식을 새 형식으로 마이그레이션
   const migrateConditionalRules = useCallback((rules) => {
@@ -228,7 +215,9 @@ function CreateEmailTemplateContent() {
           content: template.content || ''
         }
         setFormData(newFormData)
-        setUserVariables(template.userVariables || {})
+        // 사용자 변수를 간단한 구조로 마이그레이션
+        const migratedVariables = migrateUserVariables(template.userVariables || {})
+        setUserVariables(migratedVariables)
         setConditionalRules(template.conditionalRules || {})
 
         // 첨부파일 데이터를 프론트엔드 형식으로 변환
@@ -267,10 +256,9 @@ function CreateEmailTemplateContent() {
 
     // 사용자 변수들의 기본값 (샘플 값 사용)
     const userSampleData = {}
-    Object.entries(userVariables).forEach(([_, group]) => {
-      Object.entries(group.variables || {}).forEach(([variableKey, variable]) => {
-        userSampleData[variableKey] = variable.defaultValue || `샘플 ${variable.alias || variableKey}`
-      })
+    Object.entries(userVariables).forEach(([variableKey, variableValue]) => {
+      const defaultValue = Array.isArray(variableValue) ? variableValue[0] : variableValue
+      userSampleData[variableKey] = defaultValue || `샘플 ${variableKey}`
     })
 
     // 인플루언서 필드들의 샘플 데이터 생성 (텍스트 타입과 숫자 타입만)
@@ -929,10 +917,9 @@ function CreateEmailTemplateContent() {
                             return usedVariables.map((variableName, index) => {
                               // 사용자 변수와 인플루언서 필드의 기본값 가져오기
                               const userSampleData = {}
-                              Object.entries(userVariables).forEach(([, group]) => {
-                                Object.entries(group.variables || {}).forEach(([variableKey, variable]) => {
-                                  userSampleData[variableKey] = variable.defaultValue || `샘플 ${variable.alias || variableKey}`
-                                })
+                              Object.entries(userVariables).forEach(([variableKey, variableValue]) => {
+                                const defaultValue = Array.isArray(variableValue) ? variableValue[0] : variableValue
+                                userSampleData[variableKey] = defaultValue || `샘플 ${variableKey}`
                               })
 
                               // 인플루언서 필드 기본값 (텍스트 타입과 숫자 타입만)
@@ -1031,25 +1018,33 @@ function CreateEmailTemplateContent() {
                               {Object.keys(userVariables).length === 0 ? (
                                 <p className="text-sm text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
                               ) : (
-                                Object.entries(userVariables).map(([groupName, group]) => (
-                                  <div key={groupName} className="border-l-3 border-purple-200 pl-3">
-                                    <div className="text-sm font-medium text-gray-600 mb-2">{group.displayName}</div>
-                                    <div className="flex flex-wrap gap-2">
-                                      {Object.entries(group.variables || {}).map(([variableKey, variable]) => (
-                                        <button
-                                          key={variableKey}
-                                          type="button"
-                                          onClick={() => handleVariableInsert(variableKey)}
-                                          onMouseDown={(e) => e.preventDefault()}
-                                          className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
-                                          title={`{{${variableKey}}}`}
-                                        >
-                                          {variable.alias || variableKey}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  </div>
-                                ))
+                                <div className="flex flex-wrap gap-2">
+                                  {Object.entries(userVariables).map(([variableKey, variableValue]) => {
+                                    // 간단한 구조인지 확인 (배열 또는 문자열)
+                                    const isSimpleStructure = Array.isArray(variableValue) || typeof variableValue === 'string'
+
+                                    if (!isSimpleStructure) {
+                                      // 복잡한 구조인 경우 건너뛰기 (마이그레이션이 필요한 구조)
+                                      console.warn('Complex user variable structure detected:', variableKey, variableValue)
+                                      return null
+                                    }
+
+                                    const displayValue = Array.isArray(variableValue) ? variableValue[0] : variableValue
+
+                                    return (
+                                      <button
+                                        key={variableKey}
+                                        type="button"
+                                        onClick={() => handleVariableInsert(variableKey)}
+                                        onMouseDown={(e) => e.preventDefault()}
+                                        className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
+                                        title={`{{${variableKey}}} - 기본값: ${displayValue || '기본값'}`}
+                                      >
+                                        {variableKey}
+                                      </button>
+                                    )
+                                  }).filter(Boolean)}
+                                </div>
                               )}
                             </div>
                           </div>
@@ -1139,13 +1134,10 @@ function CreateEmailTemplateContent() {
           variableName={editingConditionVariable}
           variableInfo={(() => {
             // 사용자 변수인지 확인
-            for (const [, group] of Object.entries(userVariables)) {
-              if (group.variables && group.variables[editingConditionVariable]) {
-                return {
-                  type: 'user',
-                  label: group.variables[editingConditionVariable].alias || editingConditionVariable,
-                  group: group.displayName
-                }
+            if (userVariables[editingConditionVariable]) {
+              return {
+                type: 'user',
+                label: editingConditionVariable
               }
             }
             // 인플루언서 필드

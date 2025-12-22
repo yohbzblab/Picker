@@ -13,6 +13,10 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
+    if (!templateId) {
+      return NextResponse.json({ error: 'templateId is required' }, { status: 400 })
+    }
+
     // 템플릿 소유자 확인 및 블럭 정보 포함
     console.log('Looking for template with ID:', templateId, 'for user:', userId)
     const template = await prisma.surveyTemplate.findFirst({
@@ -65,7 +69,5 @@ export async function GET(request, { params }) {
   } catch (error) {
     console.error('Error fetching survey responses:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
