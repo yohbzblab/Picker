@@ -25,7 +25,7 @@ export async function POST(request) {
       )
     }
 
-    const supabase = createClient()
+    const supabase = await createClient()
 
     // 파일명 생성 (중복 방지)
     const fileExtension = file.name.split('.').pop()
@@ -36,10 +36,12 @@ export async function POST(request) {
     const buffer = Buffer.from(bytes)
 
     // Supabase Storage에 업로드
+    const bucketName = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || 'images'
     const { data, error } = await supabase.storage
-      .from('survey-files')
+      .from(bucketName)
       .upload(fileName, buffer, {
         contentType: file.type,
+        upsert: false
       })
 
     if (error) {
@@ -52,7 +54,7 @@ export async function POST(request) {
 
     // 공개 URL 생성
     const { data: { publicUrl } } = supabase.storage
-      .from('survey-files')
+      .from(bucketName)
       .getPublicUrl(fileName)
 
     return NextResponse.json({

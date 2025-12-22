@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import BlockContentRenderer from '@/components/BlockContentRenderer'
 
 // 입력 타입 표시 유틸리티 함수
 const getInputTypeDisplay = (inputType) => {
@@ -110,9 +111,9 @@ export default function SurveyRenderer({
                         </div>
                       )}
                     </div>
-                    <div
+                    <BlockContentRenderer
+                      content={block.content}
                       className="campaign-block-content text-gray-800 mb-6"
-                      dangerouslySetInnerHTML={{ __html: block.content }}
                     />
 
                     {/* 응답 입력 영역 */}

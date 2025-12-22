@@ -181,6 +181,64 @@ function SurveyResponsesContent() {
                                     if (Array.isArray(answer)) {
                                       return answer.join(', ');
                                     }
+
+                                    // 파일 타입의 경우 다운로드 링크 생성
+                                    if (inputType === 'FILE' && typeof answer === 'object' && answer !== null) {
+                                      const fileName = answer.fileName || '업로드된 파일';
+                                      const publicUrl = answer.publicUrl;
+
+                                      if (publicUrl) {
+                                        const handleDownload = async () => {
+                                          try {
+                                            const response = await fetch(publicUrl);
+                                            const blob = await response.blob();
+                                            const url = window.URL.createObjectURL(blob);
+                                            const link = document.createElement('a');
+                                            link.href = url;
+                                            link.download = fileName;
+                                            document.body.appendChild(link);
+                                            link.click();
+                                            document.body.removeChild(link);
+                                            window.URL.revokeObjectURL(url);
+                                          } catch (error) {
+                                            console.error('Download failed:', error);
+                                            // 다운로드 실패시 새 창에서 열기
+                                            window.open(publicUrl, '_blank', 'noopener,noreferrer');
+                                          }
+                                        };
+
+                                        return (
+                                          <div className="flex items-center space-x-2">
+                                            {/* 미리보기 버튼 */}
+                                            <a
+                                              href={publicUrl}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center space-x-2 px-3 py-2 bg-green-50 text-green-700 rounded-lg hover:bg-green-100 transition-colors border border-green-200"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                              </svg>
+                                              <span className="text-sm font-medium">미리보기</span>
+                                            </a>
+                                            {/* 다운로드 버튼 */}
+                                            <button
+                                              onClick={handleDownload}
+                                              className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 transition-colors border border-blue-200"
+                                            >
+                                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                              </svg>
+                                              <span className="text-sm font-medium">{fileName}</span>
+                                            </button>
+                                          </div>
+                                        );
+                                      } else {
+                                        return `업로드된 파일: ${fileName}`;
+                                      }
+                                    }
+
                                     return answer?.toString() || '답변 없음';
                                   };
 

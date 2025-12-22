@@ -151,13 +151,19 @@ export default function EmailTemplates() {
         await loadData()
         setShowCampaignModal(false)
         setSelectedEmailTemplate(null)
+        // 배경 스크롤 복원
+        document.body.style.overflow = 'unset'
         alert('캠페인이 성공적으로 연결되었습니다!')
       } else {
         const errorData = await response.json()
+        // 배경 스크롤 복원
+        document.body.style.overflow = 'unset'
         alert(`연결 실패: ${errorData.error}`)
       }
     } catch (error) {
       console.error('Error connecting campaign:', error)
+      // 배경 스크롤 복원
+      document.body.style.overflow = 'unset'
       alert('캠페인 연결 중 오류가 발생했습니다.')
     }
   }

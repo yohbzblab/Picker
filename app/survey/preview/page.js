@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import SurveyRenderer from '@/components/SurveyRenderer'
+import BlockContentRenderer from '@/components/BlockContentRenderer'
 
 export default function SurveyPreviewPage() {
   const [template, setTemplate] = useState(null)
@@ -254,6 +255,7 @@ export default function SurveyPreviewPage() {
             </p>
           </div>
         )
+
 
       default:
         return (

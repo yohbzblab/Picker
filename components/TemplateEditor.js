@@ -1,6 +1,9 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
+import { VideoLinkInput } from '@/components/VideoEmbed'
+import { parseVideoUrl } from '@/utils/videoParser'
 
 // 변수 에디터 컴포넌트 - 변수 삽입 기능 포함
 export function VariableInput({ value, onChange, placeholder, onInsertVariable }) {
@@ -65,6 +68,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
   })
   const [showColorPicker, setShowColorPicker] = useState(false)
   const colorPickerRef = useRef(null)
+  const [showVideoModal, setShowVideoModal] = useState(false)
+  const [videoUrl, setVideoUrl] = useState('')
 
   // 텍스트의 줄바꿈을 HTML로 변환하는 함수
   const convertNewlinesToHtml = useCallback((text) => {
@@ -394,6 +399,61 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     fileInputRef.current?.click()
   }
 
+  // 비디오 링크 삽입 모달 열기
+  const openVideoModal = () => {
+    setVideoUrl('')
+    setShowVideoModal(true)
+    setShowColorPicker(false) // 컬러 팔레트 닫기
+  }
+
+  // 비디오 링크 삽입 처리
+  const handleVideoInsert = () => {
+    console.log('handleVideoInsert 호출됨, videoUrl:', videoUrl)
+
+    if (!videoUrl.trim()) {
+      alert('영상 링크를 입력해주세요.')
+      return
+    }
+
+    const videoInfo = parseVideoUrl(videoUrl)
+    console.log('parseVideoUrl 결과:', videoInfo)
+
+    if (!videoInfo) {
+      alert('유효하지 않은 영상 링크입니다. YouTube 또는 Instagram Reels 링크를 입력해주세요.')
+      return
+    }
+
+    // 비디오 플레이스홀더를 직접 삽입
+    console.log('editorRef.current:', editorRef.current)
+    if (editorRef.current) {
+      const videoPlaceholder = `<div class="video-embed" data-video-url="${videoInfo.originalUrl}" data-video-type="${videoInfo.type}" data-video-id="${videoInfo.id}" style="margin: 16px 0; padding: 12px; border: 2px dashed #d1d5db; border-radius: 8px; background-color: #f9fafb; text-align: center;">
+        <div style="display: flex; align-items: center; justify-content: center; gap: 8px; color: #6b7280;">
+          <span style="font-size: 20px;">🎥</span>
+          <span style="font-weight: 500;">${videoInfo.type === 'youtube' ? 'YouTube' : 'Instagram Reels'} 영상</span>
+        </div>
+        <div style="font-size: 12px; color: #9ca3af; margin-top: 4px; word-break: break-all;">
+          ${videoInfo.originalUrl}
+        </div>
+      </div>`
+
+      console.log('삽입할 HTML:', videoPlaceholder)
+
+      // 에디터에 직접 추가해보기
+      const currentContent = editorRef.current.innerHTML
+      console.log('현재 에디터 내용:', currentContent)
+
+      editorRef.current.innerHTML = currentContent + videoPlaceholder
+      console.log('삽입 후 에디터 내용:', editorRef.current.innerHTML)
+
+      handleInput() // 변경사항을 상위 컴포넌트에 알림
+      console.log('handleInput 호출 완료')
+    } else {
+      console.log('editorRef.current가 null입니다')
+    }
+    setShowVideoModal(false)
+    setVideoUrl('')
+  }
+
   // 컬러 팔레트 (검정 + 빨주노초파남보 + 분홍)
   const baseColors = [
     { name: '검정', base: '#000000' },
@@ -537,7 +597,7 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
           {showColorPicker && (
             <div
               ref={colorPickerRef}
-              className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-10 p-3 w-80 max-h-60 overflow-y-auto"
+              className="absolute top-full left-0 mt-1 bg-white border border-gray-300 rounded-lg shadow-lg z-[100] p-3 w-80 max-h-60 overflow-y-auto"
             >
               {/* 컬러 팔레트 - 세로 정렬 */}
               <div className="space-y-1">
@@ -608,6 +668,19 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
               onChange={handleImageUpload}
               className="hidden"
             />
+
+            {/* 영상 삽입 */}
+            <button
+              type="button"
+              onClick={openVideoModal}
+              className="flex items-center gap-1 px-2 py-1 text-xs border border-gray-300 rounded hover:bg-gray-200 transition-colors"
+              title="영상 삽입"
+            >
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              영상
+            </button>
 
             <div className="h-6 w-px bg-gray-300"></div>
           </>
@@ -723,6 +796,52 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
           line-height: 1.5 !important;
         }
       `}</style>
+
+      {/* 영상 삽입 모달 */}
+      {showVideoModal && typeof window !== 'undefined' && createPortal(
+        <div className="fixed inset-0 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 shadow-2xl border border-gray-300">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">영상 삽입</h3>
+              <button
+                type="button"
+                onClick={() => setShowVideoModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <VideoLinkInput
+                value={videoUrl}
+                onChange={setVideoUrl}
+                placeholder="YouTube 또는 Instagram Reels 링크를 입력하세요"
+              />
+
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowVideoModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  취소
+                </button>
+                <button
+                  type="button"
+                  onClick={handleVideoInsert}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                >
+                  삽입
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }

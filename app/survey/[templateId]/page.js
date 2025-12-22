@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import SurveyRenderer from '@/components/SurveyRenderer'
+import BlockContentRenderer from '@/components/BlockContentRenderer'
 
 export default function SurveyPage() {
   const params = useParams()
@@ -339,10 +340,13 @@ export default function SurveyPage() {
 
                   // 파일 업로드
                   try {
+                    // blockKey에서 인덱스 추출 (block_0 => 0)
+                    const blockIndex = parseInt(blockKey.replace('block_', ''))
+
                     const formData = new FormData()
                     formData.append('file', file)
                     formData.append('templateId', templateId)
-                    formData.append('blockIndex', currentBlockIndex.toString())
+                    formData.append('blockIndex', blockIndex.toString())
 
                     const response = await fetch('/api/survey/upload', {
                       method: 'POST',
@@ -389,6 +393,7 @@ export default function SurveyPage() {
             </p>
           </div>
         )
+
 
       default:
         return (

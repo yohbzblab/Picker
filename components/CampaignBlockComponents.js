@@ -2,6 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { RichTextEditor } from '@/components/TemplateEditor'
+import { VideoLinkInput } from '@/components/VideoEmbed'
+import BlockContentRenderer from '@/components/BlockContentRenderer'
 
 // 블럭 에디터 컴포넌트
 export function BlockEditor({
@@ -260,18 +262,61 @@ export function BlockEditor({
           {(inputType === 'RADIO' || inputType === 'CHECKBOX' || inputType === 'SELECT') && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                선택 옵션 (한 줄에 하나씩 입력)
+                선택 옵션
               </label>
-              <textarea
-                value={inputConfig.options?.join('\n') || ''}
-                onChange={(e) => setInputConfig({
-                  ...inputConfig,
-                  options: e.target.value.split('\n').filter(opt => opt.trim())
-                })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                rows="4"
-                placeholder="옵션 1&#10;옵션 2&#10;옵션 3"
-              />
+              <div className="space-y-2">
+                {(inputConfig.options || ['', '']).map((option, index) => (
+                  <div key={index} className="flex items-center space-x-2">
+                    <input
+                      type="text"
+                      value={option}
+                      onChange={(e) => {
+                        const newOptions = [...(inputConfig.options || [])]
+                        newOptions[index] = e.target.value
+                        setInputConfig({
+                          ...inputConfig,
+                          options: newOptions.filter((opt, idx) => opt.trim() !== '' || idx === newOptions.length - 1)
+                        })
+                      }}
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                      placeholder={`옵션 ${index + 1}`}
+                    />
+                    {(inputConfig.options?.length || 0) > 2 && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newOptions = (inputConfig.options || []).filter((_, idx) => idx !== index)
+                          setInputConfig({
+                            ...inputConfig,
+                            options: newOptions.length > 0 ? newOptions : ['']
+                          })
+                        }}
+                        className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOptions = [...(inputConfig.options || []), '']
+                    setInputConfig({
+                      ...inputConfig,
+                      options: newOptions
+                    })
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 text-purple-600 border border-purple-200 rounded-lg hover:bg-purple-50 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span className="text-sm font-medium">옵션 추가</span>
+                </button>
+              </div>
             </div>
           )}
 
@@ -323,6 +368,7 @@ export function BlockEditor({
               </div>
             </div>
           )}
+
 
           {/* 텍스트/숫자 입력용 설정 */}
           {(inputType === 'TEXT' || inputType === 'TEXTAREA' || inputType === 'NUMBER') && (
@@ -546,8 +592,9 @@ export function BlockPreview({ block, onEdit, onDelete, onUse, showActions = tru
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word'
         }}
-        dangerouslySetInnerHTML={{ __html: block.content }}
-      />
+      >
+        <BlockContentRenderer content={block.content} />
+      </div>
     </div>
   )
 }
@@ -684,8 +731,9 @@ export function DraggableBlock({
           whiteSpace: 'pre-wrap',
           wordBreak: 'break-word'
         }}
-        dangerouslySetInnerHTML={{ __html: block.content }}
-      />
+      >
+        <BlockContentRenderer content={block.content} />
+      </div>
     </div>
   )
 }
@@ -819,7 +867,7 @@ export function BlockLibrary({
   }
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col max-h-[calc(100vh-120px)]">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-col max-h-[calc(100vh-120px)] relative z-0">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-900">블럭 라이브러리</h3>
         <button
@@ -1010,7 +1058,7 @@ export function BlockBuilder({
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative z-0">
       <div className="flex justify-between items-center mb-4">
         <h3 className="font-semibold text-gray-900">캠페인 구성</h3>
         <span className="text-sm text-gray-500">

@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback, Suspense } from 'react'
 import { BlockLibrary, BlockBuilder, BlockEditor } from '@/components/CampaignBlockComponents'
+import BlockContentRenderer from '@/components/BlockContentRenderer'
 
 // 입력 타입 표시 함수
 const getInputTypeDisplay = (inputType, inputConfig = {}) => {
@@ -62,7 +63,7 @@ const getInputTypeDisplay = (inputType, inputConfig = {}) => {
       label: '파일 업로드',
       description: `${inputConfig.fileType === 'image' ? '이미지' : inputConfig.fileType === 'document' ? '문서' : '모든 파일'} (최대 ${inputConfig.maxSize || 10}MB)`,
       color: 'bg-red-100 text-red-700'
-    }
+    },
   }
 
   return typeMap[inputType] || typeMap.NONE
@@ -570,9 +571,9 @@ function CreateSurveyTemplateContent() {
                                 </div>
 
                                 {/* 블럭 내용 */}
-                                <div
+                                <BlockContentRenderer
+                                  content={block.content}
                                   className="text-gray-900 campaign-block-content mb-3"
-                                  dangerouslySetInnerHTML={{ __html: block.content }}
                                 />
 
                                 {/* 입력 타입별 미리보기 */}
