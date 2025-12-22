@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "../../../generated/prisma";
+import { prisma } from '@/lib/prisma'
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import {
@@ -7,7 +7,6 @@ import {
   formatEmailForStorage,
 } from "../../../../lib/emailUtils";
 
-const prisma = new PrismaClient();
 
 /**
  * Gmail IMAP 연결을 위한 설정

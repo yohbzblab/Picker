@@ -268,6 +268,33 @@ export default function SurveyTemplates() {
                     </span>
                   </div>
 
+                  {/* 연결된 이메일 템플릿 표시 */}
+                  {template.emailTemplates && template.emailTemplates.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-100">
+                      <div className="mb-2">
+                        <span className="text-sm font-medium text-gray-700">연결된 메일 템플릿 ({template.emailTemplates.length})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {template.emailTemplates.slice(0, 3).map((emailTemplate) => (
+                          <div key={emailTemplate.id} className="flex items-center bg-purple-50 rounded-lg px-3 py-2">
+                            <svg className="w-4 h-4 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">{emailTemplate.name}</p>
+                              <p className="text-xs text-gray-600 truncate">{emailTemplate.subject}</p>
+                            </div>
+                          </div>
+                        ))}
+                        {template.emailTemplates.length > 3 && (
+                          <div className="text-xs text-gray-500 text-center">
+                            +{template.emailTemplates.length - 3}개 더
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {template.responses && template.responses > 0 && (
                     <div className="mt-4 pt-4 border-t border-gray-100">
                       <div className="flex items-center text-sm text-purple-600">
@@ -478,26 +505,15 @@ export default function SurveyTemplates() {
                   </svg>
                   <span>페이지 미리보기</span>
                 </button>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleEditTemplate(selectedTemplate)
-                    }}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                  >
-                    캠페인 수정
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      router.push(`/survey-templates/${selectedTemplate.id}/responses`)
-                    }}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
-                  >
-                    응답 보기
-                  </button>
-                </div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleEditTemplate(selectedTemplate)
+                  }}
+                  className="w-full bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                >
+                  캠페인 수정
+                </button>
               </div>
             </div>
           </div>

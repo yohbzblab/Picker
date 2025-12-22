@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@/app/generated/prisma'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 export async function GET(request, { params }) {
   try {
@@ -14,13 +13,15 @@ export async function GET(request, { params }) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    // 템플릿 소유자 확인
+    // 템플릿 소유자 확인 및 블럭 정보 포함
+    console.log('Looking for template with ID:', templateId, 'for user:', userId)
     const template = await prisma.surveyTemplate.findFirst({
       where: {
         id: templateId,
         userId: parseInt(userId)
       }
     })
+    console.log('Found template:', template ? template.id : 'null')
 
     if (!template) {
       return NextResponse.json({ error: 'Template not found or access denied' }, { status: 404 })

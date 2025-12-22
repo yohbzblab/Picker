@@ -1,28 +1,37 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../generated/prisma'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url)
     const templateId = searchParams.get('templateId')
+    const influencerId = searchParams.get('influencerId')
     const userId = searchParams.get('userId')
 
     if (!userId) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 })
     }
 
-    if (!templateId) {
-      return NextResponse.json({ error: 'templateId is required' }, { status: 400 })
+    // templateId 또는 influencerId 중 하나는 필요
+    if (!templateId && !influencerId) {
+      return NextResponse.json({ error: 'templateId or influencerId is required' }, { status: 400 })
     }
 
-    // 해당 템플릿에 연결된 인플루언서들 조회
+    const whereClause = {
+      userId: parseInt(userId)
+    }
+
+    if (templateId) {
+      whereClause.templateId = parseInt(templateId)
+    }
+
+    if (influencerId) {
+      whereClause.influencerId = parseInt(influencerId)
+    }
+
+    // 연결 조회
     const connections = await prisma.templateInfluencerConnection.findMany({
-      where: {
-        templateId: parseInt(templateId),
-        userId: parseInt(userId)
-      },
+      where: whereClause,
       include: {
         influencer: true,
         template: true

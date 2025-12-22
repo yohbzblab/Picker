@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
+import { prisma } from '@/lib/prisma'
 import { createTransporterByProvider, sendMailWithRetry, handleEmailProviderError, extractProviderConfig } from '../../../../lib/emailProviders'
 import { createClient } from '../../../../lib/supabase/server'
 
-const prisma = new PrismaClient()
 
 export async function POST(request) {
   let userData = null // 스코프 문제 해결을 위해 상단에 선언

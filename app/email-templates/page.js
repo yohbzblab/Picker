@@ -40,7 +40,10 @@ export default function EmailTemplates() {
 
       if (response.ok) {
         const data = await response.json()
-        const templatesData = data.templates || []
+        // 캠페인용 메일 템플릿 필터링 (이름이 Campaign:으로 시작하는 경우 제외)
+        const templatesData = (data.templates || []).filter(template =>
+          !template.name.startsWith('Campaign: ')
+        )
 
         // 각 템플릿의 연결된 인플루언서 정보를 병렬로 가져오기
         const templatesWithConnections = await Promise.all(
@@ -111,6 +114,8 @@ export default function EmailTemplates() {
   const handleCampaignConnect = async (template) => {
     setSelectedEmailTemplate(template)
     setLoadingSurveys(true)
+    // 배경 스크롤 방지
+    document.body.style.overflow = 'hidden'
 
     try {
       // 사용자의 캠페인 템플릿 목록 가져오기
@@ -184,11 +189,15 @@ export default function EmailTemplates() {
     setShowCampaignModal(false)
     setSelectedEmailTemplate(null)
     setSurveyTemplates([])
+    // 배경 스크롤 복원
+    document.body.style.overflow = 'unset'
   }
 
   const handleTemplateClick = async (template) => {
     setSelectedTemplate(template)
     setIsSlideMenuOpen(true)
+    // 배경 스크롤 방지
+    document.body.style.overflow = 'hidden'
 
     // 선택된 템플릿의 연결된 인플루언서 정보 가져오기
     try {
@@ -207,6 +216,8 @@ export default function EmailTemplates() {
     setIsSlideMenuOpen(false)
     setSelectedTemplate(null)
     setTemplateConnections([])
+    // 배경 스크롤 복원
+    document.body.style.overflow = 'unset'
   }
 
   if (authLoading || loading) {
@@ -457,18 +468,24 @@ export default function EmailTemplates() {
         </div>
       </main>
 
-      {/* 우측 슬라이드 메뉴 */}
+      {/* 중앙 모달 */}
       {isSlideMenuOpen && selectedTemplate && (
-        <div className={`fixed top-0 right-0 h-full w-96 bg-white shadow-2xl z-50 transform transition-transform duration-300 ease-in-out ${
-          isSlideMenuOpen ? 'translate-x-0' : 'translate-x-full'
-        }`}>
-            <div className="flex flex-col h-full">
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4">
+            {/* 배경 오버레이 */}
+            <div
+              className="fixed inset-0 bg-gray-900/40 backdrop-blur-[2px] transition-all duration-300"
+              onClick={closeSlideMenu}
+            />
+
+            {/* 모달 컨텐츠 */}
+            <div className="relative bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden shadow-xl">
               {/* 헤더 */}
-              <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
                 <h2 className="text-xl font-bold text-gray-900">템플릿 미리보기</h2>
                 <button
                   onClick={closeSlideMenu}
-                  className="text-gray-400 hover:text-gray-600 p-1"
+                  className="text-gray-400 hover:text-gray-600 transition-colors p-1"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -477,7 +494,7 @@ export default function EmailTemplates() {
               </div>
 
               {/* 컨텐츠 */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="p-6 overflow-y-auto" style={{ maxHeight: 'calc(90vh - 140px)' }}>
                 {/* 템플릿 이름 */}
                 <div className="mb-6">
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">{selectedTemplate.name}</h3>
@@ -507,7 +524,7 @@ export default function EmailTemplates() {
                     </svg>
                     메일 내용
                   </h4>
-                  <div className="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
+                  <div className="bg-gray-50 rounded-lg p-4">
                     <div
                       className="text-gray-900 whitespace-pre-wrap"
                       dangerouslySetInnerHTML={{
@@ -573,7 +590,7 @@ export default function EmailTemplates() {
               </div>
 
               {/* 하단 액션 버튼들 */}
-              <div className="border-t border-gray-200 p-6">
+              <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
                 <div className="flex space-x-3">
                   <button
                     onClick={(e) => {
@@ -596,12 +613,13 @@ export default function EmailTemplates() {
                 </div>
               </div>
             </div>
+          </div>
         </div>
       )}
 
       {/* 캠페인 연결 모달 */}
       {showCampaignModal && selectedEmailTemplate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-gray-900/40 backdrop-blur-[2px] flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-gray-900">캠페인 연결</h2>

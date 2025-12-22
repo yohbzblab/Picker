@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 /**
  * GET /api/emails/inbox
@@ -82,7 +81,8 @@ export async function GET(request) {
     const emailsWithAttachments = emails.map(email => ({
       ...email,
       hasAttachments: !!(email.attachments && Array.isArray(email.attachments) && email.attachments.length > 0),
-      preview: email.textContent ? email.textContent.substring(0, 100) + '...' : ''
+      preview: email.textContent ? email.textContent.substring(0, 100) + '...' : '',
+      body: email.textContent // 전체 내용을 body로도 제공
     }))
 
     // 페이지네이션 정보

@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "../../../generated/prisma";
+import { prisma } from '@/lib/prisma'
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 
-const prisma = new PrismaClient();
 
 /**
  * IMAP 연결을 위한 설정

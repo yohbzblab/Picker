@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
-
-const prisma = new PrismaClient()
+import { prisma } from '@/lib/prisma'
 
 export async function GET(request) {
   try {
@@ -56,6 +54,7 @@ export async function GET(request) {
       content: email.content,
       to: email.to,
       sentAt: email.sentAt,
+      status: email.status,
       messageId: email.messageId,
       template: {
         name: email.template?.name || 'Unknown Template'

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@/app/generated/prisma'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 export async function GET(request) {
   try {
@@ -21,6 +20,22 @@ export async function GET(request) {
         _count: {
           select: {
             surveyResponses: true
+          }
+        },
+        emailTemplates: {
+          where: {
+            isActive: true,
+            NOT: {
+              name: {
+                startsWith: 'Campaign: '  // 캠페인용 메일 템플릿 제외
+              }
+            }
+          },
+          select: {
+            id: true,
+            name: true,
+            subject: true,
+            createdAt: true
           }
         }
       },

@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@/app/generated/prisma'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 export async function POST(request) {
   try {
@@ -24,6 +23,8 @@ export async function POST(request) {
 
     // refId가 있는 경우 인플루언서 ID 찾기
     let influencerId = null
+    console.log('Survey submission - templateId:', templateId, 'refId:', refId)
+
     if (refId) {
       try {
         // 데이터베이스에서 ref → influencer 매핑 찾기
@@ -38,7 +39,12 @@ export async function POST(request) {
           influencerId = connection.influencerId
           console.log(`Found influencer ${influencerId} for ref ${refId}`)
         } else {
-          console.log(`No connection found for refId: ${refId}`)
+          console.log(`No connection found for refId: ${refId}, templateId: ${templateId}`)
+          // 모든 연결을 조회해서 디버깅
+          const allConnections = await prisma.surveyInfluencerConnection.findMany({
+            where: { templateId: templateId }
+          })
+          console.log('All connections for template:', allConnections)
         }
       } catch (error) {
         console.error('Error finding connection for refId:', error)
@@ -48,11 +54,18 @@ export async function POST(request) {
     // 응답 저장
     const surveyResponse = await prisma.surveyResponse.create({
       data: {
-        templateId,
+        templateId: templateId,
         responses,
         submittedAt: new Date(submittedAt),
         influencerId: influencerId
       }
+    })
+
+    console.log('Survey response saved:', {
+      id: surveyResponse.id,
+      templateId: surveyResponse.templateId,
+      influencerId: surveyResponse.influencerId,
+      submittedAt: surveyResponse.submittedAt
     })
 
     // 템플릿의 응답 수 증가

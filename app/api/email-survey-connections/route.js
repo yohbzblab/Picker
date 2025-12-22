@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '@/app/generated/prisma'
+import { prisma } from '@/lib/prisma'
 
-const prisma = new PrismaClient()
 
 // 메일 템플릿과 캠페인 템플릿 연결
 export async function POST(request) {

@@ -1,10 +1,9 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
+import { prisma } from '@/lib/prisma'
 import { extractProviderConfig } from '../../../../lib/emailProviders'
 import net from 'net'
 import tls from 'tls'
 
-const prisma = new PrismaClient()
 
 /**
  * GET /api/emails/test-direct-pop3

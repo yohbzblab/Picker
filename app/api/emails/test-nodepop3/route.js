@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server'
-import { PrismaClient } from '../../../generated/prisma'
+import { prisma } from '@/lib/prisma'
 import { extractProviderConfig } from '../../../../lib/emailProviders'
 import POP3 from 'node-pop3'
 
-const prisma = new PrismaClient()
 
 /**
  * GET /api/emails/test-nodepop3

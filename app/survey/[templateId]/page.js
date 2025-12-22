@@ -90,6 +90,8 @@ export default function SurveyPage() {
   const handleNext = () => {
     if (currentPageIndex < pages.length - 1) {
       setCurrentPageIndex(prev => prev + 1)
+      // 페이지 맨 위로 스크롤
+      window.scrollTo(0, 0)
     }
   }
 

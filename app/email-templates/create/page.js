@@ -674,18 +674,16 @@ function CreateEmailTemplateContent() {
                       메일 제목
                     </label>
                     {loading ? (
-                      <div className="border border-gray-300 rounded-lg p-3 min-h-[120px] flex items-center justify-center text-gray-500">
+                      <div className="border border-gray-300 rounded-lg p-3 min-h-[50px] flex items-center justify-center text-gray-500">
                         템플릿을 불러오는 중...
                       </div>
                     ) : (
-                      <RichTextEditor
-                        key={`subject-editor-${editId || 'new'}`}
+                      <input
+                        type="text"
                         value={formData.subject}
-                        onChange={handleSubjectChange}
+                        onChange={(e) => handleSubjectChange(e.target.value)}
                         placeholder="예: 협업 제안드립니다"
-                        onInsertVariable={handleSubjectInsertVariable}
-                        templateId={editId}
-                        isSubject={true}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     )}
                   </div>

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient } from "../../../generated/prisma";
+import { prisma } from '@/lib/prisma'
 import Imap from "imap";
 import { simpleParser } from "mailparser";
 import crypto from "crypto";
@@ -8,7 +8,6 @@ import {
   normalizeEmail as normalizeEmailUtil,
 } from "../../../../lib/emailUtils";
 
-const prisma = new PrismaClient();
 
 // 글로벌 진행상황 저장소 (progress API와 공유)
 let progressStore;

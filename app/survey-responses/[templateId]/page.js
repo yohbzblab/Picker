@@ -160,15 +160,60 @@ function SurveyResponsesContent() {
                                   {new Date(response.submittedAt).toLocaleString('ko-KR')}
                                 </span>
                               </div>
-                              <div className="space-y-2">
-                                {Object.entries(response.responses).map(([blockKey, answer]) => (
-                                  <div key={blockKey} className="text-xs">
-                                    <span className="font-medium text-gray-700">{blockKey}:</span>
-                                    <span className="ml-2 text-gray-600">
-                                      {Array.isArray(answer) ? answer.join(', ') : answer?.toString() || '답변 없음'}
-                                    </span>
-                                  </div>
-                                ))}
+                              <div className="space-y-3">
+                                {Object.entries(response.responses).map(([blockKey, answer]) => {
+                                  // 답변이 없거나 비어있는 경우 제외
+                                  if (!answer || answer === '' || (Array.isArray(answer) && answer.length === 0)) {
+                                    return null;
+                                  }
+
+                                  // 블럭 인덱스 추출 (block_0 => 0)
+                                  const blockIndex = parseInt(blockKey.replace('block_', ''));
+                                  const block = template.blocks?.[blockIndex];
+
+                                  // 입력 폼이 없는 블럭은 제외 (inputType이 NONE이거나 없는 경우)
+                                  if (!block || !block.inputType || block.inputType === 'NONE') {
+                                    return null;
+                                  }
+
+                                  // 답변 형식화
+                                  const formatAnswer = (answer, inputType) => {
+                                    if (Array.isArray(answer)) {
+                                      return answer.join(', ');
+                                    }
+                                    return answer?.toString() || '답변 없음';
+                                  };
+
+                                  return (
+                                    <div key={blockKey} className="bg-white rounded-lg p-3 border border-gray-200">
+                                      <div className="mb-2">
+                                        <h4 className="text-sm font-semibold text-gray-800">
+                                          {block.title || `질문 ${blockIndex + 1}`}
+                                        </h4>
+                                        {block.description && (
+                                          <p className="text-xs text-gray-500 mt-1">{block.description}</p>
+                                        )}
+                                      </div>
+                                      <div className="text-sm text-gray-700">
+                                        {formatAnswer(answer, block.inputType)}
+                                      </div>
+                                      {/* 입력 타입 표시 */}
+                                      <div className="mt-2">
+                                        <span className="inline-block px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-600">
+                                          {block.inputType === 'TEXT' ? '단답형' :
+                                           block.inputType === 'TEXTAREA' ? '장문형' :
+                                           block.inputType === 'RADIO' ? '객관식(단일)' :
+                                           block.inputType === 'CHECKBOX' ? '객관식(다중)' :
+                                           block.inputType === 'SELECT' ? '드롭다운' :
+                                           block.inputType === 'NUMBER' ? '숫자' :
+                                           block.inputType === 'DATE' ? '날짜' :
+                                           block.inputType === 'FILE' ? '파일' :
+                                           block.inputType}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  );
+                                }).filter(Boolean)}
                               </div>
                             </div>
                           ))}

@@ -103,18 +103,23 @@ function SurveyInfluencerConnectContent() {
 
       // templateId가 메일 템플릿 ID인 경우, 연결된 캠페인 템플릿을 찾아야 함
       // 먼저 메일 템플릿을 조회해서 연결된 캠페인 템플릿 ID를 가져옴
+      console.log('Initial templateId from URL:', templateId, 'type:', typeof templateId)
       const emailTemplateResponse = await fetch(`/api/email-templates?userId=${dbUser.id}`)
       let surveyTemplateId = templateId // 기본적으로는 templateId를 그대로 사용
 
       if (emailTemplateResponse.ok) {
         const emailData = await emailTemplateResponse.json()
+        console.log('Email templates:', emailData.templates)
         const emailTemplate = emailData.templates?.find(t => t.id === parseInt(templateId))
+        console.log('Found email template:', emailTemplate)
         if (emailTemplate && emailTemplate.surveyTemplateId) {
           surveyTemplateId = emailTemplate.surveyTemplateId
+          console.log('Using surveyTemplateId from email template:', surveyTemplateId)
         }
       }
 
       // 실제 사용할 캠페인 템플릿 ID를 상태에 저장
+      console.log('Final surveyTemplateId:', surveyTemplateId)
       setActualSurveyTemplateId(surveyTemplateId)
 
       // 템플릿 정보, 인플루언서 목록, 메일 발송 기록이 있는 인플루언서 목록을 병렬로 로드
@@ -126,8 +131,10 @@ function SurveyInfluencerConnectContent() {
 
       if (templateResponse.ok) {
         const templateData = await templateResponse.json()
+        console.log('Template response:', templateData)
         setTemplate(templateData.template)
       } else {
+        console.error('Template response failed:', templateResponse.status, await templateResponse.text())
         alert('연결된 캠페인 템플릿을 찾을 수 없습니다. 먼저 메일 템플릿에서 캠페인을 연결해주세요.')
         router.push('/email-templates')
         return
@@ -178,19 +185,33 @@ function SurveyInfluencerConnectContent() {
 
       // 각 인플루언서의 응답 여부 확인
       try {
-        const responsesResponse = await fetch(`/api/survey-responses/${actualSurveyTemplateId || templateId}?userId=${dbUser.id}`)
+        const finalTemplateId = surveyTemplateId  // actualSurveyTemplateId 대신 surveyTemplateId 사용
+        console.log('Loading responses for templateId:', finalTemplateId)
+        const responsesResponse = await fetch(`/api/survey-responses/${finalTemplateId}?userId=${dbUser.id}`)
         if (responsesResponse.ok) {
           const responsesData = await responsesResponse.json()
+          console.log('Responses data:', responsesData)
           const responseMap = {}
 
-          // 응답한 인플루언서 ID 목록 만들기
+          // 응답한 인플루언서 ID 목록과 응답 시간 만들기
           Object.values(responsesData.responsesByInfluencer || {}).forEach(data => {
-            if (data.influencer) {
-              responseMap[data.influencer.id] = true
+            if (data.influencer && data.responses && data.responses.length > 0) {
+              console.log('Found response for influencer:', data.influencer.id, data.influencer)
+              // 가장 최근 응답 시간 사용
+              const latestResponse = data.responses.sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt))[0]
+              responseMap[data.influencer.id] = {
+                completed: true,
+                submittedAt: latestResponse.submittedAt
+              }
             }
           })
 
+          console.log('Response map:', responseMap)
           setInfluencerResponses(responseMap)
+        } else {
+          console.error('Failed to fetch responses:', responsesResponse.status)
+          const errorText = await responsesResponse.text()
+          console.error('Response error details:', errorText)
         }
       } catch (error) {
         console.error('Error loading responses:', error)
@@ -944,13 +965,29 @@ function SurveyInfluencerConnectContent() {
                                 )}
                                 {/* 응답 여부 표시 */}
                                 <div className="mt-2">
-                                  {influencerResponses[connection.influencer.id] ? (
-                                    <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                                      </svg>
-                                      응답 완료
-                                    </span>
+                                  {influencerResponses[connection.influencer.id]?.completed ? (
+                                    <div className="space-y-1">
+                                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                                        </svg>
+                                        응답 완료
+                                      </span>
+                                      {influencerResponses[connection.influencer.id]?.submittedAt && (
+                                        <div className="text-xs text-gray-500 mt-1">
+                                          <svg className="w-3 h-3 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          {new Date(influencerResponses[connection.influencer.id].submittedAt).toLocaleString('ko-KR', {
+                                            year: 'numeric',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                          })}
+                                        </div>
+                                      )}
+                                    </div>
                                   ) : (
                                     <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
                                       <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
