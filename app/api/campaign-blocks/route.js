@@ -14,15 +14,16 @@ export async function GET(request) {
 
     let whereCondition
     if (includePublic) {
-      // 사용자의 개인 블럭 + 모든 공용 블럭
+      // 사용자의 블럭 + 공용 블럭 (새로운 시스템 + 레거시 지원)
       whereCondition = {
         OR: [
           { userId: parseInt(userId), isActive: true },
-          { isPublic: true, isActive: true }
+          { isShared: true, isActive: true },
+          { isPublic: true, isActive: true } // 레거시 지원
         ]
       }
     } else {
-      // 사용자의 개인 블럭만
+      // 사용자의 블럭만
       whereCondition = {
         userId: parseInt(userId),
         isActive: true
@@ -55,7 +56,17 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json()
-    const { title, content, isPublic = false, inputType = 'NONE', inputConfig = {}, isRequired = false, userId } = body
+    const {
+      title,
+      content,
+      templateId,
+      isShared = false,
+      isPublic = false, // 레거시 지원
+      inputType = 'NONE',
+      inputConfig = {},
+      isRequired = false,
+      userId
+    } = body
 
     if (!title || !content || !userId) {
       return NextResponse.json({ error: 'Title, content, and userId are required' }, { status: 400 })
@@ -65,7 +76,9 @@ export async function POST(request) {
       data: {
         title,
         content,
-        isPublic,
+        templateId,
+        isShared,
+        isPublic, // 레거시 지원
         inputType,
         inputConfig,
         isRequired,

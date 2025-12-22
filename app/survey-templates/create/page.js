@@ -462,6 +462,7 @@ function CreateSurveyTemplateContent() {
                   onUseBlock={handleUseBlock}
                   onBlockUpdated={handleBlockUpdated}
                   refreshTrigger={refreshTrigger}
+                  currentTemplateId={editId}
                 />
               </div>
             </div>

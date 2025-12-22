@@ -11,11 +11,22 @@ export function BlockEditor({
   onSave,
   onCancel,
   isNew = false,
-  dbUser
+  dbUser,
+  currentTemplateId = null
 }) {
   const [title, setTitle] = useState(block?.title || '')
   const [content, setContent] = useState(block?.content || '')
-  const [isPublic, setIsPublic] = useState(block?.isPublic || false)
+  const [blockType, setBlockType] = useState(() => {
+    // 새 블럭인 경우 기본값 설정
+    if (isNew) {
+      return currentTemplateId ? 'template' : 'shared'
+    }
+    // 기존 블럭의 타입 판단
+    if (block?.templateId) {
+      return 'template'
+    }
+    return block?.isShared || block?.isPublic ? 'shared' : 'template'
+  })
   const [inputType, setInputType] = useState(block?.inputType || 'NONE')
   const [inputConfig, setInputConfig] = useState(block?.inputConfig || {})
   const [isRequired, setIsRequired] = useState(block?.isRequired || false)
@@ -70,7 +81,10 @@ export function BlockEditor({
         body: JSON.stringify({
           title,
           content,
-          isPublic,
+          templateId: blockType === 'template' ? currentTemplateId : null,
+          isShared: blockType === 'shared',
+          // 레거시 지원
+          isPublic: blockType === 'shared',
           inputType,
           inputConfig,
           isRequired,
@@ -121,7 +135,7 @@ export function BlockEditor({
       </div>
 
       <div className="space-y-4">
-        <div>
+          <div>
           <label className="block text-sm font-medium text-gray-900 mb-2">
             블럭 제목
           </label>
@@ -406,17 +420,48 @@ export function BlockEditor({
           )}
         </div>
 
-        <div className="flex items-center">
-          <input
-            type="checkbox"
-            id="isPublic"
-            checked={isPublic}
-            onChange={(e) => setIsPublic(e.target.checked)}
-            className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
-          />
-          <label htmlFor="isPublic" className="ml-2 text-sm text-gray-700">
-            공용 블럭으로 설정 (다른 템플릿에서도 사용 가능)
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            블럭 유형
           </label>
+          <div className="space-y-3">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="blockType"
+                value="template"
+                checked={blockType === 'template'}
+                onChange={(e) => setBlockType(e.target.value)}
+                className="text-purple-600 focus:ring-purple-500 border-gray-300"
+              />
+              <div className="ml-3">
+                <div className="text-sm font-medium text-gray-900">
+                  템플릿 전용 블럭
+                </div>
+                <div className="text-xs text-gray-500">
+                  현재 템플릿에서만 사용하는 블럭
+                </div>
+              </div>
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="blockType"
+                value="shared"
+                checked={blockType === 'shared'}
+                onChange={(e) => setBlockType(e.target.value)}
+                className="text-purple-600 focus:ring-purple-500 border-gray-300"
+              />
+              <div className="ml-3">
+                <div className="text-sm font-medium text-gray-900">
+                  공용 블럭
+                </div>
+                <div className="text-xs text-gray-500">
+                  다른 템플릿에서도 재사용할 수 있는 블럭
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
@@ -521,11 +566,13 @@ export function BlockPreview({ block, onEdit, onDelete, onUse, showActions = tru
           <h4 className="font-medium text-gray-900 mb-1">{block.title}</h4>
           <div className="flex items-center space-x-2 mb-2">
             <span className={`text-xs px-2 py-1 rounded-full ${
-              block.isPublic
+              block.templateId
+                ? 'bg-blue-100 text-blue-800'
+                : block.isShared || block.isPublic
                 ? 'bg-green-100 text-green-800'
                 : 'bg-blue-100 text-blue-800'
             }`}>
-              {block.isPublic ? '공용' : '개인'}
+              {block.templateId ? '템플릿 전용' : (block.isShared || block.isPublic) ? '공용' : '템플릿 전용'}
             </span>
             {block.isRequired && (
               <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
@@ -653,11 +700,13 @@ export function DraggableBlock({
             <h4 className="font-medium text-gray-900 mb-1">{block.title}</h4>
             <div className="flex items-center space-x-2 mb-2">
               <span className={`text-xs px-2 py-1 rounded-full ${
-                block.isPublic
+                block.templateId
+                  ? 'bg-blue-100 text-blue-800'
+                  : block.isShared || block.isPublic
                   ? 'bg-green-100 text-green-800'
                   : 'bg-blue-100 text-blue-800'
               }`}>
-                {block.isPublic ? '공용' : '개인'}
+                {block.templateId ? '템플릿 전용' : (block.isShared || block.isPublic) ? '공용' : '템플릿 전용'}
               </span>
               {block.isRequired && (
                 <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-800">
@@ -745,7 +794,8 @@ export function BlockLibrary({
   onEditBlock,
   onDeleteBlock,
   onBlockUpdated,
-  refreshTrigger = 0
+  refreshTrigger = 0,
+  currentTemplateId = null
 }) {
   const [blocks, setBlocks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -782,14 +832,27 @@ export function BlockLibrary({
     // 타입 필터링
     let matchesFilter = true
     switch (filter) {
-      case 'personal':
-        matchesFilter = block.userId === dbUser.id
+      case 'template':
+        // 템플릿 전용 블럭: 현재 템플릿에 속한 블럭만 (null과 null 비교 제외)
+        if (currentTemplateId) {
+          matchesFilter = block.templateId === currentTemplateId
+        } else {
+          // 새 템플릿 생성 시에는 사용자의 템플릿 전용 블럭만 (templateId가 null이고 공유되지 않은 블럭)
+          matchesFilter = block.userId === dbUser.id && !block.templateId && !block.isShared && !block.isPublic
+        }
         break
-      case 'public':
-        matchesFilter = block.isPublic
+      case 'shared':
+        // 공용 블럭: isShared가 true이거나 레거시 isPublic이 true인 블럭
+        matchesFilter = block.isShared || block.isPublic
         break
       default:
-        matchesFilter = true
+        // 전체: 공용 블럭 + 현재 템플릿의 전용 블럭
+        if (currentTemplateId) {
+          matchesFilter = block.isShared || block.isPublic || block.templateId === currentTemplateId
+        } else {
+          // 새 템플릿 생성 시: 공용 블럭만
+          matchesFilter = block.isShared || block.isPublic
+        }
     }
 
     // 검색어 필터링
@@ -862,6 +925,7 @@ export function BlockLibrary({
         onCancel={handleCancelEdit}
         isNew={!editingBlock}
         dbUser={dbUser}
+        currentTemplateId={currentTemplateId}
       />
     )
   }
@@ -912,19 +976,19 @@ export function BlockLibrary({
           전체
         </button>
         <button
-          onClick={() => setFilter('personal')}
+          onClick={() => setFilter('template')}
           className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
-            filter === 'personal'
+            filter === 'template'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
           }`}
         >
-          개인
+          템플릿 전용
         </button>
         <button
-          onClick={() => setFilter('public')}
+          onClick={() => setFilter('shared')}
           className={`flex-1 text-xs py-1.5 rounded-md transition-colors ${
-            filter === 'public'
+            filter === 'shared'
               ? 'bg-white text-gray-900 shadow-sm'
               : 'text-gray-600 hover:text-gray-900'
           }`}
