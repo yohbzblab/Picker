@@ -90,7 +90,5 @@ export async function POST(request) {
       { error: 'Failed to submit survey response' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

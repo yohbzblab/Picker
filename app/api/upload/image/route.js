@@ -136,7 +136,5 @@ export async function POST(request) {
       { error: '이미지 업로드 중 서버 오류가 발생했습니다.' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

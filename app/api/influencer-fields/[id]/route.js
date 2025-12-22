@@ -39,8 +39,6 @@ export async function PUT(request, { params }) {
   } catch (error) {
     console.error('Error updating influencer field:', error)
     return NextResponse.json({ error: 'Failed to update field' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -72,7 +70,5 @@ export async function DELETE(_, { params }) {
   } catch (error) {
     console.error('Error deleting influencer field:', error)
     return NextResponse.json({ error: 'Failed to delete field' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

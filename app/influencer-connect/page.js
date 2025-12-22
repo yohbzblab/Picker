@@ -215,7 +215,6 @@ function InfluencerConnectContent() {
       // 카드를 확장할 때 해당 인플루언서로 미리보기 업데이트
       const connection = connectedInfluencers.find(conn => conn.id === connectionId)
       if (connection) {
-        console.log('Generating preview for connection:', connectionId, connection.userVariables)
         generatePreview(connection.influencer, connectionId)
       }
     }
@@ -243,7 +242,6 @@ function InfluencerConnectContent() {
       previewTimeoutRef.current = setTimeout(() => {
         const connection = connectedInfluencers.find(conn => conn.id === connectionId)
         if (connection) {
-          console.log('Updating preview with new variable:', variableName, value)
           generatePreview(connection.influencer, connectionId)
         }
       }, 1000)
@@ -265,26 +263,7 @@ function InfluencerConnectContent() {
       setSaving(true)
       const variables = connectionUserVariables[connectionId] || {}
 
-      // 1. 템플릿의 userVariables 업데이트
-      const templateResponse = await fetch(`/api/email-templates/${templateId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          userId: dbUser.id,
-          userVariables: template.userVariables
-        })
-      })
-
-      if (!templateResponse.ok) {
-        const errorData = await templateResponse.json()
-        console.error('Error updating template:', errorData)
-        alert('템플릿 변수 저장에 실패했습니다.')
-        return
-      }
-
-      // 2. 연결별 사용자 변수 저장
+      // 연결별 사용자 변수 저장 (템플릿 자체는 수정하지 않음)
       const response = await fetch('/api/template-influencer-connections', {
         method: 'PATCH',
         headers: {
@@ -299,7 +278,6 @@ function InfluencerConnectContent() {
 
       if (response.ok) {
         const data = await response.json()
-        console.log('User variables saved successfully:', data)
 
         // 연결 데이터 업데이트
         setConnectedInfluencers(prevConnections =>
@@ -417,10 +395,9 @@ function InfluencerConnectContent() {
 
       // 템플릿의 모든 사용자 변수에 대해 기본값 설정
       if (template.userVariables) {
-        Object.keys(template.userVariables).forEach(key => {
-          const options = template.userVariables[key]
-          // 기본값은 옵션 배열의 첫 번째 값 또는 샘플 값
-          const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : `샘플 ${key}`
+        Object.entries(template.userVariables).forEach(([key, value]) => {
+          // 간단한 구조 지원: [기본값] 형태
+          const defaultValue = Array.isArray(value) && value.length > 0 ? value[0] : (typeof value === 'string' ? value : `샘플 ${key}`)
           customUserVariables[key] = [defaultValue]
         })
       }
@@ -775,11 +752,12 @@ function InfluencerConnectContent() {
                               {/* 사용자 변수 미리보기 (템플릿에 사용자 변수가 있으면 항상 표시) */}
                               {template.userVariables && Object.keys(template.userVariables).length > 0 && (
                                 <div className="px-4 pb-3 space-y-1">
-                                  {Object.entries(template.userVariables).map(([key, options]) => {
+                                  {Object.entries(template.userVariables).map(([key, value]) => {
+                                    // 간단한 구조 지원: [기본값] 형태
+                                    const defaultValue = Array.isArray(value) && value.length > 0 ? value[0] : (typeof value === 'string' ? value : '')
                                     // 저장된 값 또는 로컬 상태의 값 또는 기본값
                                     const savedValue = connection.userVariables?.[key]
                                     const localValue = connectionUserVariables[connection.id]?.[key]
-                                    const defaultValue = Array.isArray(options) && options.length > 0 ? options[0] : ''
                                     // null 병합 연산자(??)를 사용하여 빈 문자열도 유효한 값으로 처리
                                     const displayValue = localValue ?? savedValue ?? defaultValue
 
@@ -810,12 +788,13 @@ function InfluencerConnectContent() {
                                     {template.userVariables && Object.keys(template.userVariables).length > 0 ? (
                                       <div className="space-y-2">
                                         {/* 기존 변수 목록 */}
-                                        {Object.entries(template.userVariables).map(([variableName, options]) => {
+                                        {Object.entries(template.userVariables).map(([variableName, value]) => {
                                           const isEditing = editingVariables[`${connection.id}-${variableName}`]
+                                          // 간단한 구조 지원: [기본값] 형태
+                                          const defaultValue = Array.isArray(value) && value[0] ? value[0] : (typeof value === 'string' ? value : '')
                                           // null 병합 연산자를 사용하여 빈 문자열도 유효한 값으로 처리
                                           const localValue = connectionUserVariables[connection.id]?.[variableName]
                                           const savedValue = connection.userVariables?.[variableName]
-                                          const defaultValue = Array.isArray(options) && options[0] || ''
                                           const currentValue = localValue !== undefined ? localValue : (savedValue ?? defaultValue)
 
                                           return (
@@ -1091,6 +1070,26 @@ function InfluencerConnectContent() {
                     <span className="text-gray-600">템플릿명:</span>
                     <p className="font-medium">{template.name}</p>
                   </div>
+
+                  {/* 사용자 변수 정보 표시 */}
+                  {template.userVariables && Object.keys(template.userVariables).length > 0 && (
+                    <div>
+                      <span className="text-gray-600">사용자 변수:</span>
+                      <div className="mt-2 space-y-2">
+                        {Object.entries(template.userVariables).map(([variableName, value]) => {
+                          const defaultValue = Array.isArray(value) && value[0] ? value[0] : (typeof value === 'string' ? value : '기본값')
+                          return (
+                            <div key={variableName} className="bg-purple-50 p-3 rounded-lg border">
+                              <div className="flex items-center justify-between">
+                                <span className="text-xs font-medium text-purple-800">{`{{${variableName}}}`}</span>
+                                <span className="text-xs text-purple-600">기본값: {defaultValue}</span>
+                              </div>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
 
                   {/* 조건문 변수 정보 표시 */}
                   {template.conditionalRules && Object.keys(template.conditionalRules).length > 0 && (

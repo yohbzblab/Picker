@@ -65,6 +65,7 @@ export async function POST(request) {
       inputType = 'NONE',
       inputConfig = {},
       isRequired = false,
+      showInDashboard = false,
       userId
     } = body
 
@@ -82,6 +83,7 @@ export async function POST(request) {
         inputType,
         inputConfig,
         isRequired,
+        showInDashboard,
         userId: parseInt(userId)
       },
       include: {

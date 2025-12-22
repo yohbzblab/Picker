@@ -51,8 +51,6 @@ export async function GET(request) {
   } catch (error) {
     console.error('Error fetching survey template connections:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -123,8 +121,6 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating survey template connection:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -165,7 +161,5 @@ export async function DELETE(request) {
   } catch (error) {
     console.error('Error deleting survey template connection:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

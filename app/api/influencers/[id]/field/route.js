@@ -71,7 +71,5 @@ export async function PATCH(request, { params }) {
     return NextResponse.json({
       error: 'Failed to update field'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

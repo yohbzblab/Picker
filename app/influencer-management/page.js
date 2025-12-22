@@ -1350,10 +1350,14 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
   const [sentEmails, setSentEmails] = useState([])
   const [emailsLoading, setEmailsLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('received')
+  const [dashboardBlocks, setDashboardBlocks] = useState([])
+  const [surveyResponses, setSurveyResponses] = useState([])
+  const [hasSurveyResponse, setHasSurveyResponse] = useState(false)
 
   useEffect(() => {
     if (isExpanded) {
       loadEmails()
+      loadCampaignData()
     }
   }, [isExpanded, influencer.id])
 
@@ -1375,6 +1379,35 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
       console.error('메일 로딩 실패:', error)
     } finally {
       setEmailsLoading(false)
+    }
+  }
+
+  const loadCampaignData = async () => {
+    try {
+      // 대시보드에 노출할 블럭들과 응답 데이터 로드
+      const dashboardResponse = await fetch(`/api/influencers/${influencer.id}/dashboard-data`)
+      if (dashboardResponse.ok) {
+        const dashboardData = await dashboardResponse.json()
+        console.log(`🔍 [인플루언서 ${influencer.id}] 캠페인 데이터:`, dashboardData)
+        setDashboardBlocks(dashboardData.blocks || [])
+        setSurveyResponses(dashboardData.responses || [])
+
+        // 설문 응답 여부 확인 (유효한 응답이 있는지 체크)
+        const hasValidSurveyResponse = (dashboardData.responses || []).some(response => {
+          if (!response.responses) return false
+          return Object.values(response.responses).some(value =>
+            value !== null &&
+            value !== undefined &&
+            value !== '' &&
+            (Array.isArray(value) ? value.length > 0 : true)
+          )
+        })
+        setHasSurveyResponse(hasValidSurveyResponse)
+      } else {
+        console.error('대시보드 데이터 로드 실패:', dashboardResponse.status)
+      }
+    } catch (error) {
+      console.error('캠페인 데이터 로딩 실패:', error)
     }
   }
 
@@ -1448,6 +1481,13 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
 
           {!isDeleteMode && (
             <div className="flex items-center space-x-3 ml-4 flex-shrink-0">
+              {/* 설문 제출 상태 태그 */}
+              {isExpanded && hasSurveyResponse && (
+                <span className="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                  설문 제출 완료
+                </span>
+              )}
+
               <button
                 onClick={onEdit}
                 className="text-purple-600 hover:text-purple-700 text-sm font-medium"
@@ -1465,7 +1505,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
               onClick={onToggleExpansion}
               className="flex items-center gap-2 px-3 py-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors text-sm"
             >
-              <span>{isExpanded ? '접기' : '메일 보기'}</span>
+              <span>{isExpanded ? '접기' : '확장'}</span>
               <svg
                 className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                 fill="none"
@@ -1489,7 +1529,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
       </div>
 
       {isExpanded && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6 pt-6 border-t border-gray-200 space-y-6">
           {/* 메일 섹션 */}
           {influencer.email && (
             <div className="space-y-4">
@@ -1604,6 +1644,182 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
               </div>
             </div>
           )}
+
+          {/* 캠페인 정보 섹션 */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-semibold text-gray-900">캠페인 정보</h3>
+              {hasSurveyResponse && (
+                <span className="inline-flex px-3 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                  ✓ 설문 제출 완료
+                </span>
+              )}
+            </div>
+            {dashboardBlocks.length > 0 ? (
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <div className="grid grid-cols-1 gap-6">
+                  {dashboardBlocks.map((block, index) => {
+                    // 해당 블럭에 대한 응답 찾기
+                    console.log(`🔍 블럭 ${block.id} (${block.title}) 응답 찾는 중...`)
+
+                    // 모든 surveyResponses에서 가능한 키들을 확인
+                    const allAvailableKeys = new Set()
+                    surveyResponses.forEach(r => {
+                      if (r.responses) {
+                        Object.keys(r.responses).forEach(key => allAvailableKeys.add(key))
+                      }
+                    })
+                    console.log('📝 사용 가능한 모든 응답 키:', Array.from(allAvailableKeys))
+
+                    // 간단한 방법: 모든 응답에서 이 블럭과 관련된 값을 찾기
+                    let bestMatch = null
+                    let bestResponse = null
+
+                    console.log(`🔍 블럭 ${block.id} (${block.title}) - inputType: ${block.inputType}`)
+
+                    for (const surveyResponse of surveyResponses) {
+                      if (!surveyResponse.responses) continue
+
+                      // 모든 키를 확인해서 매치되는 것 찾기
+                      for (const [responseKey, responseValue] of Object.entries(surveyResponse.responses)) {
+                        // 현재 블럭의 인덱스와 매치되는지 확인
+                        if (responseKey === `block_${index}` ||
+                            responseKey === String(index) ||
+                            responseKey === block.id ||
+                            responseKey === String(block.id)) {
+
+                          console.log(`🎯 블럭 ${block.id} 매칭 성공: ${responseKey} = `, responseValue)
+                          console.log(`   - 타입: ${typeof responseValue}, 값: `, responseValue)
+
+                          // 객관식의 경우 배열이나 빈 값일 수 있음
+                          if (block.inputType === 'RADIO' || block.inputType === 'CHECKBOX') {
+                            console.log(`   📋 객관식 블럭 처리: ${block.inputType}`)
+                          }
+
+                          bestMatch = responseValue
+                          bestResponse = surveyResponse
+                          break
+                        }
+                      }
+
+                      if (bestMatch !== null || (bestMatch === '' || bestMatch === 0)) break
+                    }
+
+                    const response = bestResponse
+
+                    // bestMatch에서 이미 값을 찾았으므로 그것을 사용
+                    let userResponse = bestMatch
+
+                    // 응답이 있지만 빈 값인지 확인 (객관식 고려)
+                    const hasValidResponse = (() => {
+                      if (userResponse === null || userResponse === undefined) {
+                        return false
+                      }
+
+                      // 객관식 처리
+                      if (block.inputType === 'RADIO' || block.inputType === 'CHECKBOX') {
+                        if (Array.isArray(userResponse)) {
+                          return userResponse.length > 0 && userResponse.some(val => val !== null && val !== undefined && val !== '')
+                        }
+                        // 단일 값인 경우
+                        return userResponse !== '' && userResponse !== null && userResponse !== undefined
+                      }
+
+                      // 일반 텍스트 등
+                      if (Array.isArray(userResponse)) {
+                        return userResponse.length > 0
+                      }
+
+                      return userResponse !== ''
+                    })()
+
+                    console.log(`💬 블럭 ${block.id}의 상세 분석:`)
+                    console.log('  - userResponse:', userResponse)
+                    console.log('  - typeof:', typeof userResponse)
+                    console.log('  - null 체크:', userResponse !== null)
+                    console.log('  - undefined 체크:', userResponse !== undefined)
+                    console.log('  - 빈 문자열 체크:', userResponse !== '')
+                    console.log('  - 최종 hasValidResponse:', hasValidResponse)
+
+                    return (
+                      <div key={block.id || index} className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:space-x-6">
+                          {/* 블럭 정보 */}
+                          <div className="flex-1 mb-4 lg:mb-0">
+                            <h4 className="text-sm font-medium text-gray-900 mb-2">{block.title}</h4>
+                            <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                              {block.content}
+                            </div>
+                          </div>
+
+                          {/* 응답 정보 */}
+                          <div className="flex-shrink-0 lg:w-80">
+                            <div className="text-xs font-medium text-gray-600 mb-2">사용자 응답</div>
+                            {hasValidResponse ? (
+                              <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+                                <div className="text-sm text-blue-900">
+                                  {(() => {
+                                    // 객관식 응답 처리
+                                    if (block.inputType === 'RADIO' || block.inputType === 'CHECKBOX') {
+                                      if (Array.isArray(userResponse)) {
+                                        return (
+                                          <div className="flex flex-wrap gap-1">
+                                            {userResponse.map((item, idx) => (
+                                              <span key={idx} className="inline-flex px-2 py-1 text-xs bg-blue-200 text-blue-800 rounded-md">
+                                                {String(item)}
+                                              </span>
+                                            ))}
+                                          </div>
+                                        )
+                                      } else {
+                                        return (
+                                          <span className="inline-flex px-2 py-1 text-xs bg-blue-200 text-blue-800 rounded-md">
+                                            {String(userResponse)}
+                                          </span>
+                                        )
+                                      }
+                                    }
+
+                                    // 일반 객체 응답
+                                    if (typeof userResponse === 'object') {
+                                      return (
+                                        <pre className="whitespace-pre-wrap font-mono text-xs">
+                                          {JSON.stringify(userResponse, null, 2)}
+                                        </pre>
+                                      )
+                                    }
+
+                                    // 일반 텍스트 응답
+                                    return <span className="break-words">{String(userResponse)}</span>
+                                  })()}
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="bg-gray-100 border border-gray-200 rounded-md p-3 text-center">
+                                <div className="text-xs text-gray-500">
+                                  {userResponse === '' ? '응답 내용 없음' : '아직 응답하지 않음'}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="bg-gray-50 rounded-lg p-8 border border-gray-200 text-center">
+                <div className="text-gray-500">
+                  <svg className="w-12 h-12 mx-auto mb-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <p className="text-sm font-medium text-gray-600">진행중인 캠페인이 없습니다</p>
+                  <p className="text-xs text-gray-500 mt-1">인플루언서가 참여한 캠페인이 없거나 대시보드에 노출할 정보가 없습니다</p>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

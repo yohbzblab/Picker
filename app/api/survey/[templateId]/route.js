@@ -46,7 +46,5 @@ export async function GET(request, { params }) {
       { error: 'Failed to fetch template' },
       { status: 500 }
     )
-  } finally {
-    await prisma.$disconnect()
   }
 }

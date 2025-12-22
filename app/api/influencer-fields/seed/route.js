@@ -250,7 +250,5 @@ export async function POST() {
   } catch (error) {
     console.error('Error seeding influencer fields:', error)
     return NextResponse.json({ error: 'Failed to seed fields' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

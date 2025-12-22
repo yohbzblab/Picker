@@ -52,7 +52,7 @@ export async function PUT(request, { params }) {
     const resolvedParams = await params
     const blockId = parseInt(resolvedParams.id)
     const body = await request.json()
-    const { title, content, templateId, isShared, isPublic, inputType, inputConfig, isRequired } = body
+    const { title, content, templateId, isShared, isPublic, inputType, inputConfig, isRequired, showInDashboard } = body
 
     if (!userId || !blockId) {
       return NextResponse.json({ error: 'User ID and block ID are required' }, { status: 400 })
@@ -87,7 +87,8 @@ export async function PUT(request, { params }) {
         ...(isPublic !== undefined && { isPublic }), // 레거시 지원
         ...(inputType !== undefined && { inputType }),
         ...(inputConfig !== undefined && { inputConfig }),
-        ...(isRequired !== undefined && { isRequired })
+        ...(isRequired !== undefined && { isRequired }),
+        ...(showInDashboard !== undefined && { showInDashboard })
       },
       include: {
         user: {

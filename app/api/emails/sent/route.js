@@ -77,7 +77,5 @@ export async function GET(request) {
       success: false,
       error: 'Failed to fetch sent emails'
     }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

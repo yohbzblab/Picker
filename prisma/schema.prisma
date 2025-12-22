@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../app/generated/prisma"
@@ -15,55 +9,43 @@ datasource db {
 }
 
 model User {
-  id              Int      @id @default(autoincrement())
-  email           String   @unique
-  name            String?
-  profileImage    String?
-  supabaseId      String   @unique
-  isProfileComplete Boolean @default(false)
-
-  // 기본 발신자 정보
-  senderName      String?  // 발신자 이름
-  brandName       String?  // 브랜드명
-
-  // 이메일 발송 모드 설정
-  emailProvider   String?  @default("mailplug") // "mailplug" | "gmail"
-
-  // Gmail SMTP 설정
-  gmailSmtpHost     String?  @default("smtp.gmail.com")
-  gmailSmtpPort     Int?     @default(587)
-  gmailSmtpUser     String?  // Gmail 주소
-  gmailSmtpPassword String?  // Gmail 앱 비밀번호
-  gmailSenderName   String?  // Gmail 발신자 이름
-
-  // 메일플러그 SMTP 설정
-  mailplugSmtpHost     String?  @default("smtp.mailplug.co.kr")
-  mailplugSmtpPort     Int?     @default(465)
-  mailplugSmtpUser     String?  // 메일플러그 이메일 주소
-  mailplugSmtpPassword String?  // 메일플러그 앱 비밀번호
-  mailplugSenderName   String?  // 메일플러그 발신자 이름
-
-  // 레거시 SMTP 설정 (기존 호환성)
-  smtpHost        String?  // SMTP 서버 주소
-  smtpPort        Int?     // SMTP 포트 (예: 587, 465)
-  smtpUser        String?  // SMTP 사용자명 (이메일)
-  smtpPassword    String?  // SMTP 비밀번호
-  smtpSecure      Boolean? @default(false) // SSL/TLS 사용 여부
-
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  instagramAccounts InstagramAccount[]
-  influencers       Influencer[]
-  emailTemplates    EmailTemplate[]
-  templateConnections TemplateInfluencerConnection[]
-  emailsSent        EmailSent[]
-  emailsReceived    EmailReceived[]
-  templateImages    TemplateImage[]
-  templateAttachments TemplateAttachment[]
-  surveyTemplates   SurveyTemplate[]
-  campaignBlocks    CampaignBlock[]
-  surveyConnections SurveyInfluencerConnection[]
+  id                   Int                            @id @default(autoincrement())
+  email                String                         @unique
+  name                 String?
+  profileImage         String?
+  supabaseId           String                         @unique
+  isProfileComplete    Boolean                        @default(false)
+  createdAt            DateTime                       @default(now())
+  updatedAt            DateTime                       @updatedAt
+  brandName            String?
+  senderName           String?
+  smtpHost             String?
+  smtpPassword         String?
+  smtpPort             Int?
+  smtpSecure           Boolean?                       @default(false)
+  smtpUser             String?
+  emailProvider        String?                        @default("mailplug")
+  gmailSenderName      String?
+  gmailSmtpHost        String?                        @default("smtp.gmail.com")
+  gmailSmtpPassword    String?
+  gmailSmtpPort        Int?                           @default(587)
+  gmailSmtpUser        String?
+  mailplugSenderName   String?
+  mailplugSmtpHost     String?                        @default("smtp.mailplug.co.kr")
+  mailplugSmtpPassword String?
+  mailplugSmtpPort     Int?                           @default(465)
+  mailplugSmtpUser     String?
+  campaignBlocks       CampaignBlock[]
+  emailTemplates       EmailTemplate[]
+  emailsReceived       EmailReceived[]
+  emailsSent           EmailSent[]
+  influencers          Influencer[]
+  instagramAccounts    InstagramAccount[]
+  surveyConnections    SurveyInfluencerConnection[]
+  surveyTemplates      SurveyTemplate[]
+  templateAttachments  TemplateAttachment[]
+  templateImages       TemplateImage[]
+  templateConnections  TemplateInfluencerConnection[]
 
   @@map("users")
 }
@@ -73,24 +55,20 @@ model InstagramAccount {
   userId            Int
   instagramUserId   String   @unique
   username          String
-  accountType       String?  // personal, business, creator
+  accountType       String?
   profilePictureUrl String?
-  accessToken       String   @db.Text
-  refreshToken      String?  @db.Text
+  accessToken       String
+  refreshToken      String?
   tokenExpiresAt    DateTime
   isActive          Boolean  @default(true)
-
-  // Facebook 통합 필드들
   facebookPageId    String?
   facebookPageName  String?
   followersCount    Int?
   mediaCount        Int?
-  biography         String?  @db.Text
+  biography         String?
   website           String?
-
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
-
   user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
@@ -98,49 +76,37 @@ model InstagramAccount {
 }
 
 model InfluencerField {
-  id          Int       @id @default(autoincrement())
-  key         String    @unique  // 컬럼 키 (accountId, name 등)
-  label       String    // 표시명 (계정 ID, 인플루언서 이름 등)
-  tooltip     String?   // 툴팁 설명
-  fieldType   FieldType // 필드 타입
-  isRequired  Boolean   @default(false)  // 필수 여부
-  isFixed     Boolean   @default(false)  // 고정 컬럼 여부 (삭제/수정 불가)
-  sortOrder   Int       @default(0)      // 정렬 순서
-  isActive    Boolean   @default(true)   // 활성화 여부
-
-  // 선택형 필드를 위한 옵션들 (JSON)
-  options     Json?     // SELECT, RADIO 타입의 선택 옵션들
-
-  // 검증 규칙 (JSON)
-  validation  Json?     // min, max, pattern 등 검증 규칙
-
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id         Int       @id @default(autoincrement())
+  key        String    @unique
+  label      String
+  tooltip    String?
+  fieldType  FieldType
+  isRequired Boolean   @default(false)
+  isFixed    Boolean   @default(false)
+  sortOrder  Int       @default(0)
+  isActive   Boolean   @default(true)
+  options    Json?
+  validation Json?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   @@map("influencer_fields")
 }
 
 model Influencer {
-  id        Int      @id @default(autoincrement())
-  userId    Int      // 소유 사용자
-
-  // 고정 필드들
-  accountId String   // 계정 ID (항상 필요한 기본 식별자)
-  email     String?  // 이메일 주소
-
-  // 동적 필드 데이터 (JSON)
-  fieldData Json     // { "name": "김인플루", "followers": 125300, "categories": ["뷰티", "라이프스타일"] }
-
-  // 메타데이터
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  connections TemplateInfluencerConnection[]
-  emailsSent  EmailSent[]
-  emailsReceived EmailReceived[]
-  surveyResponses SurveyResponse[]
+  id                Int                            @id @default(autoincrement())
+  userId            Int
+  accountId         String
+  fieldData         Json
+  createdAt         DateTime                       @default(now())
+  updatedAt         DateTime                       @updatedAt
+  email             String?
+  emailsReceived    EmailReceived[]
+  emailsSent        EmailSent[]
+  user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
   surveyConnections SurveyInfluencerConnection[]
+  surveyResponses   SurveyResponse[]
+  connections       TemplateInfluencerConnection[]
 
   @@index([userId])
   @@index([accountId])
@@ -149,25 +115,24 @@ model Influencer {
 }
 
 model EmailTemplate {
-  id              Int      @id @default(autoincrement())
-  userId          Int      // 템플릿 소유자
-  name            String   // 템플릿 이름 (예: "초기 협업 제안")
-  subject         String   // 메일 제목
-  content         String   @db.Text  // 메일 본문
-  variables       Json?    // 사용 가능한 변수 목록 (레거시)
-  userVariables   Json?    // 사용자 정의 변수 { "변수명": ["값1", "값2", ...] }
-  conditionalRules Json?   // 조건문 규칙 { "변수명": { "conditions": [...], "defaultValue": "" } }
-  surveyTemplateId String?  // 연결된 캠페인 템플릿 ID (선택적)
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  surveyTemplate  SurveyTemplate? @relation(fields: [surveyTemplateId], references: [id], onDelete: SetNull)
-  connections     TemplateInfluencerConnection[]
-  emailsSent      EmailSent[]
-  images          TemplateImage[]
-  attachments     TemplateAttachment[]
+  id               Int                            @id @default(autoincrement())
+  userId           Int
+  name             String
+  subject          String
+  content          String
+  variables        Json?
+  isActive         Boolean                        @default(true)
+  createdAt        DateTime                       @default(now())
+  updatedAt        DateTime                       @updatedAt
+  conditionalRules Json?
+  userVariables    Json?
+  surveyTemplateId String?
+  surveyTemplate   SurveyTemplate?                @relation(fields: [surveyTemplateId], references: [id])
+  user             User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  emailsSent       EmailSent[]
+  attachments      TemplateAttachment[]
+  images           TemplateImage[]
+  connections      TemplateInfluencerConnection[]
 
   @@index([userId])
   @@index([surveyTemplateId])
@@ -175,20 +140,19 @@ model EmailTemplate {
 }
 
 model TemplateImage {
-  id              Int      @id @default(autoincrement())
-  templateId      Int      // 연결된 템플릿
-  userId          Int      // 업로드한 사용자
-  filename        String   // 파일명
-  originalName    String   // 원본 파일명
-  supabasePath    String   // Supabase Storage 경로
-  publicUrl       String   // 공개 URL
-  fileSize        Int      // 파일 크기 (bytes)
-  mimeType        String   // MIME 타입 (image/jpeg, image/png 등)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  template        EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           Int           @id @default(autoincrement())
+  templateId   Int
+  userId       Int
+  filename     String
+  originalName String
+  supabasePath String
+  publicUrl    String
+  fileSize     Int
+  mimeType     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  template     EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([templateId])
   @@index([userId])
@@ -196,20 +160,19 @@ model TemplateImage {
 }
 
 model TemplateAttachment {
-  id              Int      @id @default(autoincrement())
-  templateId      Int      // 연결된 템플릿
-  userId          Int      // 업로드한 사용자
-  filename        String   // 저장된 파일명
-  originalName    String   // 원본 파일명
-  supabasePath    String   // Supabase Storage 경로
-  publicUrl       String   // 공개 URL
-  fileSize        Int      // 파일 크기 (bytes)
-  mimeType        String   // MIME 타입
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  template        EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           Int           @id @default(autoincrement())
+  templateId   Int
+  userId       Int
+  filename     String
+  originalName String
+  supabasePath String
+  publicUrl    String
+  fileSize     Int
+  mimeType     String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  template     EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([templateId])
   @@index([userId])
@@ -217,19 +180,18 @@ model TemplateAttachment {
 }
 
 model TemplateInfluencerConnection {
-  id            Int      @id @default(autoincrement())
-  templateId    Int      // 템플릿 ID
-  influencerId  Int      // 인플루언서 ID
-  userId        Int      // 소유자 (보안을 위해)
-  userVariables Json?    // 이 연결에 대한 사용자 변수 설정 { "변수명": "값" }
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  template      EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  id            Int           @id @default(autoincrement())
+  templateId    Int
+  influencerId  Int
+  userId        Int
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  userVariables Json?
   influencer    Influencer    @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  template      EmailTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
   user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([templateId, influencerId]) // 중복 연결 방지
+  @@unique([templateId, influencerId])
   @@index([templateId])
   @@index([influencerId])
   @@index([userId])
@@ -237,21 +199,20 @@ model TemplateInfluencerConnection {
 }
 
 model EmailSent {
-  id            Int      @id @default(autoincrement())
-  userId        Int      // 발신자
-  templateId    Int?     // 사용된 템플릿 (옵션)
-  influencerId  Int?     // 수신자 인플루언서 (옵션)
-  to            String   // 수신자 이메일 주소
-  subject       String   // 메일 제목
-  content       String   @db.Text // 메일 본문
-  messageId     String?  // 메일 서버에서 반환된 메시지 ID
-  status        EmailStatus @default(SENT) // 전송 상태
-  errorMessage  String?  // 오류 메시지 (실패 시)
-  sentAt        DateTime @default(now()) // 전송 시간
-
-  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  template      EmailTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
-  influencer    Influencer?   @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+  id           Int            @id @default(autoincrement())
+  userId       Int
+  templateId   Int?
+  influencerId Int?
+  to           String
+  subject      String
+  content      String
+  messageId    String?
+  status       EmailStatus    @default(SENT)
+  errorMessage String?
+  sentAt       DateTime       @default(now())
+  influencer   Influencer?    @relation(fields: [influencerId], references: [id])
+  template     EmailTemplate? @relation(fields: [templateId], references: [id])
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([templateId])
@@ -260,35 +221,29 @@ model EmailSent {
   @@map("emails_sent")
 }
 
-enum EmailStatus {
-  SENT      // 성공적으로 전송됨
-  FAILED    // 전송 실패
-  PENDING   // 전송 대기 중
-}
-
 model EmailReceived {
-  id            Int      @id @default(autoincrement())
-  userId        Int      // 수신자 (계정 소유자)
-  messageId     String?  // POP3 메시지 ID
-  uniqueId      String?  // 고유 식별자 (중복 방지용)
-  from          String   // 발신자 이메일 주소
-  to            String   // 수신자 이메일 주소
-  subject       String   // 메일 제목
-  textContent   String?  @db.Text // 텍스트 본문
-  htmlContent   String?  @db.Text // HTML 본문
-  isRead        Boolean  @default(false) // 읽음 여부
-  isDeleted     Boolean  @default(false) // 삭제 여부
-  attachments   Json?    // 첨부파일 정보 (JSON)
-  headers       Json?    // 메일 헤더 정보 (JSON)
-  receivedAt    DateTime @default(now()) // 수신 시간
-  originalDate  DateTime? // 원본 메일의 발송 시간
-  provider      String?  // 이메일 제공자 (gmail, mailplug)
-  influencerId  Int?     // 연관된 인플루언서 ID
-  isInfluencer  Boolean  @default(false) // 인플루언서 메일 여부
+  id           Int         @id @default(autoincrement())
+  userId       Int
+  messageId    String?
+  from         String
+  to           String
+  subject      String
+  textContent  String?
+  htmlContent  String?
+  isRead       Boolean     @default(false)
+  isDeleted    Boolean     @default(false)
+  attachments  Json?
+  headers      Json?
+  receivedAt   DateTime    @default(now())
+  originalDate DateTime?
+  influencerId Int?
+  isInfluencer Boolean     @default(false)
+  provider     String?
+  uniqueId     String?
+  influencer   Influencer? @relation(fields: [influencerId], references: [id])
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  influencer    Influencer? @relation(fields: [influencerId], references: [id], onDelete: SetNull)
-
+  @@unique([userId, uniqueId])
   @@index([userId])
   @@index([from])
   @@index([receivedAt])
@@ -297,61 +252,40 @@ model EmailReceived {
   @@index([provider])
   @@index([influencerId])
   @@index([uniqueId])
-  @@unique([userId, uniqueId]) // 사용자별 고유 ID 유니크 제약
   @@map("emails_received")
 }
 
-enum FieldType {
-  TEXT          // 짧은 텍스트
-  LONG_TEXT     // 장문 텍스트 (textarea)
-  NUMBER        // 숫자
-  URL           // URL 링크
-  EMAIL         // 이메일
-  PHONE         // 전화번호
-  BOOLEAN       // 체크박스 (true/false)
-  SELECT        // 드롭다운 선택 (단일)
-  MULTI_SELECT  // 다중 선택
-  TAGS          // 태그 입력
-  DATE          // 날짜
-  DATETIME      // 날짜시간
-  CURRENCY      // 통화/금액
-  PERCENTAGE    // 퍼센트
-  RATING        // 평점 (1-5)
-}
-
 model SurveyTemplate {
-  id          String   @id @default(uuid())
-  userId      Int      // 템플릿 소유자
-  title       String   // 캠페인 제목
-  description String?  @db.Text // 캠페인 설명
-  blocks      Json?    // 블럭 ID 배열과 순서 정보 JSON
-  questions   Json?    // 레거시 질문 시스템 지원
-  responses   Int      @default(0) // 응답 수
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  surveyResponses SurveyResponse[]
+  id                String                       @id @default(uuid())
+  userId            Int
+  title             String
+  description       String?
+  isActive          Boolean                      @default(true)
+  createdAt         DateTime                     @default(now())
+  updatedAt         DateTime                     @updatedAt
+  blocks            Json?
+  questions         Json?
+  responses         Int                          @default(0)
+  campaignBlocks    CampaignBlock[]
+  emailTemplates    EmailTemplate[]
   surveyConnections SurveyInfluencerConnection[]
-  emailTemplates EmailTemplate[]  // 연결된 메일 템플릿들
-  campaignBlocks CampaignBlock[]  // 템플릿 전용 블럭들
+  surveyResponses   SurveyResponse[]
+  user              User                         @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("survey_templates")
 }
 
 model SurveyResponse {
-  id               Int      @id @default(autoincrement())
-  templateId       String   // 캠페인 템플릿 ID
-  responses        Json     // 응답 데이터 JSON
-  influencerId     Int?     // 응답한 인플루언서 (선택적)
-  respondentEmail  String?  // 응답자 이메일 (인플루언서가 없는 경우)
-  respondentName   String?  // 응답자 이름
-  submittedAt      DateTime @default(now())
-
-  surveyTemplate   SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  influencer       Influencer?    @relation(fields: [influencerId], references: [id], onDelete: SetNull)
+  id              Int            @id @default(autoincrement())
+  influencerId    Int?
+  respondentEmail String?
+  respondentName  String?
+  submittedAt     DateTime       @default(now())
+  responses       Json
+  templateId      String
+  influencer      Influencer?    @relation(fields: [influencerId], references: [id])
+  surveyTemplate  SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
 
   @@index([templateId])
   @@index([influencerId])
@@ -359,29 +293,22 @@ model SurveyResponse {
 }
 
 model CampaignBlock {
-  id          Int      @id @default(autoincrement())
-  userId      Int      // 블럭 소유자
-  title       String   // 블럭 제목
-  content     String   @db.Text // 블럭 내용 (HTML)
-
-  // 새로운 블럭 분류 시스템
-  templateId  String?  // 특정 템플릿에 속한 개인 블럭인 경우 템플릿 ID
-  isShared    Boolean  @default(false) // 공용 블럭 여부 (true: 공용, false: 개인 또는 템플릿 전용)
-
-  // 레거시 지원을 위해 유지 (추후 제거 예정)
-  isPublic    Boolean  @default(false) // 공용 블럭 여부 (true: 공용, false: 일반)
-
-  // 입력 타입 관련 필드
-  inputType   InputType @default(NONE) // 입력 타입 (없음, 객관식, 주관식 등)
-  inputConfig Json?    // 입력 설정 (옵션, 유효성 검사 등)
-  isRequired  Boolean  @default(false) // 필수 입력 여부
-
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  surveyTemplate SurveyTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
+  id              Int             @id @default(autoincrement())
+  userId          Int
+  title           String
+  content         String
+  isPublic        Boolean         @default(false)
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  inputConfig     Json?
+  inputType       InputType       @default(NONE)
+  isRequired      Boolean         @default(false)
+  isShared        Boolean         @default(false)
+  templateId      String?
+  showInDashboard Boolean         @default(false)
+  surveyTemplate  SurveyTemplate? @relation(fields: [templateId], references: [id])
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([templateId])
@@ -391,36 +318,59 @@ model CampaignBlock {
   @@map("campaign_blocks")
 }
 
-enum InputType {
-  NONE          // 입력 없음 (정보 전달만)
-  TEXT          // 주관식 텍스트
-  NUMBER        // 주관식 숫자
-  DATE          // 주관식 날짜
-  TEXTAREA      // 주관식 긴 텍스트
-  RADIO         // 객관식 (단일 선택)
-  CHECKBOX      // 체크박스 (다중 선택)
-  SELECT        // 드롭다운
-  FILE          // 파일 업로드
-}
-
 model SurveyInfluencerConnection {
-  id            Int      @id @default(autoincrement())
-  templateId    String   // Survey 템플릿 ID
-  influencerId  Int      // 인플루언서 ID
-  userId        Int      // 소유자 (보안을 위해)
-  linkRef       String   @unique // 고유 참조 ID (랜덤 문자열)
-  link          String   // 생성된 전체 링크
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           Int            @id @default(autoincrement())
+  templateId   String
+  influencerId Int
+  userId       Int
+  linkRef      String         @unique
+  link         String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  influencer   Influencer     @relation(fields: [influencerId], references: [id], onDelete: Cascade)
+  template     SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  user         User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  template      SurveyTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  influencer    Influencer     @relation(fields: [influencerId], references: [id], onDelete: Cascade)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([templateId, influencerId]) // 중복 연결 방지
+  @@unique([templateId, influencerId])
   @@index([templateId])
   @@index([influencerId])
   @@index([userId])
   @@index([linkRef])
   @@map("survey_influencer_connections")
+}
+
+enum EmailStatus {
+  SENT
+  FAILED
+  PENDING
+}
+
+enum FieldType {
+  TEXT
+  LONG_TEXT
+  NUMBER
+  URL
+  EMAIL
+  PHONE
+  BOOLEAN
+  SELECT
+  MULTI_SELECT
+  TAGS
+  DATE
+  DATETIME
+  CURRENCY
+  PERCENTAGE
+  RATING
+}
+
+enum InputType {
+  NONE
+  TEXT
+  NUMBER
+  DATE
+  TEXTAREA
+  RADIO
+  CHECKBOX
+  SELECT
+  FILE
 }

@@ -13,8 +13,6 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching influencer fields:', error)
     return NextResponse.json({ error: 'Failed to fetch fields' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }
 
@@ -50,7 +48,5 @@ export async function POST(request) {
   } catch (error) {
     console.error('Error creating influencer field:', error)
     return NextResponse.json({ error: 'Failed to create field' }, { status: 500 })
-  } finally {
-    await prisma.$disconnect()
   }
 }

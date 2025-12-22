@@ -651,7 +651,6 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
       )
 
       if (needsMigration) {
-        console.log('Migrating complex user variables structure...')
         const migratedVariables = migrateComplexStructure(userVariables)
         setUserVariables(migratedVariables)
       }

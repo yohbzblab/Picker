@@ -30,6 +30,7 @@ export function BlockEditor({
   const [inputType, setInputType] = useState(block?.inputType || 'NONE')
   const [inputConfig, setInputConfig] = useState(block?.inputConfig || {})
   const [isRequired, setIsRequired] = useState(block?.isRequired || false)
+  const [showInDashboard, setShowInDashboard] = useState(block?.showInDashboard || false)
   const [saving, setSaving] = useState(false)
   const [showVariables, setShowVariables] = useState(false)
   const [influencerFields, setInfluencerFields] = useState([])
@@ -88,6 +89,7 @@ export function BlockEditor({
           inputType,
           inputConfig,
           isRequired,
+          showInDashboard,
           userId: dbUser.id
         })
       })
@@ -462,6 +464,27 @@ export function BlockEditor({
               </div>
             </label>
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-3">
+            대시보드 설정
+          </label>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              id="showInDashboard"
+              checked={showInDashboard}
+              onChange={(e) => setShowInDashboard(e.target.checked)}
+              className="rounded border-gray-300 text-purple-600 focus:ring-purple-500"
+            />
+            <label htmlFor="showInDashboard" className="ml-2 text-sm text-gray-700">
+              대시보드에서 노출
+            </label>
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            체크하면 이 블럭이 대시보드에서 표시됩니다
+          </p>
         </div>
 
         <div className="flex justify-end space-x-3 pt-4">
