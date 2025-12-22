@@ -3,7 +3,7 @@
 import { useAuth } from '@/components/AuthProvider'
 import Navbar from '@/components/Navbar'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { BlockLibrary, BlockBuilder, BlockEditor } from '@/components/CampaignBlockComponents'
 
 // 입력 타입 표시 함수
@@ -176,7 +176,7 @@ const renderInputPreview = (inputType, inputConfig = {}) => {
   }
 }
 
-export default function CreateSurveyTemplate() {
+function CreateSurveyTemplateContent() {
   const { user, dbUser, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -671,5 +671,23 @@ export default function CreateSurveyTemplate() {
         }
       `}</style>
     </div>
+  )
+}
+
+export default function CreateSurveyTemplate() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="min-h-screen bg-white flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto"></div>
+            <p className="mt-2 text-gray-600">로딩 중...</p>
+          </div>
+        </main>
+      </div>
+    }>
+      <CreateSurveyTemplateContent />
+    </Suspense>
   )
 }
