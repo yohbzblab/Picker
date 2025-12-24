@@ -67,9 +67,9 @@ export function RichEditor({ value, onChange, placeholder, isMultiline = true })
       return
     }
 
-    // 파일 크기 검증 (5MB 제한)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('이미지 크기는 5MB를 초과할 수 없습니다.')
+    // 파일 크기 검증 (4MB 제한 - Vercel 제한 고려)
+    if (file.size > 4 * 1024 * 1024) {
+      alert('이미지 크기는 4MB를 초과할 수 없습니다.')
       return
     }
 
