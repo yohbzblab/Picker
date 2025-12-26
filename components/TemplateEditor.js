@@ -112,6 +112,40 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     }
   }
 
+  // 붙여넣기 이벤트 처리 - Notion 메타데이터 제거
+  const handlePaste = (e) => {
+    e.preventDefault()
+
+    // 클립보드에서 텍스트 가져오기
+    const text = e.clipboardData.getData('text/plain')
+    const html = e.clipboardData.getData('text/html')
+
+    let cleanedContent = html || text
+
+    // Notion 메타데이터 패턴 제거
+    // notionvc: UUID 형식의 문자열 제거
+    cleanedContent = cleanedContent.replace(/notionvc:\s*[a-f0-9-]+/gi, '')
+
+    // 추가적인 Notion 관련 메타데이터 패턴이 있다면 여기에 추가
+    // 예: data-notion-* 속성 제거
+    cleanedContent = cleanedContent.replace(/data-notion-[^=]*="[^"]*"/gi, '')
+
+    // 빈 줄이 여러 개 생긴 경우 정리
+    cleanedContent = cleanedContent.replace(/(\n\s*){3,}/g, '\n\n')
+    cleanedContent = cleanedContent.trim()
+
+    // HTML이 있으면 HTML로 삽입, 없으면 텍스트로 삽입
+    if (html && cleanedContent) {
+      document.execCommand('insertHTML', false, cleanedContent)
+    } else if (cleanedContent) {
+      // 텍스트인 경우 줄바꿈을 <br>로 변환
+      const htmlContent = cleanedContent.replace(/\n/g, '<br>')
+      document.execCommand('insertHTML', false, htmlContent)
+    }
+
+    handleInput()
+  }
+
   // 현재 선택된 텍스트의 폰트 크기를 감지하는 함수
   const getCurrentFontSize = useCallback(() => {
     if (editorRef.current && document.activeElement === editorRef.current) {
@@ -724,6 +758,7 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
         ref={editorRef}
         contentEditable
         onInput={handleInput}
+        onPaste={handlePaste}
         onKeyDown={handleKeyDown}
         onFocus={() => {
           // 리치 에디터가 포커스될 때 activeField 설정

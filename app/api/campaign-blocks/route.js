@@ -73,19 +73,38 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Title, content, and userId are required' }, { status: 400 })
     }
 
+    // Validate templateId if provided
+    if (templateId) {
+      const templateExists = await prisma.surveyTemplate.findUnique({
+        where: { id: templateId }
+      })
+
+      if (!templateExists) {
+        return NextResponse.json({
+          error: 'Invalid templateId: Survey template not found'
+        }, { status: 400 })
+      }
+    }
+
+    const blockData = {
+      title,
+      content,
+      isShared,
+      isPublic, // 레거시 지원
+      inputType,
+      inputConfig,
+      isRequired,
+      showInDashboard,
+      userId: parseInt(userId)
+    }
+
+    // Only include templateId if it's provided and valid
+    if (templateId) {
+      blockData.templateId = templateId
+    }
+
     const block = await prisma.campaignBlock.create({
-      data: {
-        title,
-        content,
-        templateId,
-        isShared,
-        isPublic, // 레거시 지원
-        inputType,
-        inputConfig,
-        isRequired,
-        showInDashboard,
-        userId: parseInt(userId)
-      },
+      data: blockData,
       include: {
         user: {
           select: {
@@ -100,6 +119,17 @@ export async function POST(request) {
 
   } catch (error) {
     console.error('Error creating campaign block:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+
+    // More specific error messages
+    if (error.code === 'P2003') {
+      return NextResponse.json({
+        error: 'Foreign key constraint failed. Please check that all referenced IDs exist.'
+      }, { status: 400 })
+    }
+
+    return NextResponse.json({
+      error: 'Internal server error',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    }, { status: 500 })
   }
 }
