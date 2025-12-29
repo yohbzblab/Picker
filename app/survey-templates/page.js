@@ -103,8 +103,33 @@ export default function SurveyTemplates() {
     }
   }
 
-  const handleCreateTemplate = () => {
-    router.push('/survey-templates/create')
+  const handleCreateTemplate = async () => {
+    try {
+      // 먼저 기본 템플릿 생성
+      const response = await fetch('/api/survey-templates', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          title: '새 캠페인',
+          description: '캠페인 설명을 입력해주세요',
+          blocks: [],
+          userId: dbUser.id
+        })
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        // 생성된 템플릿을 수정 모드로 열기
+        router.push(`/survey-templates/create?edit=${data.template.id}`)
+      } else {
+        alert('템플릿 생성에 실패했습니다.')
+      }
+    } catch (error) {
+      console.error('Error creating template:', error)
+      alert('템플릿 생성 중 오류가 발생했습니다.')
+    }
   }
 
   const handleEditTemplate = (template) => {
