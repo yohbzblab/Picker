@@ -385,6 +385,7 @@ function CreateSurveyTemplateContent() {
               onCancel={handleCancelEditBlock}
               isNew={!editingBlock}
               dbUser={dbUser}
+              currentTemplateId={editId}
             />
           </div>
         </main>

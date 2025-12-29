@@ -32,6 +32,14 @@ export default function EmailTemplates() {
     }
   }, [dbUser])
 
+  // 컴포넌트 언마운트 시 스크롤 복원
+  useEffect(() => {
+    return () => {
+      // 컴포넌트가 언마운트될 때 스크롤 복원
+      document.body.style.overflow = 'unset'
+    }
+  }, [])
+
   const loadData = async () => {
     try {
       setLoading(true)
@@ -81,6 +89,8 @@ export default function EmailTemplates() {
   }
 
   const handleEditTemplate = (template) => {
+    // 배경 스크롤 복원
+    document.body.style.overflow = 'unset'
     router.push(`/email-templates/create?edit=${template.id}`)
   }
 
@@ -106,6 +116,8 @@ export default function EmailTemplates() {
   }
 
   const handleInfluencerConnect = (template) => {
+    // 배경 스크롤 복원
+    document.body.style.overflow = 'unset'
     // 템플릿 ID를 쿼리 파라미터로 전달하여 인플루언서 연결 페이지로 이동
     router.push(`/influencer-connect?templateId=${template.id}`)
   }
@@ -267,27 +279,36 @@ export default function EmailTemplates() {
 
           {/* 템플릿 목록 */}
           {templates.length > 0 ? (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {templates.map((template) => (
                 <div
                   key={template.id}
-                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer relative"
+                  className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md hover:border-purple-300 transition-all duration-200 cursor-pointer relative h-fit"
                   onClick={() => handleTemplateClick(template)}
                 >
                   {/* 상단 영역: 메인 정보들 */}
                   <div className="mb-4">
                     {/* 첫 번째 줄: 템플릿 이름과 액션 버튼들 */}
-                    <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-start justify-between mb-3">
                       {/* 템플릿 이름 */}
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-gray-900 truncate">{template.name}</h3>
+                        <h3
+                          className="text-lg font-semibold text-gray-900 overflow-hidden"
+                          style={{
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}
+                        >
+                          {template.name}
+                        </h3>
                         <p className="text-xs text-gray-500 mt-1">
                           {new Date(template.createdAt).toLocaleDateString('ko-KR')}
                         </p>
                       </div>
 
                       {/* 액션 버튼들 */}
-                      <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+                      <div className="flex items-center space-x-1 ml-2 flex-shrink-0">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -317,71 +338,76 @@ export default function EmailTemplates() {
                   </div>
 
                   {/* 두 번째 줄: 제목, 연결된 캠페인, 연결된 인플루언서 정보 */}
-                  <div className="flex flex-col gap-4 mb-4">
-                    {/* 연결된 캠페인 정보 */}
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
-                        {template.surveyTemplate ? (
-                          <div className="flex items-center space-x-2">
-                            <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
-                              {template.surveyTemplate.title}
-                            </div>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleDisconnectFromSurvey(template)
-                              }}
-                              className="text-red-500 hover:text-red-700 p-1"
-                              title="캠페인 연결 해제"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex items-center space-x-2">
-                            <span className="text-sm text-gray-400">연결된 캠페인 없음</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleCampaignConnect(template)
-                              }}
-                              className="bg-blue-500 text-white px-3 py-1 rounded-lg hover:bg-blue-600 transition-colors text-sm font-medium"
-                            >
-                              캠페인 연결
-                            </button>
-                          </div>
-                        )}
-                      </div>
+                  <div className="flex flex-col gap-3 mb-4">
+                    {/* 제목 */}
+                    <div className="">
+                      <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
+                      <p
+                        className="text-sm text-gray-600 overflow-hidden"
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical'
+                        }}
+                      >
+                        {template.subject}
+                      </p>
                     </div>
 
-                    {/* 제목과 연결된 인플루언서 정보 */}
-                    <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                      {/* 제목 */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-gray-700 mb-1">제목</p>
-                        <p className="text-sm text-gray-600">{template.subject}</p>
-                      </div>
+                    {/* 연결된 캠페인 정보 */}
+                    <div className="">
+                      <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
+                      {template.surveyTemplate ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium truncate">
+                            {template.surveyTemplate.title}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDisconnectFromSurvey(template)
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
+                            title="캠페인 연결 해제"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-400">연결된 캠페인 없음</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCampaignConnect(template)
+                            }}
+                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+                          >
+                            연결
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                      {/* 연결된 인플루언서 정보 */}
-                      <div className="sm:flex-shrink-0 sm:w-80">
-                        <p className="text-sm font-medium text-gray-700 mb-2">
-                          연결된 인플루언서 ({template.connections?.length || 0}명)
-                        </p>
+                    {/* 연결된 인플루언서 정보 */}
+                    <div className="">
+                      <p className="text-sm font-medium text-gray-700 mb-2">
+                        연결된 인플루언서 ({template.connections?.length || 0}명)
+                      </p>
                       <div className="flex items-center space-x-2">
                         {template.connections && template.connections.length > 0 ? (
                           <>
                             {/* 랜덤한 3명의 인플루언서 프로필 */}
                             <div className="flex -space-x-1">
                               {template.connections
-                                .sort(() => 0.5 - Math.random()) // 랜덤 정렬
-                                .slice(0, 3) // 최대 3명
+                                .sort(() => 0.5 - Math.random())
+                                .slice(0, 3)
                                 .map((connection, index) => (
                                   <div
                                     key={connection.id}
-                                    className="w-8 h-8 bg-purple-100 rounded-full border-2 border-white flex items-center justify-center"
+                                    className="w-6 h-6 bg-purple-100 rounded-full border-2 border-white flex items-center justify-center"
                                     title={connection.influencer?.name || '이름 없음'}
                                     style={{ zIndex: 10 - index }}
                                   >
@@ -393,7 +419,7 @@ export default function EmailTemplates() {
                             </div>
                             {/* 더 많은 인플루언서가 있을 때 +숫자 표시 */}
                             {template.connections.length > 3 && (
-                              <div className="w-8 h-8 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center">
+                              <div className="w-6 h-6 bg-gray-100 rounded-full border-2 border-white flex items-center justify-center">
                                 <span className="text-gray-600 font-semibold text-xs">
                                   +{template.connections.length - 3}
                                 </span>
@@ -402,51 +428,16 @@ export default function EmailTemplates() {
                           </>
                         ) : (
                           <div className="flex items-center space-x-2 text-gray-400">
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                             </svg>
-                            <span className="text-sm">연결된 인플루언서 없음</span>
+                            <span className="text-xs">연결된 인플루언서 없음</span>
                           </div>
                         )}
-                        </div>
                       </div>
                     </div>
                   </div>
 
-                  {/* 하단 영역: 메일 내용 */}
-                  <div className="border-t border-gray-100 pt-3">
-                    <div className="flex items-start gap-2">
-                      <p className="text-sm font-medium text-gray-700 min-w-0 flex-shrink-0">내용:</p>
-                      <div className="flex-1 min-w-0">
-                        <div
-                          className="text-sm overflow-hidden whitespace-pre-wrap"
-                          style={{
-                            display: '-webkit-box',
-                            WebkitLineClamp: 5,
-                            WebkitBoxOrient: 'vertical',
-                            lineHeight: '1.5'
-                          }}
-                          dangerouslySetInnerHTML={{
-                            __html: template.content ? template.content.trim() || '내용이 없습니다.' : '내용이 없습니다.'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* 우측 하단 인플루언서 연결 버튼 */}
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      handleInfluencerConnect(template)
-                    }}
-                    className="absolute bottom-6 right-6 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium flex items-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                    </svg>
-                    <span>인플루언서 연결</span>
-                  </button>
                 </div>
               ))}
             </div>
