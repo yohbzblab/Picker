@@ -19,6 +19,7 @@ export function BlockEditor({
   const [blockType, setBlockType] = useState(() => {
     // 새 블럭인 경우 기본값 설정
     if (isNew) {
+      // currentTemplateId가 있으면 템플릿 전용, 없으면 공용
       return currentTemplateId ? 'template' : 'shared'
     }
     // 기존 블럭의 타입 판단
@@ -62,6 +63,12 @@ export function BlockEditor({
   const handleSave = async () => {
     if (!title.trim() || !content.trim()) {
       alert('제목과 내용을 모두 입력해주세요.')
+      return
+    }
+
+    // 템플릿 전용 블럭인데 currentTemplateId가 없는 경우 검증
+    if (blockType === 'template' && !currentTemplateId) {
+      alert('템플릿 전용 블럭을 생성하려면 유효한 템플릿이 필요합니다.')
       return
     }
 
@@ -856,12 +863,12 @@ export function BlockLibrary({
     let matchesFilter = true
     switch (filter) {
       case 'template':
-        // 템플릿 전용 블럭: 현재 템플릿에 속한 블럭만 (null과 null 비교 제외)
+        // 템플릿 전용 블럭: 현재 템플릿에 속한 블럭만
         if (currentTemplateId) {
           matchesFilter = block.templateId === currentTemplateId
         } else {
-          // 새 템플릿 생성 시에는 사용자의 템플릿 전용 블럭만 (templateId가 null이고 공유되지 않은 블럭)
-          matchesFilter = block.userId === dbUser.id && !block.templateId && !block.isShared && !block.isPublic
+          // 새 템플릿 생성 시에는 템플릿 전용 블럭이 없으므로 빈 결과
+          matchesFilter = false
         }
         break
       case 'shared':

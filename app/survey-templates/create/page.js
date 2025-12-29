@@ -314,11 +314,6 @@ function CreateSurveyTemplateContent() {
       return
     }
 
-    if (selectedBlocks.length === 0) {
-      alert('최소 1개 이상의 블럭을 추가해주세요.')
-      return
-    }
-
     setLoading(true)
 
     try {

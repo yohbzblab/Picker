@@ -57,12 +57,8 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Title is required' }, { status: 400 })
     }
 
-    // blocks 또는 questions (레거시 지원) 중 하나는 있어야 함
+    // blocks 또는 questions (레거시 지원), 없어도 빈 배열로 처리
     const templateBlocks = blocks || questions || []
-
-    if (templateBlocks.length === 0) {
-      return NextResponse.json({ error: 'At least one block is required' }, { status: 400 })
-    }
 
     // Check if template exists and belongs to user
     const existingTemplate = await prisma.surveyTemplate.findFirst({
