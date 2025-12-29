@@ -856,12 +856,12 @@ export function BlockLibrary({
     let matchesFilter = true
     switch (filter) {
       case 'template':
-        // 템플릿 전용 블럭: 현재 템플릿에 속한 블럭만 (null과 null 비교 제외)
+        // 템플릿 전용 블럭: 현재 템플릿에 속한 블럭만
         if (currentTemplateId) {
           matchesFilter = block.templateId === currentTemplateId
         } else {
-          // 새 템플릿 생성 시에는 사용자의 템플릿 전용 블럭만 (templateId가 null이고 공유되지 않은 블럭)
-          matchesFilter = block.userId === dbUser.id && !block.templateId && !block.isShared && !block.isPublic
+          // 새 템플릿 생성 시에는 템플릿 전용 블럭이 없으므로 빈 결과
+          matchesFilter = false
         }
         break
       case 'shared':

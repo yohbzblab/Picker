@@ -14,19 +14,30 @@ export async function GET(request) {
 
     let whereCondition
     if (includePublic) {
-      // 사용자의 블럭 + 공용 블럭 (새로운 시스템 + 레거시 지원)
+      // 사용자의 템플릿 전용 블럭 + 공용 블럭 (새로운 시스템 + 레거시 지원)
       whereCondition = {
         OR: [
-          { userId: parseInt(userId), isActive: true },
-          { isShared: true, isActive: true },
-          { isPublic: true, isActive: true } // 레거시 지원
+          {
+            userId: parseInt(userId),
+            isActive: true,
+            templateId: { not: null } // 템플릿에 연결된 블럭만
+          },
+          {
+            isShared: true,
+            isActive: true
+          },
+          {
+            isPublic: true,
+            isActive: true
+          } // 레거시 지원
         ]
       }
     } else {
-      // 사용자의 블럭만
+      // 사용자의 템플릿 전용 블럭만
       whereCondition = {
         userId: parseInt(userId),
-        isActive: true
+        isActive: true,
+        templateId: { not: null } // 템플릿에 연결된 블럭만
       }
     }
 
