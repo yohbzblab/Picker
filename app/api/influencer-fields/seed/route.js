@@ -138,31 +138,17 @@ const defaultFields = [
   },
   {
     key: 'cnewlabConfirm',
-    label: '씨뉴랩 컨펌',
-    tooltip: '씨뉴랩에서 해당 인플루언서를 확인했는지 여부입니다.',
+    label: '브랜드 컨펌',
+    tooltip: '브랜드에서 해당 인플루언서를 확인했는지 여부입니다.',
     fieldType: 'BOOLEAN',
     sortOrder: 18
   },
   {
     key: 'buzzbylabConfirm',
-    label: '버즈비랩 컨펌',
-    tooltip: '버즈비랩에서 해당 인플루언서를 확인했는지 여부입니다.',
+    label: '대행사 컨펌',
+    tooltip: '대행사에서 해당 인플루언서를 확인했는지 여부입니다.',
     fieldType: 'BOOLEAN',
     sortOrder: 19
-  },
-  {
-    key: 'buzzbylabOpinion',
-    label: '버즈비랩 의견',
-    tooltip: '버즈비랩의 해당 인플루언서에 대한 의견입니다.',
-    fieldType: 'LONG_TEXT',
-    sortOrder: 20
-  },
-  {
-    key: 'wantToTry',
-    label: '꼭 해보고 싶은 분',
-    tooltip: '특별히 협업하고 싶은 인플루언서인지 여부입니다.',
-    fieldType: 'BOOLEAN',
-    sortOrder: 21
   },
   {
     key: 'dmSent',
@@ -174,7 +160,7 @@ const defaultFields = [
       { value: 'X', label: '미완료' },
       { value: 'PENDING', label: '진행중' }
     ],
-    sortOrder: 22
+    sortOrder: 20
   },
   {
     key: 'dmReply',
@@ -186,7 +172,7 @@ const defaultFields = [
       { value: 'X', label: '미회신' },
       { value: 'PENDING', label: '대기중' }
     ],
-    sortOrder: 23
+    sortOrder: 21
   },
   {
     key: 'guideEmailSent',
@@ -197,7 +183,7 @@ const defaultFields = [
       { value: 'O', label: '전송완료' },
       { value: 'X', label: '미전송' }
     ],
-    sortOrder: 24
+    sortOrder: 22
   },
   {
     key: 'guideAgreement',
@@ -209,14 +195,14 @@ const defaultFields = [
       { value: 'X', label: '미동의' },
       { value: 'PENDING', label: '검토중' }
     ],
-    sortOrder: 25
+    sortOrder: 23
   },
   {
     key: 'additionalOptions',
     label: '추가 옵션 요청',
     tooltip: '추가로 요청된 옵션이나 조건입니다.',
     fieldType: 'TEXT',
-    sortOrder: 26
+    sortOrder: 24
   },
   {
     key: 'finalAmount',
@@ -224,7 +210,7 @@ const defaultFields = [
     tooltip: '최종 확정된 협업 금액입니다.',
     fieldType: 'CURRENCY',
     validation: { min: 0 },
-    sortOrder: 27
+    sortOrder: 25
   }
 ]
 
