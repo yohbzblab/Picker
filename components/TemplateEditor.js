@@ -391,8 +391,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     try {
       let fileToUpload = file
 
-      // 파일 크기가 1MB 이상이면 압축 실행
-      if (file.size > 1 * 1024 * 1024) {
+      // GIF가 아니고 파일 크기가 1MB 이상이면 압축 실행
+      if (file.type !== 'image/gif' && file.size > 1 * 1024 * 1024) {
         console.log('이미지 압축 시작...')
 
         // 파일 크기에 따라 자동으로 압축 옵션 설정
@@ -411,6 +411,8 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
           // 압축 실패 시 원본 파일로 계속 진행
           fileToUpload = file
         }
+      } else if (file.type === 'image/gif') {
+        console.log('GIF 파일: 애니메이션 보존을 위해 압축 건너뜀')
       }
 
       // Vercel 제한(4.5MB) 체크

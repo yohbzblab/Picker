@@ -2,11 +2,21 @@ import imageCompression from 'browser-image-compression'
 
 /**
  * 이미지 파일을 압축하는 유틸리티 함수
+ * GIF 파일은 애니메이션 보존을 위해 압축하지 않음
  * @param {File} imageFile - 압축할 이미지 파일
  * @param {Object} options - 압축 옵션
  * @returns {Promise<File>} 압축된 이미지 파일
  */
 export async function compressImage(imageFile, options = {}) {
+  // GIF 파일은 압축하지 않고 원본 반환 (애니메이션 보존)
+  if (imageFile.type === 'image/gif') {
+    console.log('GIF 파일 감지: 애니메이션 보존을 위해 압축 건너뜀', {
+      name: imageFile.name,
+      size: `${(imageFile.size / 1024 / 1024).toFixed(2)}MB`
+    })
+    return imageFile
+  }
+
   const defaultOptions = {
     maxSizeMB: 1, // 최대 1MB로 압축
     maxWidthOrHeight: 1920, // 최대 너비 또는 높이
