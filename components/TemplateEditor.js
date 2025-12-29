@@ -4,7 +4,6 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { VideoLinkInput } from '@/components/VideoEmbed'
 import { parseVideoUrl } from '@/utils/videoParser'
-import { compressImage, validateImageFile, getAutoCompressionOptions } from '@/utils/imageCompression'
 
 // 변수 에디터 컴포넌트 - 변수 삽입 기능 포함
 export function VariableInput({ value, onChange, placeholder, onInsertVariable }) {
@@ -380,51 +379,24 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     if (!file) return
 
     // 이미지 파일 검증
-    const validation = validateImageFile(file)
-    if (!validation.isValid) {
-      alert(validation.error)
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드할 수 있습니다.')
+      return
+    }
+
+    // Vercel 제한(4MB) 체크
+    if (file.size > 4 * 1024 * 1024) {
+      alert(`이미지 크기가 너무 큽니다. 4MB 이하의 이미지를 선택해주세요.\n현재 파일 크기: ${(file.size / 1024 / 1024).toFixed(2)}MB`)
       return
     }
 
     setIsLoading(true)
 
     try {
-      let fileToUpload = file
-
-      // 파일 크기가 1MB 이상이면 압축/크기조절 실행
-      if (file.size > 1 * 1024 * 1024) {
-        console.log(file.type === 'image/gif' ? 'GIF 크기 조절 시작...' : '이미지 압축 시작...')
-
-        // 파일 크기와 타입에 따라 자동으로 압축 옵션 설정
-        const compressionOptions = getAutoCompressionOptions(file.size, file.type)
-
-        // GIF가 아닌 경우에만 압축 진행 상태 표시
-        if (file.type !== 'image/gif') {
-          compressionOptions.onProgress = (progress) => {
-            console.log(`압축 진행률: ${Math.round(progress)}%`)
-          }
-        }
-
-        try {
-          fileToUpload = await compressImage(file, compressionOptions)
-          const action = file.type === 'image/gif' ? '크기 조절' : '압축'
-          console.log(`이미지 ${action} 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`)
-        } catch (compressionError) {
-          console.error('이미지 처리 실패, 원본 파일로 진행:', compressionError)
-          // 처리 실패 시 원본 파일로 계속 진행
-          fileToUpload = file
-        }
-      }
-
-      // Vercel 제한(4.5MB) 체크
-      if (fileToUpload.size > 4 * 1024 * 1024) {
-        alert('압축 후에도 이미지 크기가 너무 큽니다. 더 작은 이미지를 선택해주세요.')
-        return
-      }
 
       // FormData 생성
       const formData = new FormData()
-      formData.append('image', fileToUpload, file.name) // 원본 파일명 유지
+      formData.append('image', file)
 
       // templateId가 있으면 추가
       if (templateId) {
@@ -443,8 +415,7 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
         const img = `<img src="${data.url}" alt="${file.name}" style="max-width: 100%; height: auto; margin: 8px 0;" />`
         execCommand('insertHTML', img)
       } else {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || '이미지 업로드에 실패했습니다.')
+        throw new Error('이미지 업로드에 실패했습니다.')
       }
     } catch (error) {
       console.error('이미지 업로드 오류:', error)
