@@ -1,19 +1,104 @@
 import imageCompression from 'browser-image-compression'
 
 /**
+ * GIF 파일의 크기를 조절하여 용량을 줄이는 함수
+ * @param {File} gifFile - GIF 파일
+ * @param {number} maxWidth - 최대 너비
+ * @returns {Promise<File>} 크기가 조절된 GIF 파일
+ */
+async function resizeGif(gifFile, maxWidth = 800) {
+  return new Promise((resolve) => {
+    const img = new Image()
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+
+    img.onload = function() {
+      // 원본 크기
+      const originalWidth = img.width
+      const originalHeight = img.height
+
+      // 크기 조절이 필요한지 확인
+      if (originalWidth <= maxWidth) {
+        console.log('GIF 크기 조절 불필요:', {
+          width: originalWidth,
+          height: originalHeight
+        })
+        resolve(gifFile)
+        return
+      }
+
+      // 새로운 크기 계산
+      const scale = maxWidth / originalWidth
+      const newWidth = maxWidth
+      const newHeight = Math.round(originalHeight * scale)
+
+      console.log('GIF 크기 조절:', {
+        original: `${originalWidth}x${originalHeight}`,
+        new: `${newWidth}x${newHeight}`,
+        scale: `${(scale * 100).toFixed(1)}%`
+      })
+
+      // Canvas 크기 설정
+      canvas.width = newWidth
+      canvas.height = newHeight
+
+      // 이미지 그리기
+      ctx.drawImage(img, 0, 0, newWidth, newHeight)
+
+      // Canvas를 Blob으로 변환
+      canvas.toBlob((blob) => {
+        if (blob) {
+          // Blob을 File로 변환
+          const resizedFile = new File([blob], gifFile.name, {
+            type: 'image/gif',
+            lastModified: Date.now()
+          })
+
+          console.log('GIF 크기 조절 완료:', {
+            originalSize: `${(gifFile.size / 1024 / 1024).toFixed(2)}MB`,
+            newSize: `${(resizedFile.size / 1024 / 1024).toFixed(2)}MB`,
+            reduction: `${((1 - resizedFile.size / gifFile.size) * 100).toFixed(1)}%`
+          })
+
+          resolve(resizedFile)
+        } else {
+          console.error('GIF 크기 조절 실패')
+          resolve(gifFile)
+        }
+      }, 'image/gif', 0.9)
+    }
+
+    img.onerror = () => {
+      console.error('GIF 이미지 로드 실패')
+      resolve(gifFile)
+    }
+
+    // 이미지 로드
+    img.src = URL.createObjectURL(gifFile)
+  })
+}
+
+/**
  * 이미지 파일을 압축하는 유틸리티 함수
- * GIF 파일은 애니메이션 보존을 위해 압축하지 않음
+ * GIF 파일은 크기 조절로 용량 감소
  * @param {File} imageFile - 압축할 이미지 파일
  * @param {Object} options - 압축 옵션
  * @returns {Promise<File>} 압축된 이미지 파일
  */
 export async function compressImage(imageFile, options = {}) {
-  // GIF 파일은 압축하지 않고 원본 반환 (애니메이션 보존)
+  // GIF 파일은 크기 조절로 처리
   if (imageFile.type === 'image/gif') {
-    console.log('GIF 파일 감지: 애니메이션 보존을 위해 압축 건너뜀', {
+    console.log('GIF 파일 감지: 크기 조절로 용량 감소', {
       name: imageFile.name,
       size: `${(imageFile.size / 1024 / 1024).toFixed(2)}MB`
     })
+
+    // GIF 파일 크기가 2MB 이상이면 크기 조절
+    if (imageFile.size > 2 * 1024 * 1024) {
+      const maxWidth = imageFile.size > 5 * 1024 * 1024 ? 600 : 800
+      return await resizeGif(imageFile, maxWidth)
+    }
+
     return imageFile
   }
 
@@ -110,11 +195,24 @@ export function revokeImagePreviewUrl(url) {
 /**
  * 압축 옵션을 파일 크기에 따라 자동 설정
  * @param {number} fileSize - 파일 크기 (bytes)
+ * @param {string} fileType - 파일 타입
  * @returns {Object} 압축 옵션
  */
-export function getAutoCompressionOptions(fileSize) {
+export function getAutoCompressionOptions(fileSize, fileType = '') {
   const sizeMB = fileSize / 1024 / 1024
 
+  // GIF 파일용 옵션
+  if (fileType === 'image/gif') {
+    if (sizeMB > 5) {
+      return { maxWidth: 600 }
+    } else if (sizeMB > 3) {
+      return { maxWidth: 800 }
+    } else {
+      return { maxWidth: 1000 }
+    }
+  }
+
+  // 다른 이미지 파일용 옵션
   if (sizeMB > 5) {
     // 5MB 이상: 적극적인 압축
     return {

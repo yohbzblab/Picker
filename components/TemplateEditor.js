@@ -391,28 +391,29 @@ export function RichTextEditor({ value, onChange, placeholder, onInsertVariable,
     try {
       let fileToUpload = file
 
-      // GIF가 아니고 파일 크기가 1MB 이상이면 압축 실행
-      if (file.type !== 'image/gif' && file.size > 1 * 1024 * 1024) {
-        console.log('이미지 압축 시작...')
+      // 파일 크기가 1MB 이상이면 압축/크기조절 실행
+      if (file.size > 1 * 1024 * 1024) {
+        console.log(file.type === 'image/gif' ? 'GIF 크기 조절 시작...' : '이미지 압축 시작...')
 
-        // 파일 크기에 따라 자동으로 압축 옵션 설정
-        const compressionOptions = getAutoCompressionOptions(file.size)
+        // 파일 크기와 타입에 따라 자동으로 압축 옵션 설정
+        const compressionOptions = getAutoCompressionOptions(file.size, file.type)
 
-        // 압축 진행 상태를 표시할 수도 있음
-        compressionOptions.onProgress = (progress) => {
-          console.log(`압축 진행률: ${Math.round(progress)}%`)
+        // GIF가 아닌 경우에만 압축 진행 상태 표시
+        if (file.type !== 'image/gif') {
+          compressionOptions.onProgress = (progress) => {
+            console.log(`압축 진행률: ${Math.round(progress)}%`)
+          }
         }
 
         try {
           fileToUpload = await compressImage(file, compressionOptions)
-          console.log(`이미지 압축 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`)
+          const action = file.type === 'image/gif' ? '크기 조절' : '압축'
+          console.log(`이미지 ${action} 완료: ${(file.size / 1024 / 1024).toFixed(2)}MB → ${(fileToUpload.size / 1024 / 1024).toFixed(2)}MB`)
         } catch (compressionError) {
-          console.error('이미지 압축 실패, 원본 파일로 진행:', compressionError)
-          // 압축 실패 시 원본 파일로 계속 진행
+          console.error('이미지 처리 실패, 원본 파일로 진행:', compressionError)
+          // 처리 실패 시 원본 파일로 계속 진행
           fileToUpload = file
         }
-      } else if (file.type === 'image/gif') {
-        console.log('GIF 파일: 애니메이션 보존을 위해 압축 건너뜀')
       }
 
       // Vercel 제한(4.5MB) 체크
