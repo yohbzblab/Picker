@@ -85,9 +85,9 @@ ${replacedContent}`
     // 이메일 전송 옵션 (테스트 수신자에게)
     const fromName = senderName || providerConfig.senderName || userData.senderName
 
-    // HTML 콘텐츠 처리
+    // HTML 콘텐츠 처리 (푸터 포함)
     const htmlContent = convertToHtml(testContent)
-    const textContentPlain = convertToText(testContent)
+    const textContentPlain = convertToText(testContent) + '\n\n---\nPicker에서 생성되었습니다.\n링크: https://buzpicker.vercel.app'
 
     const mailOptions = {
       from: fromName ? `"${fromName}" <${providerConfig.smtpUser}>` : providerConfig.smtpUser,
@@ -152,20 +152,36 @@ ${replacedContent}`
   }
 }
 
-// HTML 콘텐츠 처리 함수
+// HTML 콘텐츠 처리 및 푸터 추가 함수
 function convertToHtml(content) {
   if (!content) return ''
+
+  let htmlContent = ''
 
   // 이미 HTML 태그가 포함되어 있는지 확인
   const hasHtmlTags = /<[^>]+>/g.test(content)
 
   if (hasHtmlTags) {
-    // 이미 HTML이라면 그대로 반환
-    return content
+    // 이미 HTML이라면 그대로 사용
+    htmlContent = content
   } else {
     // 일반 텍스트라면 줄바꿈을 <br> 태그로 변환
-    return content.replace(/\n/g, '<br>')
+    htmlContent = content.replace(/\n/g, '<br>')
   }
+
+  // 테스트 메일의 경우에도 푸터 추가
+  const footer = `
+    <br><br>
+    <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+    <p style="font-size: 12px; color: #999; text-align: center;">
+      Picker에서 생성되었습니다.<br>
+      <a href="https://buzpicker.vercel.app" style="color: #6b46c1; text-decoration: none;">
+        링크: https://buzpicker.vercel.app
+      </a>
+    </p>
+  `
+
+  return htmlContent + footer
 }
 
 // 텍스트 콘텐츠 처리 함수 (메일에서 HTML을 지원하지 않는 경우를 위해)
