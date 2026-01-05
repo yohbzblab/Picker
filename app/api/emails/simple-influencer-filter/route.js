@@ -155,10 +155,13 @@ function fetchEmailsViaImap(config, provider) {
                     parsed.to?.value?.[0]?.address ||
                     "";
 
+                  const ccRaw = parsed.cc;
+
                   const email = {
                     messageId: parsed.messageId,
                     from: formatEmailForStorage(fromRaw) || fromRaw,
                     to: formatEmailForStorage(toRaw) || toRaw,
+                    cc: ccRaw,
                     subject: parsed.subject || "(제목 없음)",
                     date: parsed.date || new Date(),
                     text: parsed.text,
@@ -222,18 +225,49 @@ function normalizeEmail(email) {
 }
 
 /**
- * 인플루언서 이메일인지 확인
+ * 인플루언서 이메일인지 확인 (CC 필드 포함)
  */
-function checkInfluencerEmail(fromEmail, toEmail, influencers) {
+function checkInfluencerEmail(fromEmail, toEmail, ccEmails, influencers) {
   const normalizedFrom = normalizeEmail(fromEmail);
   const normalizedTo = normalizeEmail(toEmail);
+
+  // CC 필드 정규화 (배열 또는 단일 값 처리)
+  const normalizedCCs = [];
+  if (ccEmails) {
+    if (Array.isArray(ccEmails)) {
+      ccEmails.forEach(cc => {
+        if (cc && cc.address) {
+          normalizedCCs.push(normalizeEmail(cc.address));
+        } else if (typeof cc === 'string') {
+          normalizedCCs.push(normalizeEmail(cc));
+        }
+      });
+    } else if (typeof ccEmails === 'string') {
+      normalizedCCs.push(normalizeEmail(ccEmails));
+    } else if (ccEmails.address) {
+      normalizedCCs.push(normalizeEmail(ccEmails.address));
+    }
+  }
 
   for (const influencer of influencers) {
     const influencerEmail = normalizeEmail(influencer.email);
     if (!influencerEmail) continue;
 
-    if (normalizedFrom === influencerEmail || normalizedTo === influencerEmail) {
+    // 발신자(FROM) 확인
+    if (normalizedFrom === influencerEmail) {
       return influencer;
+    }
+
+    // 수신자(TO) 확인
+    if (normalizedTo === influencerEmail) {
+      return influencer;
+    }
+
+    // CC 필드 확인
+    for (const ccEmail of normalizedCCs) {
+      if (ccEmail === influencerEmail) {
+        return influencer;
+      }
     }
   }
 
@@ -415,10 +449,11 @@ export async function POST(request) {
     for (const email of allEmails) {
       processedCount++;
 
-      // 인플루언서 매칭 확인
+      // 인플루언서 매칭 확인 (CC 필드 포함)
       const matchedInfluencer = checkInfluencerEmail(
         email.from,
         email.to,
+        email.cc,
         influencers
       );
 
@@ -447,6 +482,12 @@ export async function POST(request) {
           continue;
         }
 
+        // headers 객체에 CC 정보 포함
+        const headersData = email.headers ? Object.fromEntries(email.headers) : {};
+        if (email.cc) {
+          headersData.cc = email.cc;
+        }
+
         // 배열에 저장할 데이터 준비
         emailsToSave.push({
           userId: parseInt(userId),
@@ -458,7 +499,7 @@ export async function POST(request) {
           textContent: email.text,
           htmlContent: email.html,
           attachments: email.attachments?.length > 0 ? email.attachments : null,
-          headers: email.headers ? Object.fromEntries(email.headers) : null,
+          headers: headersData,
           originalDate: email.date,
           receivedAt: new Date(),
           provider: email.provider,
@@ -516,7 +557,7 @@ export async function POST(request) {
           return dbData;
         });
 
-        const result = await prisma.emailReceived.createMany({
+        await prisma.emailReceived.createMany({
           data: dbEmails,
           skipDuplicates: true // 중복 건너뛰기
         });
