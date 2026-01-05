@@ -1131,6 +1131,12 @@ export default function InfluencerManagement() {
                       삭제
                     </button>
                     <button
+                      onClick={() => router.push('/influencer-management/bulk-add')}
+                      className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                    >
+                      대량 추가
+                    </button>
+                    <button
                       onClick={() => router.push('/influencer-management/add')}
                       className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                     >
