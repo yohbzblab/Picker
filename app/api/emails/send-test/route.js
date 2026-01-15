@@ -87,7 +87,7 @@ ${replacedContent}`
 
     // HTML 콘텐츠 처리 (푸터 포함)
     const htmlContent = convertToHtml(testContent)
-    const textContentPlain = convertToText(testContent) + '\n\n---\nPicker에서 생성되었습니다.\n링크: https://buzpicker.vercel.app'
+    const textContentPlain = convertToText(testContent) + '\n\n---\n본 메일은 Picker에서 발송되었습니다.\n맞춤형 메일 생성해보기: https://buzpicker.vercel.app'
 
     const mailOptions = {
       from: fromName ? `"${fromName}" <${providerConfig.smtpUser}>` : providerConfig.smtpUser,
@@ -174,9 +174,9 @@ function convertToHtml(content) {
     <br><br>
     <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
     <p style="font-size: 12px; color: #999; text-align: center;">
-      Picker에서 생성되었습니다.<br>
+      본 메일은 Picker에서 발송되었습니다.<br>
       <a href="https://buzpicker.vercel.app" style="color: #6b46c1; text-decoration: none;">
-        링크: https://buzpicker.vercel.app
+        맞춤형 메일 생성해보기
       </a>
     </p>
   `
