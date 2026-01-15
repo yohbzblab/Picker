@@ -892,7 +892,7 @@ export default function InfluencerManagement() {
       <main className="min-h-screen bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 관리</h1>
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 관리하기</h1>
             <p className="text-gray-600">인플루언서 정보를 관리하고 분석할 수 있습니다.</p>
           </div>
 
