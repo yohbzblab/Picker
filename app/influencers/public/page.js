@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/components/AuthProvider';
 import Navbar from '@/components/Navbar';
+import InfluencerTabs from '@/components/InfluencerTabs';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 export default function PublicInfluencersPage() {
   const { user, loading: authLoading } = useAuth();
@@ -70,7 +70,7 @@ export default function PublicInfluencersPage() {
         if (value) params.append(key, value);
       });
 
-      const response = await fetch(`/api/picker/influencers?${params}`);
+      const response = await fetch(`/api/picker/influencers/v2?${params}`);
       const data = await response.json();
 
       if (!response.ok) {
@@ -197,21 +197,16 @@ export default function PublicInfluencersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-pink-50">
+    <div className="min-h-screen bg-white">
       <Navbar />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Tabs */}
+        <InfluencerTabs />
+
         {/* Header */}
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-3xl font-bold text-gray-900">인플루언서 탐색</h1>
-            <Link
-              href="/influencer-management"
-              className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              관리하기
-            </Link>
-          </div>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 탐색</h1>
           <p className="text-gray-600">
             외부 데이터베이스에서 제공하는 인플루언서 정보를 조회할 수 있습니다.
           </p>
