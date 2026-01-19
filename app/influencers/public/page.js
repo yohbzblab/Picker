@@ -8,7 +8,7 @@ import InfluencerTabs from '@/components/InfluencerTabs';
 import { useRouter } from 'next/navigation';
 
 export default function PublicInfluencersPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, dbUser, loading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [influencers, setInfluencers] = useState([]);
@@ -52,8 +52,31 @@ export default function PublicInfluencersPage() {
   ];
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [importingInfluencers, setImportingInfluencers] = useState(new Set());
-  const [importedInfluencers, setImportedInfluencers] = useState(new Set());
+  const [selectedInfluencers, setSelectedInfluencers] = useState(new Set());
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedInfluencers, setSavedInfluencers] = useState(new Set());
+
+  // Fetch saved influencers for the user
+  const fetchSavedInfluencers = useCallback(async () => {
+    if (!dbUser?.id) return;
+
+    try {
+      const response = await fetch(`/api/influencers?userId=${dbUser.id}`);
+      const data = await response.json();
+
+      if (response.ok && data.influencers) {
+        // Create a Set of saved influencer keys (publicUsername-platform)
+        const savedSet = new Set(
+          data.influencers
+            .filter(inf => inf.publicUsername && inf.platform)
+            .map(inf => `${inf.publicUsername}-${inf.platform}`)
+        );
+        setSavedInfluencers(savedSet);
+      }
+    } catch (err) {
+      console.error('Error fetching saved influencers:', err);
+    }
+  }, [dbUser?.id]);
 
   // Fetch influencers
   const fetchInfluencers = useCallback(async (page = 1) => {
@@ -99,8 +122,9 @@ export default function PublicInfluencersPage() {
   useEffect(() => {
     if (user) {
       fetchInfluencers(1);
+      fetchSavedInfluencers();
     }
-  }, [fetchInfluencers, user]);
+  }, [fetchInfluencers, fetchSavedInfluencers, user]);
 
   // Handle filter changes
   const handleFilterChange = (key, value) => {
@@ -130,48 +154,76 @@ export default function PublicInfluencersPage() {
     return filters.minFollowers === (min || '') && filters.maxFollowers === (max || '');
   };
 
-  // Handle import influencer
-  const handleImportInfluencer = async (influencer) => {
+  // Toggle influencer selection
+  const toggleInfluencerSelection = (influencer) => {
     const key = `${influencer.username}-${filters.platform}`;
+    setSelectedInfluencers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(key)) {
+        newSet.delete(key);
+      } else {
+        newSet.add(key);
+      }
+      return newSet;
+    });
+  };
 
-    // Already importing or imported
-    if (importingInfluencers.has(key) || importedInfluencers.has(key)) {
-      return;
+  // Check if influencer is selected
+  const isInfluencerSelected = (influencer) => {
+    const key = `${influencer.username}-${filters.platform}`;
+    return selectedInfluencers.has(key);
+  };
+
+  // Check if influencer is already saved
+  const isInfluencerSaved = (influencer) => {
+    const key = `${influencer.username}-${filters.platform}`;
+    return savedInfluencers.has(key);
+  };
+
+  // Save selected influencers
+  const handleSaveSelected = async () => {
+    if (selectedInfluencers.size === 0) return;
+
+    setIsSaving(true);
+    const selectedUsernames = Array.from(selectedInfluencers).map(key => key.split('-')[0]);
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const username of selectedUsernames) {
+      try {
+        const response = await fetch('/api/influencers/import-public', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            username,
+            platform: filters.platform
+          })
+        });
+
+        if (response.ok || response.status === 409) {
+          successCount++;
+        } else {
+          failCount++;
+        }
+      } catch (error) {
+        console.error('Error importing influencer:', error);
+        failCount++;
+      }
     }
 
-    setImportingInfluencers(prev => new Set([...prev, key]));
+    setIsSaving(false);
+    setSelectedInfluencers(new Set());
 
-    try {
-      const response = await fetch('/api/influencers/import-public', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          username: influencer.username,
-          platform: filters.platform
-        })
-      });
+    // Refresh saved influencers list
+    await fetchSavedInfluencers();
 
-      const data = await response.json();
-
-      if (response.ok) {
-        setImportedInfluencers(prev => new Set([...prev, key]));
-      } else if (response.status === 409) {
-        // Already exists
-        setImportedInfluencers(prev => new Set([...prev, key]));
-      } else {
-        alert(data.error || '인플루언서 추가에 실패했습니다.');
-      }
-    } catch (error) {
-      console.error('Error importing influencer:', error);
-      alert('인플루언서 추가 중 오류가 발생했습니다.');
-    } finally {
-      setImportingInfluencers(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(key);
-        return newSet;
-      });
+    if (failCount === 0) {
+      alert(`${successCount}명의 인플루언서가 저장되었습니다.`);
+    } else {
+      alert(`${successCount}명 저장 완료, ${failCount}명 저장 실패`);
     }
   };
 
@@ -376,6 +428,23 @@ export default function PublicInfluencersPage() {
           </div>
         </div>
 
+        {/* Save Button */}
+        {selectedInfluencers.size > 0 && (
+          <div className="mb-6 flex justify-end">
+            <button
+              onClick={handleSaveSelected}
+              disabled={isSaving}
+              className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+                isSaving
+                  ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-purple-600 text-white hover:bg-purple-700'
+              }`}
+            >
+              {isSaving ? '저장 중...' : `${selectedInfluencers.size}명 저장`}
+            </button>
+          </div>
+        )}
+
         {/* Results */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         {/* Results Header */}
@@ -417,46 +486,89 @@ export default function PublicInfluencersPage() {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      선택
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      프로필
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       사용자명
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      이름
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       팔로워
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       평균 조회수
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       카테고리
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       연령대
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       도달지수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      추가
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {influencers.map((influencer) => (
+                  {influencers.map((influencer) => {
+                    const isSaved = isInfluencerSaved(influencer);
+                    const isSelected = isInfluencerSelected(influencer);
+
+                    return (
                     <tr
                       key={`${influencer.username}-${filters.platform}`}
-                      className="hover:bg-gray-50 transition-colors"
+                      onClick={() => !isSaved && toggleInfluencerSelection(influencer)}
+                      className={`transition-colors ${
+                        isSaved
+                          ? 'bg-gray-50'
+                          : isSelected
+                            ? 'bg-purple-50 hover:bg-purple-100 cursor-pointer'
+                            : 'hover:bg-gray-50 cursor-pointer'
+                      }`}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          @{influencer.username}
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        {isSaved ? (
+                          <div className="w-5 h-5 flex items-center justify-center text-green-600 text-lg">
+                            ✓
+                          </div>
+                        ) : (
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                            isSelected
+                              ? 'bg-purple-600 border-purple-600'
+                              : 'border-gray-300'
+                          }`}>
+                            {isSelected && (
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-200">
+                          {influencer.profileImageUrl ? (
+                            <img
+                              src={influencer.profileImageUrl}
+                              alt={influencer.username}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div className={`w-full h-full flex items-center justify-center text-gray-400 text-lg ${influencer.profileImageUrl ? 'hidden' : ''}`}>
+                            👤
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {influencer.name || '-'}
+                        <div className="text-sm font-medium text-gray-900">
+                          @{influencer.username}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -484,37 +596,9 @@ export default function PublicInfluencersPage() {
                           {influencer.reachRate ? `${influencer.reachRate}%` : '-'}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {(() => {
-                          const key = `${influencer.username}-${filters.platform}`;
-                          const isImporting = importingInfluencers.has(key);
-                          const isImported = importedInfluencers.has(key);
-
-                          if (isImported) {
-                            return (
-                              <span className="text-sm text-green-600 font-medium">
-                                ✓ 추가됨
-                              </span>
-                            );
-                          }
-
-                          return (
-                            <button
-                              onClick={() => handleImportInfluencer(influencer)}
-                              disabled={isImporting}
-                              className={`px-3 py-1 text-sm font-medium rounded-lg transition-colors ${
-                                isImporting
-                                  ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                                  : 'bg-purple-600 text-white hover:bg-purple-700'
-                              }`}
-                            >
-                              {isImporting ? '추가 중...' : '추가'}
-                            </button>
-                          );
-                        })()}
-                      </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
 

@@ -5,19 +5,19 @@
  */
 
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/prisma';
 import prismaPicker from '@/lib/prisma-picker';
-import { cookies } from 'next/headers';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request) {
   try {
     // Get authenticated user
-    const cookieStore = cookies();
-    const supabase = createSupabaseServerClient(cookieStore);
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const supabase = await createClient();
+    const { data, error: authError } = await supabase.auth.getUser();
+    const user = data?.user;
 
     if (authError || !user) {
+      console.error('Auth error:', authError, 'User:', user);
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
         { status: 401 }
@@ -103,8 +103,10 @@ export async function POST(request) {
       recentAds: publicInfluencer.recentAds || ''
     };
 
-    // Create unique accountId for public influencer
-    const accountId = `public_${platform}_${username}_${Date.now()}`;
+    // Use the actual platform accountId, fallback to username if not available
+    const accountId = publicInfluencer.accountId
+      ? publicInfluencer.accountId.toString()
+      : username;
 
     // Create new influencer in user's database
     const newInfluencer = await prisma.influencer.create({
