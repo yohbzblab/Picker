@@ -30,6 +30,7 @@ export default function Navbar() {
   }
 
   const isTemplateActive = pathname === '/email-templates' || pathname === '/survey-templates'
+  const isInfluencerActive = pathname === '/influencer-management' || pathname.startsWith('/influencers/')
 
   return (
     <nav className="bg-white border-b border-gray-100">
@@ -44,12 +45,17 @@ export default function Navbar() {
             </button>
           </div>
           <div className="flex items-center space-x-4">
+            {/* 인플루언서 링크 */}
             <button
-              onClick={() => router.push('/influencer-management')}
-              className={getActiveClass('/influencer-management')}
+              onClick={() => router.push('/influencers/public')}
+              className={isInfluencerActive
+                ? "text-sm text-purple-600 hover:text-purple-700 px-3 py-2 rounded-lg bg-purple-50 transition-colors font-medium"
+                : "text-sm text-gray-600 hover:text-gray-900 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              }
             >
-              인플루언서 관리
+              인플루언서
             </button>
+            {/* 템플릿 드롭다운 */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onMouseEnter={() => setIsTemplateDropdownOpen(true)}
