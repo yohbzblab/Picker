@@ -31,7 +31,7 @@ export default function PublicInfluencersPage() {
     minFollowers: searchParams.get('minFollowers') || '',
     maxFollowers: searchParams.get('maxFollowers') || '',
     ageGroup: searchParams.get('ageGroup') || '',
-    sortBy: searchParams.get('sortBy') || 'followers',
+    sortBy: searchParams.get('sortBy') || 'reachRate',
     sortOrder: searchParams.get('sortOrder') || 'desc',
   });
 
@@ -436,10 +436,7 @@ export default function PublicInfluencersPage() {
                       연령대
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      우선순위 점수
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      우선순위 등급
+                      도달지수
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       추가
@@ -484,17 +481,8 @@ export default function PublicInfluencersPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {influencer.priority_score || '-'}
+                          {influencer.reachRate ? `${influencer.reachRate}%` : '-'}
                         </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {influencer.priority_tier ? (
-                          <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
-                            {influencer.priority_tier}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-gray-900">-</span>
-                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         {(() => {

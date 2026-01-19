@@ -1,7 +1,7 @@
 /**
  * API Route: /api/picker/influencers/v2
  *
- * Read-only endpoint for accessing influencer_staging table
+ * Read-only endpoint for accessing influencer_staging_with_reach materialized view
  * Uses raw SQL queries since the table is marked as @@ignore in Prisma schema
  */
 
@@ -97,20 +97,22 @@ export async function GET(request) {
       'avg_view': 'CAST(NULLIF(avg_view, \'\') AS BIGINT)',
       'avg_like': 'CAST(NULLIF(avg_like, \'\') AS BIGINT)',
       'updated_at': 'taken_at',
+      'reachRate': 'reach_rate',
     };
-    const sortColumn = sortColumnMap[sortBy] || 'CAST(NULLIF(follower, \'\') AS BIGINT)';
+    const sortColumn = sortColumnMap[sortBy] || null;
     const order = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const orderByClause = sortColumn ? `ORDER BY ${sortColumn} ${order} NULLS LAST` : '';
 
-    // Get total count
+    // Get total count (using materialized view)
     const countQuery = `
       SELECT COUNT(*) as total
-      FROM influencer_staging
+      FROM influencer_staging_with_reach
       WHERE ${countWhereClause}
     `;
     const countResult = await prismaPicker.$queryRawUnsafe(countQuery);
     const totalCount = Number(countResult[0]?.total || 0);
 
-    // Get influencer data
+    // Get influencer data (using materialized view with pre-calculated reach_rate)
     const dataQuery = `
       SELECT
         pk,
@@ -128,6 +130,7 @@ export async function GET(request) {
         avg_comment,
         avg_view,
         avg_reels_view,
+        avg_reach,
         description,
         main_audience_age_range,
         main_audience_gender,
@@ -135,10 +138,11 @@ export async function GET(request) {
         post_count,
         campaign_price,
         external_url,
-        taken_at
-      FROM influencer_staging
+        taken_at,
+        reach_rate
+      FROM influencer_staging_with_reach
       WHERE ${whereClause}
-      ORDER BY ${sortColumn} ${order} NULLS LAST
+      ${orderByClause}
       LIMIT ${limit}
       OFFSET ${offset}
     `;
@@ -161,6 +165,8 @@ export async function GET(request) {
       avgLike: inf.avg_like,
       avgComment: inf.avg_comment,
       avgView: inf.avg_view,
+      avgReach: inf.avg_reach,
+      reachRate: inf.reach_rate,
       recentAvgViews: inf.avg_reels_view || inf.avg_view,
       bio: inf.description,
       ageGroup: inf.main_audience_age_range,
