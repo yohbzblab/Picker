@@ -411,9 +411,10 @@ function PublicInfluencersContent() {
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
               >
+                <option value="reachRate">도달지수</option>
                 <option value="followers">팔로워</option>
                 <option value="recentAvgViews">평균 조회수</option>
-                <option value="priority_score">우선순위 점수</option>
+                <option value="avg_like">평균 좋아요</option>
                 <option value="updated_at">업데이트 날짜</option>
               </select>
               <select
@@ -451,7 +452,7 @@ function PublicInfluencersContent() {
         <div className="px-6 py-4 border-b border-gray-200">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-600">
-              총 {pagination.totalCount}명의 인플루언서
+              총 {pagination.totalCount.toLocaleString()}명의 인플루언서 <span className="text-gray-400">(2026/1/7 기준 데이터)</span>
             </p>
             <p className="text-sm text-gray-600">
               {filters.platform === 'instagram' ? '📷 Instagram' : '📺 YouTube'}
@@ -593,7 +594,9 @@ function PublicInfluencersContent() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {influencer.reachRate ? `${influencer.reachRate}%` : '-'}
+                          {influencer.reachRate
+                            ? (parseFloat(influencer.reachRate) >= 500 ? '500+' : Math.floor(parseFloat(influencer.reachRate)))
+                            : '-'}
                         </div>
                       </td>
                     </tr>
