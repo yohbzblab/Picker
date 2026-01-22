@@ -83,6 +83,21 @@ export async function POST(request) {
       );
     }
 
+    // Extract email from bio using regex
+    const extractEmailFromBio = (bio) => {
+      if (!bio) return null;
+
+      // Email regex pattern
+      const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+      const matches = bio.match(emailRegex);
+
+      // Return first valid email found, or null
+      return matches && matches.length > 0 ? matches[0] : null;
+    };
+
+    // Get email: prioritize existing email, then extract from bio
+    const extractedEmail = publicInfluencer.email || extractEmailFromBio(publicInfluencer.bio);
+
     // Prepare fieldData with common fields from public influencer
     const fieldData = {
       name: publicInfluencer.name || '',
@@ -114,7 +129,7 @@ export async function POST(request) {
         userId: dbUser.id,
         accountId: accountId,
         fieldData: fieldData,
-        email: publicInfluencer.email || null,
+        email: extractedEmail,
         isPublic: true,
         platform: platform,
         publicUsername: username
