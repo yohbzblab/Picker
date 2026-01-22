@@ -12,7 +12,7 @@ export default function Footer() {
           </p>
           <p className="text-sm text-gray-600">
             <span className="font-medium">주소:</span> 서울특별시 송파구
-            올림픽로34길 5-13
+            올림픽로34길 5-13 804호
           </p>
           <p className="text-sm text-gray-600">
             <span className="font-medium">전화번호:</span> 070-8065-1350
