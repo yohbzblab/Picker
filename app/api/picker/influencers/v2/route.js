@@ -43,8 +43,15 @@ export async function GET(request) {
     }
 
     // Build WHERE conditions (platform_type: '0' = instagram, '1' = youtube)
-    const conditions = [`platform_type = '${platformCode}'`];
-    const countConditions = [`platform_type = '${platformCode}'`];
+    // Default: followers >= 500
+    const conditions = [
+      `platform_type = '${platformCode}'`,
+      `CAST(NULLIF(follower, '') AS BIGINT) >= 500`
+    ];
+    const countConditions = [
+      `platform_type = '${platformCode}'`,
+      `CAST(NULLIF(follower, '') AS BIGINT) >= 500`
+    ];
 
     // Search filter
     if (search) {
