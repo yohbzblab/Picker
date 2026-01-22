@@ -1,6 +1,7 @@
 generator client {
-  provider = "prisma-client-js"
-  output   = "../app/generated/prisma"
+  provider      = "prisma-client-js"
+  output        = "../app/generated/prisma"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
@@ -101,6 +102,9 @@ model Influencer {
   createdAt         DateTime                       @default(now())
   updatedAt         DateTime                       @updatedAt
   email             String?
+  isPublic          Boolean                        @default(false)
+  platform          String?                        @default("instagram")
+  publicUsername    String?
   emailsReceived    EmailReceived[]
   emailsSent        EmailSent[]
   user              User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -111,6 +115,8 @@ model Influencer {
   @@index([userId])
   @@index([accountId])
   @@index([email])
+  @@index([publicUsername])
+  @@index([isPublic])
   @@map("influencers")
 }
 

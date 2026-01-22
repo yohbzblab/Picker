@@ -1,0 +1,13 @@
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://postgres:1q2w3e@picker-user.c3gaaykgc0on.ap-northeast-2.rds.amazonaws.com:5432/picker-user?sslmode=require&sslcert=system"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model TestConnection {
+  id Int @id @default(autoincrement())
+  name String
+}

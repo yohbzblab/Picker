@@ -1,0 +1,165 @@
+// ================================
+// PICKER DATABASE SCHEMA (READ-ONLY)
+// ================================
+// This schema is for the Picker database which is READ-ONLY
+// DO NOT use this for migrations or modifications
+// This database contains Instagram influencer data from external sources
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../app/generated/prisma-picker"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PICKER_DATABASE_URL")
+}
+
+model influencer {
+  username                String
+  accountId               BigInt?
+  email                   String?
+  name                    String?
+  bio                     String?
+  followers               BigInt?
+  ageGroup                String?
+  profileLink             String?
+  categories              String?
+  hasLinks                Boolean?
+  uploadFreq              String?
+  recentAvgViews          BigInt?
+  captureLinks            String?
+  pinnedAvgViews          BigInt?
+  recent18AvgViews        BigInt?
+  recentAds               String?
+  contactMethod           String?
+  updated_at              DateTime? @default(now()) @db.Timestamptz(6)
+  platform                String    @default("instagram")
+  priority_score          Int?
+  priority_tier           String?
+  track_history           Boolean?
+  update_interval_minutes Int?
+
+  @@id([platform, username])
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model influencer_staging {
+  pk                      String?
+  influencer_pk           String?
+  platform_pk             String?
+  platform_type           String?
+  platform_code           String?
+  blog_id                 String?
+  username                String?
+  full_name               String?
+  account_link            String?
+  profile_img_link        String?
+  handle                  String?
+  taken_at                String?
+  last_published_at       String?
+  category_1              String?
+  category_2              String?
+  follower                String?
+  following               String?
+  real_follower           String?
+  total_visitor           String?
+  avg_today_visitor       String?
+  avg_feed_like           String?
+  avg_video_like          String?
+  avg_like                String?
+  avg_comment             String?
+  avg_reach               String?
+  avg_view                String?
+  avg_retweet             String?
+  avg_quote               String?
+  avg_save                String?
+  avg_reels_view          String?
+  avg_video_view          String?
+  avg_shorts_view         String?
+  est_avg_cpv             String?
+  est_avg_cpr             String?
+  is_meta_verified        String?
+  is_x_verified           String?
+  post_count              String?
+  sub_video_rate          String?
+  real_engagement         String?
+  campaign_price          String?
+  locations               String?
+  growth_list             String?
+  follower_growth         String?
+  follower_growth_rate    String?
+  follower_growth_list    String?
+  audience_age            String?
+  audience_gender         String?
+  audience_quality        String?
+  seenamon_user_id        String?
+  highlight               String?
+  description             String?
+  main_audience_age       String?
+  main_audience_gender    String?
+  main_audience_age_range String?
+  ig_link_from_tiktok     String?
+  yt_link_from_tiktok     String?
+  tw_link_from_tiktok     String?
+  ig_thread_link          String?
+  ig_category_name        String?
+  languages               String?
+  external_url            String?
+  blur_fields             String?
+  avg_feed_comment        String?
+  avg_video_comment       String?
+  avg_shorts_comment      String?
+
+  @@ignore
+}
+
+model instagram_keyword_cache {
+  id             BigInt    @id @default(autoincrement())
+  categories     String?
+  keywords       String?
+  prompt_version String    @db.VarChar(20)
+  updated_at     DateTime? @db.Timestamp(6)
+  username       String    @db.VarChar(100)
+
+  @@unique([username, prompt_version], map: "ukrvx6shdn3p2u27f50t4j5d60b")
+}
+
+model instagram_posts {
+  post_id          String    @id @db.VarChar(64)
+  caption          String?
+  comment_count    Int?
+  display_url      String?
+  is_video         Boolean?
+  like_count       Int?
+  media_type       String?   @db.VarChar(255)
+  permalink        String?
+  shortcode        String?   @db.VarChar(255)
+  taken_at         String?   @db.VarChar(255)
+  thumbnail_url    String?
+  updated_at       DateTime? @db.Timestamp(6)
+  username         String    @db.VarChar(100)
+  video_view_count Int?
+}
+
+model instagram_profiles {
+  username        String    @id @db.VarChar(100)
+  biography       String?
+  category_name   String?   @db.VarChar(255)
+  external_url    String?
+  followers       Int?
+  following       Int?
+  full_name       String?   @db.VarChar(255)
+  is_private      Boolean?
+  is_verified     Boolean?
+  media_count     Int?
+  profile_pic_url String?
+  updated_at      DateTime? @db.Timestamp(6)
+}
+
+model sync_state {
+  state_key   String   @id
+  state_value String
+  updated_at  DateTime @default(now()) @db.Timestamptz(6)
+}
