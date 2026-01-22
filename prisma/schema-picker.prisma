@@ -6,8 +6,9 @@
 // This database contains Instagram influencer data from external sources
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../app/generated/prisma-picker"
+  provider      = "prisma-client-js"
+  output        = "../app/generated/prisma-picker"
+  binaryTargets = ["native", "rhel-openssl-3.0.x"]
 }
 
 datasource db {
