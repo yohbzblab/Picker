@@ -261,6 +261,9 @@ function CreateEmailTemplateContent() {
       userSampleData[variableKey] = defaultValue || `샘플 ${variableKey}`
     })
 
+    // 맞춤형 칭찬 변수 (독립 변수로 처리)
+    userSampleData['맞춤형 칭찬'] = '(맞춤형 칭찬)'
+
     // 인플루언서 필드들의 샘플 데이터 생성 (텍스트 타입과 숫자 타입만)
     const influencerSampleData = {}
     influencerFields.forEach(field => {
@@ -574,6 +577,11 @@ function CreateEmailTemplateContent() {
       }
     }
   }, [activeField])
+
+  // 맞춤형 칭찬 변수 삽입 함수 (독립 변수로 처리)
+  const handleComplimentInsert = useCallback(() => {
+    handleVariableInsert('맞춤형 칭찬')
+  }, [handleVariableInsert])
 
   const handleCancel = () => {
     router.push('/email-templates')
@@ -1047,6 +1055,25 @@ function CreateEmailTemplateContent() {
                                 </div>
                               )}
                             </div>
+                          </div>
+
+                          {/* 맞춤형 칭찬 */}
+                          <div>
+                            <h4 className="text-sm font-medium text-gray-700 mb-3">맞춤형 칭찬</h4>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleComplimentInsert()}
+                                onMouseDown={(e) => e.preventDefault()}
+                                className="text-sm bg-pink-100 text-pink-800 px-3 py-1 rounded-full hover:bg-pink-200 transition-colors"
+                                title="{{맞춤형 칭찬}} 변수 삽입"
+                              >
+                                맞춤형 칭찬
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-2">
+                              인플루언서별 맞춤형 칭찬 메시지가 삽입됩니다
+                            </p>
                           </div>
 
                           {/* 인플루언서 필드들 (텍스트 타입만) */}
