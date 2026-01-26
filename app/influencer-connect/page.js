@@ -240,6 +240,17 @@ function InfluencerConnectContent() {
     setExpandedConnections(newExpanded)
   }
 
+  // 모든 연결된 인플루언서 카드 펼치기
+  const expandAllConnections = () => {
+    const allConnectionIds = new Set(connectedInfluencers.map(conn => conn.id))
+    setExpandedConnections(allConnectionIds)
+  }
+
+  // 모든 연결된 인플루언서 카드 접기
+  const collapseAllConnections = () => {
+    setExpandedConnections(new Set())
+  }
+
   // 연결별 사용자 변수 업데이트
   const updateConnectionUserVariable = (connectionId, variableName, value) => {
     setConnectionUserVariables(prev => ({
@@ -725,20 +736,34 @@ function InfluencerConnectContent() {
                       </p>
                     </div>
                     {connectedInfluencers.length > 0 && (
-                      <button
-                        onClick={() => {
-                          const influencersToDisconnect = connectedInfluencers.map(conn => ({
-                            id: conn.influencerId,
-                            fieldData: conn.influencer.fieldData,
-                            accountId: conn.influencer.accountId
-                          }))
-                          handleDisconnectMultiple(influencersToDisconnect)
-                        }}
-                        disabled={saving}
-                        className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
-                      >
-                        전체 해제
-                      </button>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={expandAllConnections}
+                          className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          전체 펼치기
+                        </button>
+                        <button
+                          onClick={collapseAllConnections}
+                          className="text-sm bg-gray-100 text-gray-700 px-3 py-1 rounded-lg hover:bg-gray-200 transition-colors"
+                        >
+                          전체 접기
+                        </button>
+                        <button
+                          onClick={() => {
+                            const influencersToDisconnect = connectedInfluencers.map(conn => ({
+                              id: conn.influencerId,
+                              fieldData: conn.influencer.fieldData,
+                              accountId: conn.influencer.accountId
+                            }))
+                            handleDisconnectMultiple(influencersToDisconnect)
+                          }}
+                          disabled={saving}
+                          className="text-sm bg-red-100 text-red-700 px-3 py-1 rounded-lg hover:bg-red-200 transition-colors disabled:opacity-50"
+                        >
+                          전체 해제
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -801,6 +826,14 @@ function InfluencerConnectContent() {
                                         )}
                                       </div>
                                     )}
+                                    {/* 맞춤형 칭찬이 없는 경우 태그 표시 */}
+                                    {(template.subject?.includes('{{맞춤형 칭찬}}') || template.content?.includes('{{맞춤형 칭찬}}')) &&
+                                      !compliments[connection.influencerId] &&
+                                      !connection.userVariables?.['맞춤형 칭찬'] && (
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-orange-100 text-orange-700">
+                                          맞춤형 칭찬이 없어요
+                                        </span>
+                                      )}
                                   </div>
                                   <div className="flex items-center space-x-2 ml-4">
                                     <button

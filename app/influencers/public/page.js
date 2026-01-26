@@ -497,6 +497,9 @@ function PublicInfluencersContent() {
                       사용자명
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                      프로필 링크
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       팔로워
                     </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -573,6 +576,19 @@ function PublicInfluencersContent() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
+                        <a
+                          href={filters.platform === 'instagram'
+                            ? `https://instagram.com/${influencer.username}`
+                            : `https://youtube.com/@${influencer.username}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-sm text-purple-600 hover:text-purple-800 hover:underline"
+                        >
+                          [링크]
+                        </a>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {formatFollowers(influencer.followers)}
                         </div>
@@ -595,7 +611,7 @@ function PublicInfluencersContent() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {influencer.reachRate
-                            ? (parseFloat(influencer.reachRate) >= 500 ? '500+' : Math.floor(parseFloat(influencer.reachRate)))
+                            ? Math.floor(parseFloat(influencer.reachRate))
                             : '-'}
                         </div>
                       </td>
