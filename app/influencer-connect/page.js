@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/components/AuthProvider'
 import InfluencerFilter from '@/components/InfluencerFilter'
+import InlineComplimentGenerator from '@/components/InlineComplimentGenerator'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useCallback, Suspense, useRef } from 'react'
 
@@ -35,6 +36,12 @@ function InfluencerConnectContent() {
 
   // 네비게이션 탭 상태
   const [activeTab, setActiveTab] = useState('mail') // 'mail' 또는 'campaign'
+
+  // 맞춤형 칭찬 관련 상태
+  const [compliments, setCompliments] = useState({}) // 인플루언서별 맞춤형 칭찬 {influencerId: '칭찬 내용'}
+  const [selectedKeywordsByInfluencer, setSelectedKeywordsByInfluencer] = useState({}) // 인플루언서별 선택된 키워드 {influencerId: ['키워드1', '키워드2']}
+  const [aiGenerating, setAiGenerating] = useState({}) // AI 생성 중 상태 {influencerId: true/false}
+  const [savedComplimentIds, setSavedComplimentIds] = useState({}) // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
 
   // 캠페인 탭 클릭 핸들러
   const handleCampaignTabClick = () => {
@@ -157,12 +164,24 @@ function InfluencerConnectContent() {
 
         // 저장된 사용자 변수들을 상태에 설정
         const savedVariables = {}
+        const savedKeywords = {}
+        const savedComplimentsData = {}
         connections.forEach(connection => {
           if (connection.userVariables) {
             savedVariables[connection.id] = connection.userVariables
+            // 저장된 키워드 불러오기
+            if (connection.userVariables['선택된 키워드']) {
+              savedKeywords[connection.influencerId] = connection.userVariables['선택된 키워드']
+            }
+            // 저장된 칭찬 불러오기
+            if (connection.userVariables['맞춤형 칭찬']) {
+              savedComplimentsData[connection.influencerId] = connection.userVariables['맞춤형 칭찬']
+            }
           }
         })
         setConnectionUserVariables(savedVariables)
+        setSelectedKeywordsByInfluencer(savedKeywords)
+        setCompliments(savedComplimentsData)
       }
 
     } catch (error) {
@@ -454,6 +473,63 @@ function InfluencerConnectContent() {
       }
     } catch (error) {
       console.error('Error generating preview:', error)
+    }
+  }
+
+  // 맞춤형 칭찬 DB 저장 함수
+  const saveComplimentToDb = async (connectionId, influencerId, complimentText) => {
+    try {
+      // 해당 인플루언서의 connection 찾기
+      const connection = connectedInfluencers.find(
+        (conn) => conn.id === connectionId
+      )
+
+      if (!connection) {
+        console.error("Connection not found:", connectionId)
+        return false
+      }
+
+      // 기존 userVariables에 칭찬 추가
+      const updatedUserVariables = {
+        ...(connection.userVariables || {}),
+        '맞춤형 칭찬': complimentText
+      }
+
+      const response = await fetch("/api/template-influencer-connections", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          connectionId: connectionId,
+          userId: dbUser.id,
+          userVariables: updatedUserVariables
+        }),
+      })
+
+      if (response.ok) {
+        // 로컬 상태 업데이트
+        setConnectedInfluencers(prev =>
+          prev.map(conn =>
+            conn.id === connectionId
+              ? { ...conn, userVariables: updatedUserVariables }
+              : conn
+          )
+        )
+        // connectionUserVariables도 업데이트
+        setConnectionUserVariables(prev => ({
+          ...prev,
+          [connectionId]: updatedUserVariables
+        }))
+        console.log("칭찬이 저장되었습니다:", influencerId)
+        return true
+      } else {
+        console.error("칭찬 저장 실패")
+        return false
+      }
+    } catch (error) {
+      console.error("Error saving compliment:", error)
+      return false
     }
   }
 
@@ -778,6 +854,192 @@ function InfluencerConnectContent() {
                             {isExpanded && (
                               <div className="px-4 pb-4 border-t border-green-200 bg-green-25">
                                 <div className="pt-4 space-y-4">
+                                  {/* 맞춤형 칭찬 섹션 (템플릿에 맞춤형 칭찬 변수가 있는 경우에만 표시) */}
+                                  {(template.subject?.includes('{{맞춤형 칭찬}}') || template.content?.includes('{{맞춤형 칭찬}}')) && (
+                                    <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                      <div className="space-y-3">
+                                        <label className="text-sm font-medium text-gray-800 flex items-center">
+                                          <span className="mr-1">✨</span>
+                                          맞춤형 칭찬
+                                        </label>
+
+                                        {/* 인라인 칭찬 생성기 */}
+                                        <InlineComplimentGenerator
+                                          influencerName={connection.influencer.fieldData?.name || connection.influencer.accountId || '인플루언서'}
+                                          initialKeywords={selectedKeywordsByInfluencer[connection.influencerId] || []}
+                                          onKeywordsSelect={async (keywords) => {
+                                            // 선택된 키워드 로컬 상태 저장
+                                            setSelectedKeywordsByInfluencer(prev => ({
+                                              ...prev,
+                                              [connection.influencerId]: keywords
+                                            }))
+
+                                            // DB에 키워드 저장
+                                            try {
+                                              const updatedUserVariables = {
+                                                ...(connection.userVariables || {}),
+                                                '선택된 키워드': keywords
+                                              }
+
+                                              const response = await fetch("/api/template-influencer-connections", {
+                                                method: "PATCH",
+                                                headers: { "Content-Type": "application/json" },
+                                                body: JSON.stringify({
+                                                  connectionId: connection.id,
+                                                  userId: dbUser.id,
+                                                  userVariables: updatedUserVariables
+                                                }),
+                                              })
+
+                                              if (response.ok) {
+                                                // 로컬 상태 업데이트
+                                                setConnectedInfluencers(prev =>
+                                                  prev.map(conn =>
+                                                    conn.id === connection.id
+                                                      ? { ...conn, userVariables: updatedUserVariables }
+                                                      : conn
+                                                  )
+                                                )
+                                                setConnectionUserVariables(prev => ({
+                                                  ...prev,
+                                                  [connection.id]: updatedUserVariables
+                                                }))
+                                              }
+                                            } catch (error) {
+                                              console.error("키워드 저장 오류:", error)
+                                            }
+                                          }}
+                                        />
+
+                                        {/* 선택된 키워드 표시 */}
+                                        {selectedKeywordsByInfluencer[connection.influencerId]?.length > 0 && (
+                                          <div className="p-2 bg-gray-100 rounded-lg">
+                                            <p className="text-xs text-gray-700 font-medium mb-1">선택된 키워드:</p>
+                                            <p className="text-xs text-gray-600">
+                                              {selectedKeywordsByInfluencer[connection.influencerId].join(', ')}
+                                            </p>
+                                          </div>
+                                        )}
+
+                                        {/* 칭찬 텍스트 박스 */}
+                                        <div className="space-y-2">
+                                          <textarea
+                                            rows={3}
+                                            value={compliments[connection.influencerId] || connection.userVariables?.['맞춤형 칭찬'] || ''}
+                                            onChange={(e) => {
+                                              e.stopPropagation()
+                                              setCompliments(prev => ({
+                                                ...prev,
+                                                [connection.influencerId]: e.target.value
+                                              }))
+                                              // 저장된 상태였다면 '수정됨' 상태로 변경
+                                              if (savedComplimentIds[connection.influencerId] === 'saved') {
+                                                setSavedComplimentIds(prev => ({ ...prev, [connection.influencerId]: 'modified' }))
+                                              }
+                                            }}
+                                            onClick={(e) => e.stopPropagation()}
+                                            placeholder="인플루언서에게 맞춤 칭찬을 입력하세요"
+                                            className="w-full text-sm px-3 py-2 border border-gray-300 rounded-lg focus:ring-gray-500 focus:border-gray-500 bg-white resize-none"
+                                          />
+                                          <div className="flex items-center justify-between">
+                                            <div>
+                                              {savedComplimentIds[connection.influencerId] === 'saved' && (
+                                                <p className="text-xs text-green-600 font-medium">적용되었어요!</p>
+                                              )}
+                                              {savedComplimentIds[connection.influencerId] === 'modified' && (
+                                                <p className="text-xs text-orange-500 font-medium">적용하기가 필요해요.</p>
+                                              )}
+                                            </div>
+                                            <div className="flex space-x-2">
+                                              <button
+                                                type="button"
+                                                disabled={!selectedKeywordsByInfluencer[connection.influencerId]?.length || aiGenerating[connection.influencerId]}
+                                                onClick={async (e) => {
+                                                  e.stopPropagation()
+                                                  const keywords = selectedKeywordsByInfluencer[connection.influencerId]
+                                                  if (!keywords?.length) {
+                                                    alert('먼저 키워드를 선택해주세요.')
+                                                    return
+                                                  }
+
+                                                  setAiGenerating(prev => ({ ...prev, [connection.influencerId]: true }))
+
+                                                  try {
+                                                    const response = await fetch('http://52.78.83.129:8080/instagram/generate-dm-from-keywords', {
+                                                      method: 'POST',
+                                                      headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({
+                                                        keywords: keywords,
+                                                        dmVersion: 'v1',
+                                                        customDmPrompt: ''
+                                                      })
+                                                    })
+
+                                                    if (!response.ok) throw new Error('API 요청 실패')
+
+                                                    const data = await response.json()
+                                                    if (data.message) {
+                                                      setCompliments(prev => ({
+                                                        ...prev,
+                                                        [connection.influencerId]: data.message
+                                                      }))
+                                                      setSavedComplimentIds(prev => ({ ...prev, [connection.influencerId]: 'modified' }))
+                                                    }
+                                                  } catch (err) {
+                                                    console.error('AI 칭찬 생성 오류:', err)
+                                                    alert('AI 칭찬 생성에 실패했습니다. 다시 시도해주세요.')
+                                                  } finally {
+                                                    setAiGenerating(prev => ({ ...prev, [connection.influencerId]: false }))
+                                                  }
+                                                }}
+                                                className={`px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap flex items-center space-x-1 ${
+                                                  selectedKeywordsByInfluencer[connection.influencerId]?.length && !aiGenerating[connection.influencerId]
+                                                    ? 'bg-purple-500 text-white hover:bg-purple-600'
+                                                    : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                                                }`}
+                                              >
+                                                {aiGenerating[connection.influencerId] ? (
+                                                  <>
+                                                    <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
+                                                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                    </svg>
+                                                    <span>생성 중...</span>
+                                                  </>
+                                                ) : (
+                                                  <span>AI로 칭찬 생성</span>
+                                                )}
+                                              </button>
+                                              <button
+                                                type="button"
+                                                onClick={async (e) => {
+                                                  e.stopPropagation()
+                                                  const complimentText = compliments[connection.influencerId] || connection.userVariables?.['맞춤형 칭찬']
+                                                  if (!complimentText) {
+                                                    alert('저장할 칭찬 내용이 없습니다.')
+                                                    return
+                                                  }
+                                                  const success = await saveComplimentToDb(connection.id, connection.influencerId, complimentText)
+                                                  if (success) {
+                                                    // 저장 완료 표시
+                                                    setSavedComplimentIds(prev => ({ ...prev, [connection.influencerId]: 'saved' }))
+                                                    // 미리보기 갱신
+                                                    generatePreview(connection.influencer, connection.id)
+                                                  } else {
+                                                    alert('칭찬 저장에 실패했습니다.')
+                                                  }
+                                                }}
+                                                className="px-3 py-2 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors whitespace-nowrap"
+                                              >
+                                                적용하기
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+
                                   <div>
                                     <h5 className="text-sm font-medium text-gray-900 mb-2">사용자 변수 설정</h5>
                                     <div className="text-xs text-gray-600 mb-3">

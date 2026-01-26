@@ -4,7 +4,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, Suspense } from "react";
 import SmtpSettingsModal from "@/components/SmtpSettingsModal";
-import ComplimentGeneratorModal from "@/components/ComplimentGeneratorModal";
 
 function EmailComposeContent() {
   const { user, dbUser, loading: authLoading, signOut } = useAuth();
@@ -40,9 +39,6 @@ function EmailComposeContent() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [showOriginalTemplate, setShowOriginalTemplate] = useState(false); // 원본 템플릿 토글
   const [senderName, setSenderName] = useState(""); // 발신자 이름
-  const [compliments, setCompliments] = useState({}); // 인플루언서별 맞춤형 칭찬 {influencerId: '칭찬 내용'}
-  const [complimentModalData, setComplimentModalData] = useState(null); // {influencerId, influencerName} 또는 null
-  const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -122,15 +118,6 @@ function EmailComposeContent() {
         const influencerIds = connections.map((conn) => conn.influencerId);
         setSelectedInfluencers(influencerIds);
 
-        // 저장된 맞춤형 칭찬 불러오기
-        const savedCompliments = {};
-        connections.forEach((conn) => {
-          if (conn.userVariables && conn.userVariables['맞춤형 칭찬']) {
-            savedCompliments[conn.influencerId] = conn.userVariables['맞춤형 칭찬'];
-          }
-        });
-        setCompliments(savedCompliments);
-
         // 각 인플루언서별 이메일 미리보기 생성
         await generateAllPreviews(connections);
       }
@@ -142,16 +129,12 @@ function EmailComposeContent() {
     }
   };
 
-  const generateAllPreviews = async (connections, currentCompliments = null) => {
+  const generateAllPreviews = async (connections) => {
     try {
-      // 연결 정보를 API에 맞는 형태로 변환 (칭찬 포함)
-      const complimentsToUse = currentCompliments || compliments;
+      // 연결 정보를 API에 맞는 형태로 변환
       const connectionData = connections.map((connection) => ({
         influencerId: connection.influencer.id,
-        userVariables: {
-          ...(connection.userVariables || {}),
-          ...(complimentsToUse[connection.influencerId] ? { '맞춤형 칭찬': complimentsToUse[connection.influencerId] } : {})
-        },
+        userVariables: connection.userVariables || {},
       }));
 
       // 일괄 미리보기 API 호출 - N번 호출을 1번으로 줄임
@@ -180,58 +163,6 @@ function EmailComposeContent() {
     } catch (error) {
       console.error("Error generating batch previews:", error);
       setEmailPreviews({});
-    }
-  };
-
-  // 맞춤형 칭찬 DB 저장 함수
-  const saveComplimentToDb = async (influencerId, complimentText) => {
-    try {
-      // 해당 인플루언서의 connection 찾기
-      const connection = connectedInfluencers.find(
-        (conn) => conn.influencerId === influencerId
-      );
-
-      if (!connection) {
-        console.error("Connection not found for influencer:", influencerId);
-        return false;
-      }
-
-      // 기존 userVariables에 칭찬 추가
-      const updatedUserVariables = {
-        ...(connection.userVariables || {}),
-        '맞춤형 칭찬': complimentText
-      };
-
-      const response = await fetch("/api/template-influencer-connections", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          connectionId: connection.id,
-          userId: dbUser.id,
-          userVariables: updatedUserVariables
-        }),
-      });
-
-      if (response.ok) {
-        // 로컬 상태 업데이트
-        setConnectedInfluencers(prev =>
-          prev.map(conn =>
-            conn.id === connection.id
-              ? { ...conn, userVariables: updatedUserVariables }
-              : conn
-          )
-        );
-        console.log("칭찬이 저장되었습니다:", influencerId);
-        return true;
-      } else {
-        console.error("칭찬 저장 실패");
-        return false;
-      }
-    } catch (error) {
-      console.error("Error saving compliment:", error);
-      return false;
     }
   };
 
@@ -361,11 +292,6 @@ function EmailComposeContent() {
             });
           }
 
-          // 현재 상태의 맞춤형 칭찬 추가 (실시간 데이터 우선)
-          if (compliments[influencerId]) {
-            customUserVariables['맞춤형 칭찬'] = [compliments[influencerId]];
-          }
-
           const response = await fetch("/api/emails/send-test", {
             method: "POST",
             headers: {
@@ -468,11 +394,6 @@ function EmailComposeContent() {
                 customUserVariables[key] = [value];
               }
             });
-          }
-
-          // 현재 상태의 맞춤형 칭찬 추가 (실시간 데이터 우선)
-          if (compliments[influencerId]) {
-            customUserVariables['맞춤형 칭찬'] = [compliments[influencerId]];
           }
 
           const response = await fetch("/api/emails/send", {
@@ -1034,84 +955,6 @@ function EmailComposeContent() {
                               </div>
                             </div>
 
-                            {/* 맞춤형 칭찬 섹션 (템플릿에 맞춤형 칭찬 변수가 있고 선택된 경우에만 표시) */}
-                            {isSelected && (template.subject?.includes('{{맞춤형 칭찬}}') || template.content?.includes('{{맞춤형 칭찬}}')) && (
-                              <div className="px-4 py-3 border-t border-purple-200 bg-pink-50">
-                                <div className="space-y-2">
-                                  <label className="text-xs font-medium text-pink-800 flex items-center">
-                                    <span className="mr-1">✨</span>
-                                    맞춤형 칭찬
-                                  </label>
-                                  <div className="space-y-2">
-                                    <textarea
-                                      rows={3}
-                                      value={compliments[connection.influencerId] || ''}
-                                      onChange={(e) => {
-                                        e.stopPropagation();
-                                        setCompliments(prev => ({
-                                          ...prev,
-                                          [connection.influencerId]: e.target.value
-                                        }));
-                                        // 저장된 상태였다면 '수정됨' 상태로 변경
-                                        if (savedComplimentIds[connection.influencerId] === 'saved') {
-                                          setSavedComplimentIds(prev => ({ ...prev, [connection.influencerId]: 'modified' }));
-                                        }
-                                      }}
-                                      onClick={(e) => e.stopPropagation()}
-                                      placeholder="인플루언서에게 맞춤 칭찬을 입력하세요"
-                                      className="w-full text-sm px-3 py-2 border border-pink-200 rounded-lg focus:ring-pink-500 focus:border-pink-500 bg-white resize-none"
-                                    />
-                                    <div className="space-y-2">
-                                      {savedComplimentIds[connection.influencerId] === 'saved' && (
-                                        <p className="text-xs text-green-600 font-medium">적용되었어요!</p>
-                                      )}
-                                      {savedComplimentIds[connection.influencerId] === 'modified' && (
-                                        <p className="text-xs text-orange-500 font-medium">적용하기가 필요해요.</p>
-                                      )}
-                                      <div className="flex space-x-2">
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setComplimentModalData({
-                                              influencerId: connection.influencerId,
-                                              influencerName: connection.influencer.fieldData?.name || connection.influencer.accountId || '인플루언서'
-                                            });
-                                          }}
-                                          className="px-3 py-2 bg-pink-500 text-white text-sm rounded-lg hover:bg-pink-600 transition-colors whitespace-nowrap"
-                                        >
-                                          칭찬 생성하기
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={async (e) => {
-                                            e.stopPropagation();
-                                            const complimentText = compliments[connection.influencerId];
-                                            if (!complimentText) {
-                                              alert('저장할 칭찬 내용이 없습니다.');
-                                              return;
-                                            }
-                                            const success = await saveComplimentToDb(connection.influencerId, complimentText);
-                                            if (success) {
-                                              // 미리보기 갱신
-                                              await generateAllPreviews(connectedInfluencers, compliments);
-                                              // 저장 완료 표시
-                                              setSavedComplimentIds(prev => ({ ...prev, [connection.influencerId]: 'saved' }));
-                                            } else {
-                                              alert('칭찬 저장에 실패했습니다.');
-                                            }
-                                          }}
-                                          className="px-3 py-2 bg-gray-500 text-white text-sm rounded-lg hover:bg-gray-600 transition-colors whitespace-nowrap"
-                                        >
-                                          적용하기
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
                             {/* 이메일 미리보기 (선택된 경우에만 표시) */}
                             {isSelected && emailPreview && (
                               <div className="px-4 pb-4 border-t border-purple-200 bg-purple-25">
@@ -1418,35 +1261,6 @@ function EmailComposeContent() {
         setSenderName={setSenderName}
         onSave={() => {
           setShowSmtpSettings(false);
-        }}
-      />
-
-      {/* 맞춤형 칭찬 생성 모달 */}
-      <ComplimentGeneratorModal
-        isOpen={!!complimentModalData}
-        onClose={() => setComplimentModalData(null)}
-        influencerName={complimentModalData?.influencerName || ''}
-        onComplete={async (generatedCompliment) => {
-          // 선택된 키워드를 해당 인플루언서의 칭찬으로 저장
-          if (complimentModalData) {
-            const influencerId = complimentModalData.influencerId;
-
-            // 로컬 상태 업데이트
-            const newCompliments = {
-              ...compliments,
-              [influencerId]: generatedCompliment
-            };
-            setCompliments(newCompliments);
-
-            // DB에 자동 저장
-            await saveComplimentToDb(influencerId, generatedCompliment);
-
-            // 저장 완료 표시
-            setSavedComplimentIds(prev => ({ ...prev, [influencerId]: 'saved' }));
-
-            // 미리보기 갱신
-            await generateAllPreviews(connectedInfluencers, newCompliments);
-          }
         }}
       />
     </div>
