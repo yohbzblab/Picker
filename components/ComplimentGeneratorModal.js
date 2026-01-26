@@ -198,7 +198,7 @@ export default function ComplimentGeneratorModal({ isOpen, onClose, influencerNa
 
     try {
       // API 요청 시도
-      const response = await fetch('http://52.78.83.129:8080/instagram/generate-dm-from-keywords', {
+      const response = await fetch('/api/compliment/generate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
