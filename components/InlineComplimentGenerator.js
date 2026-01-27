@@ -128,7 +128,8 @@ const categorizeKeywords = (keywords) => {
 export default function InlineComplimentGenerator({
   influencerName,
   onKeywordsSelect,
-  initialKeywords = []
+  initialKeywords = [],
+  initialCustomKeywords = []
 }) {
   const [activeQuestionId, setActiveQuestionId] = useState('A')
   const [selectedKeywords, setSelectedKeywords] = useState(() =>
@@ -137,6 +138,8 @@ export default function InlineComplimentGenerator({
   const [displayKeywords, setDisplayKeywords] = useState({
     A: [], B: [], C: [], D: [], E: [], F: []
   })
+  const [customKeywords, setCustomKeywords] = useState(initialCustomKeywords)
+  const [customKeywordInput, setCustomKeywordInput] = useState('')
 
   // 컴포넌트 마운트 시 랜덤 키워드 생성 + 저장된 키워드 포함
   useEffect(() => {
@@ -175,15 +178,38 @@ export default function InlineComplimentGenerator({
   }
 
   // 최소 1개 이상의 키워드가 선택되었는지 확인
-  const hasAnyKeywordSelected = QUESTIONS.some(q => selectedKeywords[q.id].length > 0)
+  const hasAnyKeywordSelected = QUESTIONS.some(q => selectedKeywords[q.id].length > 0) || customKeywords.length > 0
 
-  // 완료 버튼 클릭 - 키워드 리스트만 저장
+  // 커스텀 키워드 추가
+  const addCustomKeyword = () => {
+    const trimmed = customKeywordInput.trim()
+    if (trimmed && !customKeywords.includes(trimmed)) {
+      setCustomKeywords(prev => [...prev, trimmed])
+      setCustomKeywordInput('')
+    }
+  }
+
+  // 커스텀 키워드 삭제
+  const removeCustomKeyword = (keyword) => {
+    setCustomKeywords(prev => prev.filter(k => k !== keyword))
+  }
+
+  // Enter 키로 커스텀 키워드 추가 (한글 IME 조합 중에는 무시)
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      addCustomKeyword()
+    }
+  }
+
+  // 완료 버튼 클릭 - 키워드 리스트만 저장 (선택된 키워드와 커스텀 키워드 분리)
   const handleComplete = () => {
-    const allKeywords = QUESTIONS.flatMap(q => selectedKeywords[q.id])
-    console.log('선택된 키워드:', allKeywords)
+    const allSelectedKeywords = QUESTIONS.flatMap(q => selectedKeywords[q.id])
+    console.log('선택된 키워드:', allSelectedKeywords, '커스텀 키워드:', customKeywords)
 
     if (onKeywordsSelect) {
-      onKeywordsSelect(allKeywords)
+      // 첫 번째 인자: 카테고리에서 선택된 키워드만, 두 번째 인자: 커스텀 키워드
+      onKeywordsSelect(allSelectedKeywords, customKeywords)
     }
   }
 
@@ -250,6 +276,32 @@ export default function InlineComplimentGenerator({
         </div>
       </div>
 
+      {/* 커스텀 키워드 입력 */}
+      <div className="px-3 py-2 border-t border-gray-200 bg-gray-50">
+        <p className="text-[10px] font-medium text-gray-500 mb-1.5">직접 키워드 추가</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={customKeywordInput}
+            onChange={(e) => setCustomKeywordInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="키워드를 입력하세요"
+            className="flex-1 px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400"
+          />
+          <button
+            onClick={addCustomKeyword}
+            disabled={!customKeywordInput.trim()}
+            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+              customKeywordInput.trim()
+                ? 'bg-gray-700 text-white hover:bg-gray-600'
+                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            }`}
+          >
+            추가
+          </button>
+        </div>
+      </div>
+
       {/* 선택한 키워드 요약 */}
       {QUESTIONS.some(q => selectedKeywords[q.id].length > 0) && (
         <div className="px-3 py-2 border-t border-gray-200 bg-gray-50">
@@ -266,6 +318,29 @@ export default function InlineComplimentGenerator({
                 </span>
               ))
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 커스텀 키워드 표시 */}
+      {customKeywords.length > 0 && (
+        <div className="px-3 py-2 border-t border-gray-200 bg-blue-50">
+          <p className="text-[10px] font-medium text-blue-600 mb-1.5">직접 입력한 키워드</p>
+          <div className="flex flex-wrap gap-1">
+            {customKeywords.map((keyword, index) => (
+              <span
+                key={`custom-${index}`}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-blue-200 text-blue-700"
+              >
+                {keyword}
+                <button
+                  onClick={() => removeCustomKeyword(keyword)}
+                  className="ml-1 text-blue-500 hover:text-blue-700"
+                >
+                  ×
+                </button>
+              </span>
+            ))}
           </div>
         </div>
       )}

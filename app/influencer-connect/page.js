@@ -41,6 +41,8 @@ function InfluencerConnectContent() {
   const [compliments, setCompliments] = useState({}); // 인플루언서별 맞춤형 칭찬 {influencerId: '칭찬 내용'}
   const [selectedKeywordsByInfluencer, setSelectedKeywordsByInfluencer] =
     useState({}); // 인플루언서별 선택된 키워드 {influencerId: ['키워드1', '키워드2']}
+  const [customKeywordsByInfluencer, setCustomKeywordsByInfluencer] =
+    useState({}); // 인플루언서별 커스텀 키워드 {influencerId: ['키워드1', '키워드2']}
   const [aiGenerating, setAiGenerating] = useState({}); // AI 생성 중 상태 {influencerId: true/false}
   const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
 
@@ -174,6 +176,7 @@ function InfluencerConnectContent() {
         // 저장된 사용자 변수들을 상태에 설정
         const savedVariables = {};
         const savedKeywords = {};
+        const savedCustomKeywords = {};
         const savedComplimentsData = {};
         connections.forEach((connection) => {
           if (connection.userVariables) {
@@ -182,6 +185,11 @@ function InfluencerConnectContent() {
             if (connection.userVariables["선택된 키워드"]) {
               savedKeywords[connection.influencerId] =
                 connection.userVariables["선택된 키워드"];
+            }
+            // 저장된 커스텀 키워드 불러오기
+            if (connection.userVariables["커스텀 키워드"]) {
+              savedCustomKeywords[connection.influencerId] =
+                connection.userVariables["커스텀 키워드"];
             }
             // 저장된 칭찬 불러오기
             if (connection.userVariables["맞춤형 칭찬"]) {
@@ -192,6 +200,7 @@ function InfluencerConnectContent() {
         });
         setConnectionUserVariables(savedVariables);
         setSelectedKeywordsByInfluencer(savedKeywords);
+        setCustomKeywordsByInfluencer(savedCustomKeywords);
         setCompliments(savedComplimentsData);
       }
     } catch (error) {
@@ -1078,8 +1087,14 @@ function InfluencerConnectContent() {
                                               connection.influencerId
                                             ] || []
                                           }
+                                          initialCustomKeywords={
+                                            customKeywordsByInfluencer[
+                                              connection.influencerId
+                                            ] || []
+                                          }
                                           onKeywordsSelect={async (
-                                            keywords
+                                            keywords,
+                                            customKeywords
                                           ) => {
                                             // 선택된 키워드 로컬 상태 저장
                                             setSelectedKeywordsByInfluencer(
@@ -1089,6 +1104,16 @@ function InfluencerConnectContent() {
                                                   keywords,
                                               })
                                             );
+                                            // 커스텀 키워드 로컬 상태 저장
+                                            if (customKeywords) {
+                                              setCustomKeywordsByInfluencer(
+                                                (prev) => ({
+                                                  ...prev,
+                                                  [connection.influencerId]:
+                                                    customKeywords,
+                                                })
+                                              );
+                                            }
 
                                             // DB에 키워드 저장
                                             try {
@@ -1096,6 +1121,7 @@ function InfluencerConnectContent() {
                                                 ...(connection.userVariables ||
                                                   {}),
                                                 "선택된 키워드": keywords,
+                                                "커스텀 키워드": customKeywords || [],
                                               };
 
                                               const response = await fetch(
@@ -1222,20 +1248,31 @@ function InfluencerConnectContent() {
                                               <button
                                                 type="button"
                                                 disabled={
-                                                  !selectedKeywordsByInfluencer[
+                                                  (!selectedKeywordsByInfluencer[
                                                     connection.influencerId
-                                                  ]?.length ||
+                                                  ]?.length &&
+                                                  !customKeywordsByInfluencer[
+                                                    connection.influencerId
+                                                  ]?.length) ||
                                                   aiGenerating[
                                                     connection.influencerId
                                                   ]
                                                 }
                                                 onClick={async (e) => {
                                                   e.stopPropagation();
-                                                  const keywords =
+                                                  const selectedKeywords =
                                                     selectedKeywordsByInfluencer[
                                                       connection.influencerId
-                                                    ];
-                                                  if (!keywords?.length) {
+                                                    ] || [];
+                                                  const customKeywords =
+                                                    customKeywordsByInfluencer[
+                                                      connection.influencerId
+                                                    ] || [];
+                                                  const allKeywords = [
+                                                    ...selectedKeywords,
+                                                    ...customKeywords,
+                                                  ];
+                                                  if (!allKeywords?.length) {
                                                     alert(
                                                       "먼저 키워드를 선택해주세요."
                                                     );
@@ -1258,7 +1295,7 @@ function InfluencerConnectContent() {
                                                               "application/json",
                                                           },
                                                           body: JSON.stringify({
-                                                            keywords: keywords,
+                                                            keywords: allKeywords,
                                                             dmVersion: "v1",
                                                             customDmPrompt: "",
                                                           }),

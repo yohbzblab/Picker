@@ -31,7 +31,7 @@ function PublicInfluencersContent() {
     minFollowers: searchParams.get('minFollowers') || '',
     maxFollowers: searchParams.get('maxFollowers') || '',
     ageGroup: searchParams.get('ageGroup') || '',
-    sortBy: searchParams.get('sortBy') || 'reachRate',
+    sortBy: searchParams.get('sortBy') || 'recentAvgViews',
     sortOrder: searchParams.get('sortOrder') || 'desc',
   });
 
@@ -411,11 +411,9 @@ function PublicInfluencersContent() {
                 onChange={(e) => handleFilterChange('sortBy', e.target.value)}
                 className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none text-sm"
               >
-                <option value="reachRate">도달지수</option>
                 <option value="followers">팔로워</option>
                 <option value="recentAvgViews">평균 조회수</option>
                 <option value="avg_like">평균 좋아요</option>
-                <option value="updated_at">업데이트 날짜</option>
               </select>
               <select
                 value={filters.sortOrder}
@@ -511,9 +509,6 @@ function PublicInfluencersContent() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
                       연령대
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
-                      도달지수
-                    </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -606,13 +601,6 @@ function PublicInfluencersContent() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           {influencer.ageGroup || '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {influencer.reachRate
-                            ? Math.floor(parseFloat(influencer.reachRate))
-                            : '-'}
                         </div>
                       </td>
                     </tr>
