@@ -633,11 +633,11 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
       } else if (value && typeof value === 'object' && value.variables) {
         // 복잡한 그룹 구조 -> 개별 변수로 변환
         Object.entries(value.variables).forEach(([varKey, varData]) => {
-          migrated[varKey] = [varData.defaultValue || '기본값']
+          migrated[varKey] = [varData.defaultValue || '']
         })
       } else {
         // 기타 구조
-        migrated[key] = [String(value) || '기본값']
+        migrated[key] = [value == null ? '' : String(value)]
       }
     })
     return migrated
@@ -673,7 +673,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
 
       setUserVariables(prev => ({
         ...prev,
-        [variableKey]: [newVariableDefaultValue || '기본값']
+        [variableKey]: [newVariableDefaultValue || '']
       }))
       setNewVariableName('')
       setNewVariableDefaultValue('')
@@ -702,7 +702,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
     if (editingVariable) {
       setUserVariables(prev => ({
         ...prev,
-        [editingVariable]: [editValue || '기본값']
+        [editingVariable]: [editValue || '']
       }))
       setEditingVariable(null)
       setEditValue('')
@@ -828,7 +828,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
                           </div>
                         ) : (
                           <span className="cursor-pointer hover:bg-gray-100 px-1 rounded" onClick={() => startEditing(variableKey, variableValue)}>
-                            {Array.isArray(variableValue) ? variableValue[0] : variableValue || '기본값'}
+                            {(Array.isArray(variableValue) ? variableValue[0] : variableValue) || '미설정'}
                             <span className="text-xs text-gray-400 ml-1">(클릭하여 수정)</span>
                           </span>
                         )}

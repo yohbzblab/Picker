@@ -46,6 +46,41 @@ function InfluencerConnectContent() {
   const [aiGenerating, setAiGenerating] = useState({}); // AI 생성 중 상태 {influencerId: true/false}
   const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
 
+  // 템플릿의 사용자 변수 기본값 정규화:
+  // - 과거 데이터에 들어가 있을 수 있는 '기본값' 더미 문자열을 빈 문자열로 치환
+  // - 간단한 구조({key: [default]}) 뿐 아니라 일부 레거시 구조도 방어적으로 처리
+  const normalizeUserVariables = useCallback((vars) => {
+    if (!vars || typeof vars !== 'object') return vars
+
+    const normalized = {}
+    Object.entries(vars).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        const v0 = value[0] ?? ''
+        normalized[key] = [(v0 === '기본값') ? '' : v0]
+        return
+      }
+
+      if (typeof value === 'string') {
+        normalized[key] = value === '기본값' ? '' : value
+        return
+      }
+
+      // 레거시 그룹 구조: { group: { variables: { varKey: { defaultValue }}}}
+      if (value && typeof value === 'object' && value.variables) {
+        Object.entries(value.variables).forEach(([varKey, varData]) => {
+          const dv = (varData && typeof varData === 'object') ? (varData.defaultValue ?? '') : ''
+          normalized[varKey] = [(dv === '기본값') ? '' : dv]
+        })
+        return
+      }
+
+      // 알 수 없는 구조는 빈 문자열로 처리
+      normalized[key] = ['']
+    })
+
+    return normalized
+  }, [])
+
   // 캠페인 탭 클릭 핸들러
   const handleCampaignTabClick = () => {
     router.push(`/survey-influencer-connect?templateId=${templateId}`);
@@ -152,7 +187,11 @@ function InfluencerConnectContent() {
 
       if (templateResponse.ok) {
         const templateData = await templateResponse.json();
-        setTemplate(templateData.template);
+        const tpl = templateData.template;
+        setTemplate({
+          ...tpl,
+          userVariables: normalizeUserVariables(tpl?.userVariables),
+        });
       } else {
         alert("템플릿을 찾을 수 없습니다.");
         router.push("/email-templates");
@@ -1880,7 +1919,7 @@ function InfluencerConnectContent() {
                                   ? value[0]
                                   : typeof value === "string"
                                     ? value
-                                    : "기본값";
+                                    : "";
                               return (
                                 <div
                                   key={variableName}
@@ -1889,7 +1928,7 @@ function InfluencerConnectContent() {
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-medium text-purple-800">{`{{${variableName}}}`}</span>
                                     <span className="text-xs text-purple-600">
-                                      기본값: {defaultValue}
+                                      기본값: {defaultValue || "미설정"}
                                     </span>
                                   </div>
                                 </div>

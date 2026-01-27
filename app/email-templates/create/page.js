@@ -63,11 +63,12 @@ function CreateEmailTemplateContent() {
     Object.entries(variables).forEach(([groupName, group]) => {
       if (group && group.variables) {
         Object.entries(group.variables).forEach(([variableKey, variable]) => {
-          migrated[variableKey] = [variable.defaultValue || '기본값']
+          // 기본값은 "기본값" 같은 더미 문자열이 아니라 빈 문자열로 유지
+          migrated[variableKey] = [variable.defaultValue || '']
         })
       } else {
         // 직접 변수가 저장된 경우 (이전 형식)
-        migrated[groupName] = Array.isArray(group) ? group : [group || '기본값']
+        migrated[groupName] = Array.isArray(group) ? group : [group || '']
       }
     })
 
