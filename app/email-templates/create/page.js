@@ -846,7 +846,7 @@ function CreateEmailTemplateContent() {
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      변수
+                      맞춤형 항목
                     </button>
                   </nav>
                 </div>
@@ -1001,7 +1001,7 @@ function CreateEmailTemplateContent() {
                     <div className="flex-1 flex flex-col">
                       <div className="mb-4">
                         <h4 className="text-sm font-medium text-gray-900 mb-3">
-                          변수 삽입
+                          맞춤형 항목 삽입
                         </h4>
                       </div>
 
@@ -1012,20 +1012,20 @@ function CreateEmailTemplateContent() {
                           {/* 사용자 변수들 */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-medium text-gray-700">사용자 변수</h4>
+                              <h4 className="text-sm font-medium text-gray-700">맞춤형 항목</h4>
                               <button
                                 type="button"
                                 onClick={() => openUserVariableModal()}
                                 onMouseDown={(e) => e.preventDefault()}
                                 className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
-                                title="사용자 변수 관리"
+                                title="맞춤형 항목 관리"
                               >
                                 관리
                               </button>
                             </div>
                             <div className="space-y-2">
                               {Object.keys(userVariables).length === 0 ? (
-                                <p className="text-sm text-gray-500">사용자 변수가 없어요. ‘관리’에서 추가할 수 있어요.</p>
+                                <p className="text-sm text-gray-500">맞춤형 항목이 없어요. ‘관리’에서 추가할 수 있어요.</p>
                               ) : (
                                 <div className="flex flex-wrap gap-2">
                                   {Object.entries(userVariables).map(([variableKey, variableValue]) => {
@@ -1101,7 +1101,7 @@ function CreateEmailTemplateContent() {
                           {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
                           {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
                             <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-3">조건 변수 (숫자)</h4>
+                              <h4 className="text-sm font-medium text-gray-700 mb-3">조건적 맞춤형 항목(숫자)</h4>
                               <div className="space-y-3">
                                 {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
                                   <div key={field.key} className="border border-gray-200 rounded-lg p-3">
