@@ -917,7 +917,7 @@ function InfluencerConnectContent() {
                 </p>
               </div>
 
-              {/* 메일 생성하기 버튼 */}
+              {/* 메일 미리보기 버튼 */}
               {connectedInfluencers.length > 0 && (
                 <div className="flex items-center space-x-4">
                   <button
@@ -939,7 +939,7 @@ function InfluencerConnectContent() {
                         d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                       />
                     </svg>
-                    <span>메일 생성하기</span>
+                    <span>메일 미리보기</span>
                   </button>
                 </div>
               )}
