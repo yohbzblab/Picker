@@ -520,7 +520,7 @@ export default function EmailTemplates() {
                               e.stopPropagation()
                               handleCampaignConnect(template)
                             }}
-                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+                            className="bg-sky-100 text-blue-600 px-2 py-1 rounded text-xs font-medium hover:bg-sky-200 transition-colors"
                           >
                             연결
                           </button>
