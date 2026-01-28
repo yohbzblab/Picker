@@ -1375,6 +1375,9 @@ function InfluencerConnectContent() {
                                               )}
                                             </div>
                                             <div className="flex space-x-2">
+                                              <span className="text-xs text-gray-400">
+                                                {aiComplimentRemaining}/{AI_COMPLIMENT_LIMIT}
+                                              </span>
                                               <button
                                                 type="button"
                                                 disabled={
@@ -1526,9 +1529,6 @@ function InfluencerConnectContent() {
                                                   <span>AI로 칭찬 생성</span>
                                                 )}
                                               </button>
-                                              <span className="text-xs text-gray-400">
-                                                {aiComplimentRemaining}/{AI_COMPLIMENT_LIMIT}
-                                              </span>
                                               <button
                                                 type="button"
                                                 onClick={async (e) => {
