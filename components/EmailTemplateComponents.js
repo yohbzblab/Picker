@@ -721,7 +721,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
         <div className="p-6">
           {/* 헤더 */}
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-gray-900">사용자 변수 관리</h2>
+            <h2 className="text-xl font-bold text-gray-900">맞춤형 항목 관리</h2>
             <button
               onClick={onClose}
               className="text-gray-500 hover:text-gray-700"
@@ -735,18 +735,18 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
           {/* 설명 */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-blue-700">
-              <strong>변수 사용법:</strong> 템플릿에서 <code className="bg-blue-100 px-1 rounded">{'{{변수명}}'}</code> 형태로 변수를 삽입하면,
-              인플루언서 연결 페이지에서 각 인플루언서별로 개별 값을 설정할 수 있습니다.
+              <strong>항목 사용법:</strong> 템플릿에서 <code className="bg-blue-100 px-1 rounded">{'{{항목명}}'}</code> 형태로 맞춤형 항목을 삽입하면,
+              인플루언서 연결 페이지에서 각 인플루언서별로 개별 항목과 값을 설정할 수 있습니다.
             </p>
           </div>
 
           {/* 새 변수 추가 폼 */}
           <div className="bg-gray-50 rounded-lg p-4 mb-6">
-            <h3 className="font-medium text-gray-900 mb-3">새 변수 추가</h3>
+            <h3 className="font-medium text-gray-900 mb-3">새 항목 추가</h3>
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  변수명 <span className="text-red-500">*</span>
+                  항목 명 <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -764,13 +764,13 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  기본값
+                  기본 값 설정하기
                 </label>
                 <input
                   type="text"
                   value={newVariableDefaultValue}
                   onChange={(e) => setNewVariableDefaultValue(e.target.value)}
-                  placeholder="기본값 (선택사항)"
+                  placeholder="기본 값 (선택사항)"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg"
                   onKeyDown={(e) => e.key === 'Enter' && addVariable()}
                 />
@@ -779,17 +779,17 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
                 onClick={addVariable}
                 className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
               >
-                변수 추가
+                항목 추가
               </button>
             </div>
           </div>
 
           {/* 기존 변수 목록 */}
           <div className="max-h-80 overflow-y-auto">
-            <h3 className="font-medium text-gray-900 mb-3">기존 변수</h3>
+            <h3 className="font-medium text-gray-900 mb-3">기존 항목</h3>
             {Object.keys(userVariables).length === 0 ? (
               <div className="text-center py-8 text-gray-500">
-                변수가 없습니다. 위에서 새 변수를 추가해보세요.
+                항목이 없습니다. 위에서 새 항목을 추가해보세요.
               </div>
             ) : (
               <div className="space-y-3">
@@ -800,7 +800,7 @@ export const UserVariableModal = ({ isOpen, onClose, userVariables, setUserVaria
                         <code className="bg-gray-100 px-2 py-1 rounded text-sm">{`{{${variableKey}}}`}</code>
                       </div>
                       <div className="text-sm text-gray-600">
-                        기본값: {editingVariable === variableKey ? (
+                        기본 값: {editingVariable === variableKey ? (
                           <div className="flex items-center space-x-2 mt-1">
                             <input
                               type="text"
