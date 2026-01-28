@@ -588,6 +588,11 @@ function CreateEmailTemplateContent() {
     router.push('/email-templates')
   }
 
+  const handleGoToInfluencerConnect = () => {
+    if (!editId) return
+    router.push(`/influencer-connect?templateId=${editId}`)
+  }
+
   // useRef를 사용하여 안정적인 함수 참조 생성
   const subjectInsertFnRef = useRef(null)
   const contentInsertFnRef = useRef(null)
@@ -629,18 +634,30 @@ function CreateEmailTemplateContent() {
       <main className="flex-1 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
           <div className="mb-8">
-            <div className="flex items-center space-x-4 mb-4">
-              <button
-                onClick={handleCancel}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {editId ? '메일 템플릿 수정' : '메일 템플릿 만들기'}
-              </h1>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleCancel}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {editId ? '메일 템플릿 수정' : '메일 템플릿 만들기'}
+                </h1>
+              </div>
+
+              {editId && (
+                <button
+                  type="button"
+                  onClick={handleGoToInfluencerConnect}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                >
+                  인플루언서 연결
+                </button>
+              )}
             </div>
             <p className="text-gray-600">
               메일 템플릿을 {editId ? '수정' : '작성'}하고, 맞춤형 항목으로 개인화할 수 있어요.
