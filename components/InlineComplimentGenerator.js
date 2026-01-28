@@ -125,6 +125,20 @@ const categorizeKeywords = (keywords) => {
   return categorized
 }
 
+// 커스텀 키워드는 카테고리 정보를 유지하기 위해 "A::키워드" 형태로 저장 (기존 문자열 배열과 호환)
+const CUSTOM_KEYWORD_PREFIX_RE = /^[A-F]::/
+const encodeCustomKeyword = (categoryId, keyword) => `${categoryId}::${keyword}`
+const decodeCustomKeyword = (encoded) => {
+  if (typeof encoded !== 'string') return { categoryId: 'A', keyword: '' }
+  if (CUSTOM_KEYWORD_PREFIX_RE.test(encoded)) {
+    const categoryId = encoded[0]
+    const keyword = encoded.slice(3)
+    return { categoryId, keyword }
+  }
+  // 레거시 데이터(카테고리 정보 없음)는 A로 간주
+  return { categoryId: 'A', keyword: encoded }
+}
+
 export default function InlineComplimentGenerator({
   influencerName,
   onKeywordsSelect,
@@ -139,9 +153,11 @@ export default function InlineComplimentGenerator({
     A: [], B: [], C: [], D: [], E: [], F: []
   })
   const [customKeywords, setCustomKeywords] = useState(initialCustomKeywords)
-  // 매력(A) 카테고리 끝에 표시할 "직접 입력" 키워드 (인라인 편집용)
-  const [customKeywordPending, setCustomKeywordPending] = useState('')
-  const [isEditingCustomKeyword, setIsEditingCustomKeyword] = useState(false)
+  // 각 카테고리 끝에 표시할 "직접 입력" 키워드 (인라인 편집용)
+  const [customKeywordPendingByCategory, setCustomKeywordPendingByCategory] = useState({
+    A: '', B: '', C: '', D: '', E: '', F: ''
+  })
+  const [editingCustomKeywordCategory, setEditingCustomKeywordCategory] = useState(null) // 'A'~'F'
   const [customKeywordDraft, setCustomKeywordDraft] = useState('')
 
   // 컴포넌트 마운트 시 랜덤 키워드 생성 + 저장된 키워드 포함
@@ -183,47 +199,59 @@ export default function InlineComplimentGenerator({
   // 최소 1개 이상의 키워드가 선택되었는지 확인
   const hasAnyKeywordSelected = QUESTIONS.some(q => selectedKeywords[q.id].length > 0) || customKeywords.length > 0
 
-  // 매력(A) 인라인 커스텀 키워드 편집 시작
-  const startEditingCustomKeyword = () => {
-    setIsEditingCustomKeyword(true)
-    setCustomKeywordDraft(customKeywordPending)
+  const startEditingCustomKeyword = (categoryId) => {
+    setEditingCustomKeywordCategory(categoryId)
+    setCustomKeywordDraft(customKeywordPendingByCategory[categoryId] || '')
   }
 
-  // 매력(A) 인라인 커스텀 키워드 편집 확정
   const commitCustomKeywordDraft = () => {
+    if (!editingCustomKeywordCategory) return
     const trimmed = customKeywordDraft.trim()
-    setCustomKeywordPending(trimmed)
-    setIsEditingCustomKeyword(false)
+    const categoryId = editingCustomKeywordCategory
+    setCustomKeywordPendingByCategory(prev => ({
+      ...prev,
+      [categoryId]: trimmed
+    }))
+    setEditingCustomKeywordCategory(null)
   }
 
-  // 매력(A) 인라인 커스텀 키워드 편집 취소 (influencer-management 패턴과 동일)
+  // 인라인 커스텀 키워드 편집 취소 (influencer-management 패턴과 동일)
   const cancelEditingCustomKeyword = () => {
-    setIsEditingCustomKeyword(false)
-    setCustomKeywordDraft(customKeywordPending)
+    setEditingCustomKeywordCategory(null)
+    setCustomKeywordDraft('')
   }
 
-  // 매력(A) 인라인 커스텀 키워드 추가 (저장)
-  const addPendingCustomKeyword = () => {
-    const trimmed = customKeywordPending.trim()
+  const hasCustomKeyword = (categoryId, keyword) => {
+    return customKeywords.some((encoded) => {
+      const decoded = decodeCustomKeyword(encoded)
+      return decoded.categoryId === categoryId && decoded.keyword === keyword
+    })
+  }
+
+  // 인라인 커스텀 키워드 추가 (저장)
+  const addPendingCustomKeyword = (categoryId) => {
+    const pending = customKeywordPendingByCategory[categoryId] || ''
+    const trimmed = pending.trim()
     if (!trimmed) return
-    if (customKeywords.includes(trimmed)) {
+    if (hasCustomKeyword(categoryId, trimmed)) {
       // 중복이면 입력만 초기화
-      setCustomKeywordPending('')
+      setCustomKeywordPendingByCategory(prev => ({ ...prev, [categoryId]: '' }))
       setCustomKeywordDraft('')
-      setIsEditingCustomKeyword(false)
+      setEditingCustomKeywordCategory(null)
       return
     }
 
-    setCustomKeywords(prev => [...prev, trimmed])
+    const encoded = encodeCustomKeyword(categoryId, trimmed)
+    setCustomKeywords(prev => [...prev, encoded])
     // 키워드 버튼 목록에도 포함 (다음에 다시 들어왔을 때도 보이도록)
     setDisplayKeywords(prev => ({
       ...prev,
-      A: [...new Set([...(prev.A || []), trimmed])]
+      [categoryId]: [...new Set([...(prev[categoryId] || []), trimmed])]
     }))
     // 입력 초기화
-    setCustomKeywordPending('')
+    setCustomKeywordPendingByCategory(prev => ({ ...prev, [categoryId]: '' }))
     setCustomKeywordDraft('')
-    setIsEditingCustomKeyword(false)
+    setEditingCustomKeywordCategory(null)
   }
 
   // 완료 버튼 클릭 - 키워드 리스트만 저장 (선택된 키워드와 커스텀 키워드 분리)
@@ -298,56 +326,54 @@ export default function InlineComplimentGenerator({
             )
           })}
 
-          {/* "직접 키워드 추가" - 매력(A) 카테고리 끝에 인라인 편집 칩으로 제공 */}
-          {activeQuestionId === 'A' && (
-            <div className="flex items-center gap-1.5">
-              {isEditingCustomKeyword ? (
-                <input
-                  type="text"
-                  value={customKeywordDraft}
-                  onChange={(e) => setCustomKeywordDraft(e.target.value)}
-                  onBlur={commitCustomKeywordDraft}
-                  onKeyDown={(e) => {
-                    // influencer-management의 인라인 편집과 동일한 패턴:
-                    // Enter => blur(저장), Escape => 취소
-                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-                      e.target.blur()
-                    } else if (e.key === 'Escape') {
-                      cancelEditingCustomKeyword()
-                    }
-                  }}
-                  autoFocus
-                  placeholder="키워드 입력"
-                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white focus:outline-none focus:ring-1 focus:ring-[#FF3399] min-w-[120px]"
-                />
-              ) : (
-                <button
-                  type="button"
-                  onClick={startEditingCustomKeyword}
-                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
-                    customKeywordPending
-                      ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
-                      : 'bg-white text-gray-400 border-dashed border-gray-300 hover:bg-gray-50'
-                  }`}
-                  title="클릭하여 키워드 입력"
-                >
-                  {customKeywordPending || '키워드 입력'}
-                </button>
-              )}
+          {/* "직접 키워드 추가" - 각 카테고리 끝에 인라인 편집 칩으로 제공 */}
+          <div className="flex items-center gap-1.5">
+            {editingCustomKeywordCategory === activeQuestionId ? (
+              <input
+                type="text"
+                value={customKeywordDraft}
+                onChange={(e) => setCustomKeywordDraft(e.target.value)}
+                onBlur={commitCustomKeywordDraft}
+                onKeyDown={(e) => {
+                  // influencer-management의 인라인 편집과 동일한 패턴:
+                  // Enter => blur(저장), Escape => 취소
+                  if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                    e.target.blur()
+                  } else if (e.key === 'Escape') {
+                    cancelEditingCustomKeyword()
+                  }
+                }}
+                autoFocus
+                placeholder="키워드 입력"
+                className="px-2.5 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white focus:outline-none focus:ring-1 focus:ring-[#FF3399] min-w-[120px]"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => startEditingCustomKeyword(activeQuestionId)}
+                className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
+                  (customKeywordPendingByCategory[activeQuestionId] || '').trim()
+                    ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                    : 'bg-white text-gray-400 border-dashed border-gray-300 hover:bg-gray-50'
+                }`}
+                title="클릭하여 키워드 입력"
+              >
+                {customKeywordPendingByCategory[activeQuestionId] || '키워드 입력'}
+              </button>
+            )}
 
-              {/* 입력 확정 후 '추가' 버튼 표시 */}
-              {!!customKeywordPending.trim() && (
-                <button
-                  type="button"
-                  onClick={addPendingCustomKeyword}
-                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF3399] text-white hover:bg-[#E62E8A] transition-all"
-                  title="키워드 추가"
-                >
-                  추가
-                </button>
-              )}
-            </div>
-          )}
+            {/* 입력 확정 후 '추가' 버튼 표시 */}
+            {!!(customKeywordPendingByCategory[activeQuestionId] || '').trim() && (
+              <button
+                type="button"
+                onClick={() => addPendingCustomKeyword(activeQuestionId)}
+                className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF3399] text-white hover:bg-[#E62E8A] transition-all"
+                title="키워드 추가"
+              >
+                추가
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -369,15 +395,18 @@ export default function InlineComplimentGenerator({
             )}
 
             {/* 직접 추가한 키워드도 같은 영역에 표시 (요청사항) */}
-            {customKeywords.map((keyword) => (
-              <span
-                key={`custom-${keyword}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-gray-200 text-gray-700"
-              >
-                <span className="font-bold mr-0.5">A.</span>
-                {keyword}
-              </span>
-            ))}
+            {customKeywords.map((encoded) => {
+              const { categoryId, keyword } = decodeCustomKeyword(encoded)
+              return (
+                <span
+                  key={`custom-${encoded}`}
+                  className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-gray-200 text-gray-700"
+                >
+                  <span className="font-bold mr-0.5">{categoryId}.</span>
+                  {keyword}
+                </span>
+              )
+            })}
           </div>
         </div>
       )}
