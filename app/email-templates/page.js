@@ -410,30 +410,37 @@ export default function EmailTemplates() {
                               aria-hidden="true"
                             >
                               <defs>
-                                {/* SVG filter로 아이콘을 살짝 두껍게(dilate) 처리 */}
+                                {/* PNG(알파) 마스크를 살짝 두껍게(dilate) 처리 */}
                                 <filter
-                                  id={`dup-dilate-${template.id}`}
+                                  id={`dup-mask-thicken-${template.id}`}
                                   x="-20%"
                                   y="-20%"
                                   width="140%"
                                   height="140%"
-                                  filterUnits="objectBoundingBox"
                                 >
                                   <feMorphology
                                     operator="dilate"
-                                    radius="0.7"
+                                    radius="0.8"
                                     in="SourceAlpha"
                                   />
                                 </filter>
-                                {/* PNG를 마스크로 사용 (y를 조금 내려 baseline 정렬) */}
-                                <mask id={`dup-mask-${template.id}`}>
+
+                                {/* PNG를 alpha 마스크로 사용 (y를 조금 내려 baseline 정렬) */}
+                                <mask
+                                  id={`dup-mask-${template.id}`}
+                                  maskUnits="userSpaceOnUse"
+                                  maskContentUnits="userSpaceOnUse"
+                                  maskType="alpha"
+                                >
                                   <image
                                     href="/icons/duplicate.png"
+                                    xlinkHref="/icons/duplicate.png"
                                     x="0"
                                     y="1"
                                     width="24"
                                     height="24"
                                     preserveAspectRatio="xMidYMid meet"
+                                    filter={`url(#dup-mask-thicken-${template.id})`}
                                   />
                                 </mask>
                               </defs>
@@ -444,7 +451,6 @@ export default function EmailTemplates() {
                                 height="24"
                                 fill="currentColor"
                                 mask={`url(#dup-mask-${template.id})`}
-                                filter={`url(#dup-dilate-${template.id})`}
                               />
                             </svg>
                           )}
