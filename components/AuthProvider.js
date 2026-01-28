@@ -211,6 +211,19 @@ export default function AuthProvider({ children }) {
     }
   }, []);
 
+  // 안전장치: user는 있는데 dbUser가 비어있는 경우(캐시 손상/부분 저장 등),
+  // 서버에서 dbUser를 재조회해서 흰 화면(loading 고정) 상태를 방지
+  useEffect(() => {
+    if (!isHydrated) return
+    if (loading) return
+    if (!user) return
+    if (dbUser) return
+
+    // user(id)가 있는 상태에서만 재조회
+    if (!user?.id) return
+    handleUserRegistration(user, true)
+  }, [isHydrated, loading, user, dbUser, handleUserRegistration]);
+
   useEffect(() => {
     // 클라이언트 사이드에서만 실행하고, 한 번만 실행
     if (!isHydrated || !isInitialLoad) {
