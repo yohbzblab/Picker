@@ -373,7 +373,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
           {/* 왼쪽: 변수 목록 */}
           <div className="w-1/3 bg-gray-50 p-4 border-r overflow-y-auto">
             <h3 className="font-medium text-gray-900 mb-4">
-              {field?.label || variableInfo?.label || variableName} 조건 변수
+              {field?.label || variableInfo?.label || variableName} 맞춤형 항목
             </h3>
 
             {/* 새 변수 추가 */}
@@ -382,7 +382,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
                 type="text"
                 value={newVariableName}
                 onChange={(e) => setNewVariableName(e.target.value)}
-                placeholder="변수명 (예: tier, level)"
+                placeholder="항목 명 (예: tier, level)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black text-sm font-medium mb-2"
               />
               <input
@@ -396,7 +396,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
                 onClick={addVariable}
                 className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
               >
-                조건 변수 추가
+                조건 맞춤형 항목 추가
               </button>
             </div>
 
@@ -438,7 +438,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
 
             {Object.keys(variables).length === 0 && (
               <div className="text-center py-4 text-gray-500 text-sm">
-                조건 변수를 추가해주세요
+                조건 항목을 추가해주세요
               </div>
             )}
           </div>
@@ -590,7 +590,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
               </>
             ) : (
               <div className="text-center py-12 text-gray-500">
-                왼쪽에서 조건 변수를 선택하거나 새로 만들어주세요.
+                왼쪽에서 조건 항목을 선택하거나 새로 만들어주세요.
               </div>
             )}
 
