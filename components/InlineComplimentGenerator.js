@@ -139,7 +139,10 @@ export default function InlineComplimentGenerator({
     A: [], B: [], C: [], D: [], E: [], F: []
   })
   const [customKeywords, setCustomKeywords] = useState(initialCustomKeywords)
-  const [customKeywordInput, setCustomKeywordInput] = useState('')
+  // 매력(A) 카테고리 끝에 표시할 "직접 입력" 키워드 (인라인 편집용)
+  const [customKeywordPending, setCustomKeywordPending] = useState('')
+  const [isEditingCustomKeyword, setIsEditingCustomKeyword] = useState(false)
+  const [customKeywordDraft, setCustomKeywordDraft] = useState('')
 
   // 컴포넌트 마운트 시 랜덤 키워드 생성 + 저장된 키워드 포함
   useEffect(() => {
@@ -180,26 +183,47 @@ export default function InlineComplimentGenerator({
   // 최소 1개 이상의 키워드가 선택되었는지 확인
   const hasAnyKeywordSelected = QUESTIONS.some(q => selectedKeywords[q.id].length > 0) || customKeywords.length > 0
 
-  // 커스텀 키워드 추가
-  const addCustomKeyword = () => {
-    const trimmed = customKeywordInput.trim()
-    if (trimmed && !customKeywords.includes(trimmed)) {
-      setCustomKeywords(prev => [...prev, trimmed])
-      setCustomKeywordInput('')
-    }
+  // 매력(A) 인라인 커스텀 키워드 편집 시작
+  const startEditingCustomKeyword = () => {
+    setIsEditingCustomKeyword(true)
+    setCustomKeywordDraft(customKeywordPending)
   }
 
-  // 커스텀 키워드 삭제
-  const removeCustomKeyword = (keyword) => {
-    setCustomKeywords(prev => prev.filter(k => k !== keyword))
+  // 매력(A) 인라인 커스텀 키워드 편집 확정
+  const commitCustomKeywordDraft = () => {
+    const trimmed = customKeywordDraft.trim()
+    setCustomKeywordPending(trimmed)
+    setIsEditingCustomKeyword(false)
   }
 
-  // Enter 키로 커스텀 키워드 추가 (한글 IME 조합 중에는 무시)
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      addCustomKeyword()
+  // 매력(A) 인라인 커스텀 키워드 편집 취소 (influencer-management 패턴과 동일)
+  const cancelEditingCustomKeyword = () => {
+    setIsEditingCustomKeyword(false)
+    setCustomKeywordDraft(customKeywordPending)
+  }
+
+  // 매력(A) 인라인 커스텀 키워드 추가 (저장)
+  const addPendingCustomKeyword = () => {
+    const trimmed = customKeywordPending.trim()
+    if (!trimmed) return
+    if (customKeywords.includes(trimmed)) {
+      // 중복이면 입력만 초기화
+      setCustomKeywordPending('')
+      setCustomKeywordDraft('')
+      setIsEditingCustomKeyword(false)
+      return
     }
+
+    setCustomKeywords(prev => [...prev, trimmed])
+    // 키워드 버튼 목록에도 포함 (다음에 다시 들어왔을 때도 보이도록)
+    setDisplayKeywords(prev => ({
+      ...prev,
+      A: [...new Set([...(prev.A || []), trimmed])]
+    }))
+    // 입력 초기화
+    setCustomKeywordPending('')
+    setCustomKeywordDraft('')
+    setIsEditingCustomKeyword(false)
   }
 
   // 완료 버튼 클릭 - 키워드 리스트만 저장 (선택된 키워드와 커스텀 키워드 분리)
@@ -273,37 +297,62 @@ export default function InlineComplimentGenerator({
               </button>
             )
           })}
-        </div>
-      </div>
 
-      {/* 커스텀 키워드 입력 */}
-      <div className="px-3 py-2 border-t border-gray-200 bg-gray-50">
-        <p className="text-[10px] font-medium text-gray-500 mb-1.5">직접 키워드 추가</p>
-        <div className="flex gap-2">
-          <input
-            type="text"
-            value={customKeywordInput}
-            onChange={(e) => setCustomKeywordInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="키워드를 입력하세요"
-            className="flex-1 px-2.5 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-gray-400"
-          />
-          <button
-            onClick={addCustomKeyword}
-            disabled={!customKeywordInput.trim()}
-            className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
-              customKeywordInput.trim()
-                ? 'bg-gray-700 text-white hover:bg-gray-600'
-                : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-            }`}
-          >
-            추가
-          </button>
+          {/* "직접 키워드 추가" - 매력(A) 카테고리 끝에 인라인 편집 칩으로 제공 */}
+          {activeQuestionId === 'A' && (
+            <div className="flex items-center gap-1.5">
+              {isEditingCustomKeyword ? (
+                <input
+                  type="text"
+                  value={customKeywordDraft}
+                  onChange={(e) => setCustomKeywordDraft(e.target.value)}
+                  onBlur={commitCustomKeywordDraft}
+                  onKeyDown={(e) => {
+                    // influencer-management의 인라인 편집과 동일한 패턴:
+                    // Enter => blur(저장), Escape => 취소
+                    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
+                      e.target.blur()
+                    } else if (e.key === 'Escape') {
+                      cancelEditingCustomKeyword()
+                    }
+                  }}
+                  autoFocus
+                  placeholder="키워드 입력"
+                  className="px-2.5 py-1 rounded-full text-xs font-medium border border-gray-300 bg-white focus:outline-none focus:ring-1 focus:ring-[#FF3399] min-w-[120px]"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={startEditingCustomKeyword}
+                  className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all border ${
+                    customKeywordPending
+                      ? 'bg-gray-100 text-gray-700 border-gray-200 hover:bg-gray-200'
+                      : 'bg-white text-gray-400 border-dashed border-gray-300 hover:bg-gray-50'
+                  }`}
+                  title="클릭하여 키워드 입력"
+                >
+                  {customKeywordPending || '키워드 입력'}
+                </button>
+              )}
+
+              {/* 입력 확정 후 '추가' 버튼 표시 */}
+              {!!customKeywordPending.trim() && (
+                <button
+                  type="button"
+                  onClick={addPendingCustomKeyword}
+                  className="px-2.5 py-1 rounded-full text-xs font-medium bg-[#FF3399] text-white hover:bg-[#E62E8A] transition-all"
+                  title="키워드 추가"
+                >
+                  추가
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* 선택한 키워드 요약 */}
-      {QUESTIONS.some(q => selectedKeywords[q.id].length > 0) && (
+      {(QUESTIONS.some(q => selectedKeywords[q.id].length > 0) || customKeywords.length > 0) && (
         <div className="px-3 py-2 border-t border-gray-200 bg-gray-50">
           <p className="text-[10px] font-medium text-gray-500 mb-1.5">지금까지 선택한 키워드</p>
           <div className="flex flex-wrap gap-1">
@@ -318,27 +367,15 @@ export default function InlineComplimentGenerator({
                 </span>
               ))
             )}
-          </div>
-        </div>
-      )}
 
-      {/* 커스텀 키워드 표시 */}
-      {customKeywords.length > 0 && (
-        <div className="px-3 py-2 border-t border-gray-200 bg-blue-50">
-          <p className="text-[10px] font-medium text-blue-600 mb-1.5">직접 입력한 키워드</p>
-          <div className="flex flex-wrap gap-1">
-            {customKeywords.map((keyword, index) => (
+            {/* 직접 추가한 키워드도 같은 영역에 표시 (요청사항) */}
+            {customKeywords.map((keyword) => (
               <span
-                key={`custom-${index}`}
-                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-blue-200 text-blue-700"
+                key={`custom-${keyword}`}
+                className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] bg-gray-200 text-gray-700"
               >
+                <span className="font-bold mr-0.5">A.</span>
                 {keyword}
-                <button
-                  onClick={() => removeCustomKeyword(keyword)}
-                  className="ml-1 text-blue-500 hover:text-blue-700"
-                >
-                  ×
-                </button>
               </span>
             ))}
           </div>
