@@ -18,6 +18,10 @@ model User {
   isProfileComplete    Boolean                        @default(false)
   // AI 맞춤형 칭찬 생성 누적 사용 횟수 (유저당 100회 제한, 리셋 없음)
   aiComplimentGenerateCount Int                       @default(0)
+  // 전화번호 인증(어뷰징 방지용) - 유저당 1개 전화번호 연결, 기존 유저 포함 전원 적용
+  phone                String?                        @unique
+  phoneVerified        Boolean                        @default(false)
+  phoneVerifiedAt      DateTime?
   createdAt            DateTime                       @default(now())
   updatedAt            DateTime                       @updatedAt
   brandName            String?
