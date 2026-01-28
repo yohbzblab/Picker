@@ -404,54 +404,11 @@ export default function EmailTemplates() {
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                             </svg>
                           ) : (
-                            <svg
-                              className="w-4 h-4 inline-block"
-                              viewBox="0 0 24 24"
-                              aria-hidden="true"
-                            >
-                              <defs>
-                                {/* PNG(알파) 마스크를 살짝 두껍게(dilate) 처리 */}
-                                <filter
-                                  id={`dup-mask-thicken-${template.id}`}
-                                  x="-20%"
-                                  y="-20%"
-                                  width="140%"
-                                  height="140%"
-                                >
-                                  <feMorphology
-                                    operator="dilate"
-                                    radius="0.8"
-                                    in="SourceAlpha"
-                                  />
-                                </filter>
-
-                                {/* PNG를 alpha 마스크로 사용 (y를 조금 내려 baseline 정렬) */}
-                                <mask
-                                  id={`dup-mask-${template.id}`}
-                                  maskUnits="userSpaceOnUse"
-                                  maskContentUnits="userSpaceOnUse"
-                                  maskType="alpha"
-                                >
-                                  <image
-                                    href="/icons/duplicate.png"
-                                    xlinkHref="/icons/duplicate.png"
-                                    x="0"
-                                    y="1"
-                                    width="24"
-                                    height="24"
-                                    preserveAspectRatio="xMidYMid meet"
-                                    filter={`url(#dup-mask-thicken-${template.id})`}
-                                  />
-                                </mask>
-                              </defs>
-                              <rect
-                                x="0"
-                                y="0"
-                                width="24"
-                                height="24"
-                                fill="currentColor"
-                                mask={`url(#dup-mask-${template.id})`}
-                              />
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                              {/* 상단: 채워진 라운드 사각형 */}
+                              <rect x="3" y="2" width="12" height="12" rx="2.5" fill="currentColor" />
+                              {/* 하단: 라운드 사각형 아웃라인 */}
+                              <rect x="9" y="8" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2.6" />
                             </svg>
                           )}
                         </button>
