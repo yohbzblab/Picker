@@ -70,10 +70,8 @@ const nextConfig = {
   },
 
   // 개발 환경 설정
-  experimental: {
-    // ngrok과 같은 외부 호스트에서의 개발을 위한 설정
-    allowMiddlewareResponseBody: true
-  }
+  // NOTE: Next.js 15+ 에서는 experimental.allowMiddlewareResponseBody 옵션이 제거되어
+  //       설정 시 "Unrecognized key" 워닝이 발생합니다. (현재는 미적용)
 };
 
 export default nextConfig;
