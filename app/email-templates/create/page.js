@@ -999,6 +999,9 @@ function CreateEmailTemplateContent() {
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col">
+                      <p className="text-sm text-gray-600 mb-4">
+                        맞춤형 항목을 클릭하면 현재 커서 위치(제목/본문)에 삽입돼요.
+                      </p>
                       <div className="mb-4">
                         <h4 className="text-sm font-medium text-gray-900 mb-3">
                           맞춤형 항목 삽입
@@ -1141,9 +1144,6 @@ function CreateEmailTemplateContent() {
                             </div>
                           )}
 
-                          <p className="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
-                            변수를 클릭하면 현재 커서 위치(제목/본문)에 삽입돼요.
-                          </p>
                         </div>
                       )}
                     </div>
