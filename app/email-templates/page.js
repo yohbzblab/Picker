@@ -404,9 +404,20 @@ export default function EmailTemplates() {
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
                             </svg>
                           ) : (
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-2 6h2a2 2 0 002-2V10a2 2 0 00-2-2h-2m-6 8h8a2 2 0 002-2v-2a2 2 0 00-2-2H10a2 2 0 00-2 2v2a2 2 0 002 2z" />
-                            </svg>
+                            <span
+                              className="w-4 h-4 inline-block bg-current"
+                              style={{
+                                WebkitMaskImage: "url('/icons/duplicate.png')",
+                                maskImage: "url('/icons/duplicate.png')",
+                                WebkitMaskRepeat: 'no-repeat',
+                                maskRepeat: 'no-repeat',
+                                WebkitMaskPosition: 'center',
+                                maskPosition: 'center',
+                                WebkitMaskSize: 'contain',
+                                maskSize: 'contain'
+                              }}
+                              aria-hidden="true"
+                            />
                           )}
                         </button>
                         <button
