@@ -728,7 +728,7 @@ export default function EmailTemplates() {
                       e.stopPropagation()
                       handleEditTemplate(selectedTemplate)
                     }}
-                    className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                   >
                     템플릿 수정
                   </button>
@@ -737,7 +737,7 @@ export default function EmailTemplates() {
                       e.stopPropagation()
                       handleInfluencerConnect(selectedTemplate)
                     }}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                    className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                   >
                     인플루언서 연결
                   </button>
