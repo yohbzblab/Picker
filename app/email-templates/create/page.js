@@ -856,7 +856,7 @@ function CreateEmailTemplateContent() {
                   {activeTab === 'preview' ? (
                     <div className="flex-1 flex flex-col">
                       <p className="text-sm text-gray-600 mb-4">
-                        변수는 샘플 값으로 표시돼요. 실제 발송 시 자동으로 치환됩니다.
+                        항목은 샘플 값으로 표시 돼요. 실제 발송 시 자동으로 치환됩니다.
                       </p>
 
                       {/* 제목 미리보기 */}
@@ -913,7 +913,7 @@ function CreateEmailTemplateContent() {
                       {/* 사용된 변수 입력 */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          미리보기용 변수 값
+                          미리보기용 항목 값
                         </label>
                         <div className="space-y-3">
                           {(() => {
