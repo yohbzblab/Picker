@@ -227,7 +227,7 @@ export default function InlineComplimentGenerator({
               onClick={() => setActiveQuestionId(question.id)}
               className={`flex-1 py-2 px-1 text-xs font-medium transition-all relative ${
                 isActive
-                  ? 'bg-gray-900 text-white'
+                  ? 'bg-[#FF3399] text-white'
                   : hasSelection
                     ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
                     : 'text-gray-600 hover:bg-gray-100'
@@ -265,7 +265,7 @@ export default function InlineComplimentGenerator({
                 onClick={() => toggleKeyword(keyword)}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
                   isSelected
-                    ? 'bg-gray-900 text-white'
+                    ? 'bg-[#FF3399] text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
@@ -352,7 +352,7 @@ export default function InlineComplimentGenerator({
           disabled={!hasAnyKeywordSelected}
           className={`px-4 py-1.5 rounded-lg text-xs font-medium transition-all ${
             hasAnyKeywordSelected
-              ? 'bg-gray-900 text-white hover:bg-gray-800'
+              ? 'bg-[#FF3399] text-white hover:bg-[#E62E8A]'
               : 'bg-gray-200 text-gray-400 cursor-not-allowed'
           }`}
         >
