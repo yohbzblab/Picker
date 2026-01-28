@@ -228,6 +228,30 @@ export default function InlineComplimentGenerator({
     })
   }
 
+  // 커스텀 키워드 삭제 (완료 누르기 전에도 되돌릴 수 있도록)
+  const removeCustomKeyword = (encoded) => {
+    const { categoryId, keyword } = decodeCustomKeyword(encoded)
+
+    // 저장 대상에서 제거
+    setCustomKeywords(prev => prev.filter(k => k !== encoded))
+
+    // 혹시 해당 키워드를 버튼으로 선택해둔 상태라면 선택에서도 제거
+    if (keyword) {
+      setSelectedKeywords(prev => ({
+        ...prev,
+        [categoryId]: (prev[categoryId] || []).filter(k => k !== keyword)
+      }))
+
+      // 커스텀 키워드라면 키워드 버튼 목록에서도 제거 (빌트인 키워드는 유지)
+      if (!findKeywordCategory(keyword)) {
+        setDisplayKeywords(prev => ({
+          ...prev,
+          [categoryId]: (prev[categoryId] || []).filter(k => k !== keyword)
+        }))
+      }
+    }
+  }
+
   // 인라인 커스텀 키워드 추가 (저장)
   const addPendingCustomKeyword = (categoryId) => {
     const pending = customKeywordPendingByCategory[categoryId] || ''
@@ -404,6 +428,18 @@ export default function InlineComplimentGenerator({
                 >
                   <span className="font-bold mr-0.5">{categoryId}.</span>
                   {keyword}
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      removeCustomKeyword(encoded)
+                    }}
+                    className="ml-1 text-gray-500 hover:text-[#FF3399] transition-colors"
+                    aria-label="커스텀 키워드 삭제"
+                    title="삭제"
+                  >
+                    ×
+                  </button>
                 </span>
               )
             })}
