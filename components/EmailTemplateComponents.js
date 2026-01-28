@@ -238,7 +238,6 @@ export function VariableEditor({ value, onChange, placeholder, isMultiline = fal
 export function ConditionsModal({ field, variableName, variableInfo, initialRules, onSave, onClose }) {
   const [selectedVariable, setSelectedVariable] = useState(null)
   const [newVariableName, setNewVariableName] = useState('')
-  const [newVariableAlias, setNewVariableAlias] = useState('')
   const [variables, setVariables] = useState(initialRules.variables || {})
   const [errors, setErrors] = useState([])
 
@@ -250,14 +249,14 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
       setVariables(prev => ({
         ...prev,
         [varKey]: {
-          alias: newVariableAlias || newVariableName,
+          // 별칭 입력은 제거: 항목 명을 그대로 표시명으로 사용
+          alias: newVariableName,
           conditions: [],
           defaultValue: ''
         }
       }))
 
       setNewVariableName('')
-      setNewVariableAlias('')
       setSelectedVariable(varKey)
     }
   }
@@ -385,13 +384,6 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
                 placeholder="항목 명 (예: tier, level)"
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black text-sm font-medium mb-2"
               />
-              <input
-                type="text"
-                value={newVariableAlias}
-                onChange={(e) => setNewVariableAlias(e.target.value)}
-                placeholder="별칭 (예: 등급, 레벨)"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-black text-sm font-medium mb-2"
-              />
               <button
                 onClick={addVariable}
                 className="w-full px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 text-sm"
@@ -448,7 +440,7 @@ export function ConditionsModal({ field, variableName, variableInfo, initialRule
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-semibold text-gray-900">
                 {selectedVariable && variables[selectedVariable]
-                  ? `"${variables[selectedVariable].alias}" 조건 설정`
+                  ? `"${variables[selectedVariable].alias || selectedVariable}" 조건 설정`
                   : '조건 설정'}
               </h2>
               <button
