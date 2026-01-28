@@ -10,6 +10,7 @@ export default function EmailTemplates() {
   const router = useRouter()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [duplicatingTemplateId, setDuplicatingTemplateId] = useState(null)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [isSlideMenuOpen, setIsSlideMenuOpen] = useState(false)
   const [templateConnections, setTemplateConnections] = useState([])
@@ -112,6 +113,73 @@ export default function EmailTemplates() {
     } catch (error) {
       console.error('Error deleting template:', error)
       alert('템플릿 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const getDuplicateName = (originalName) => {
+    const base = `${originalName} (복제)`
+    const existingNames = new Set((templates || []).map(t => t.name))
+    if (!existingNames.has(base)) return base
+    let i = 2
+    while (existingNames.has(`${base} ${i}`)) i++
+    return `${base} ${i}`
+  }
+
+  const handleDuplicateTemplate = async (template) => {
+    if (!dbUser?.id || !template?.id) return
+    setDuplicatingTemplateId(template.id)
+
+    try {
+      // 원본 템플릿 상세(+첨부파일) 로드
+      const detailRes = await fetch(`/api/email-templates/${template.id}?userId=${dbUser.id}`)
+      if (!detailRes.ok) {
+        alert('템플릿 정보를 불러오지 못했습니다.')
+        return
+      }
+      const detailData = await detailRes.json()
+      const original = detailData.template
+
+      // 첨부파일 메타데이터만 복제 (파일 자체는 복사하지 않음)
+      const attachments = (original.attachments || []).map(a => ({
+        filename: a.filename,
+        originalName: a.originalName,
+        supabasePath: a.supabasePath,
+        publicUrl: a.publicUrl,
+        fileSize: a.fileSize,
+        mimeType: a.mimeType
+      }))
+
+      // 새 템플릿 생성
+      const createRes = await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: dbUser.id,
+          name: getDuplicateName(original.name || template.name || '새 템플릿'),
+          subject: original.subject || '',
+          content: original.content || '',
+          variables: original.variables || [],
+          userVariables: original.userVariables || {},
+          conditionalRules: original.conditionalRules || {},
+          attachments,
+          // 캠페인 연결은 복제하지 않음 (필요하면 복제본에서 새로 연결)
+          surveyTemplateId: null
+        })
+      })
+
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}))
+        alert(err.error || '템플릿 복제에 실패했습니다.')
+        return
+      }
+
+      await loadData()
+      alert('템플릿이 복제되었습니다.')
+    } catch (error) {
+      console.error('Error duplicating template:', error)
+      alert('템플릿 복제 중 오류가 발생했습니다.')
+    } finally {
+      setDuplicatingTemplateId(null)
     }
   }
 
@@ -320,6 +388,26 @@ export default function EmailTemplates() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                           </svg>
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDuplicateTemplate(template)
+                          }}
+                          className="text-gray-400 hover:text-purple-600 p-1.5 disabled:opacity-50"
+                          title="복제"
+                          disabled={duplicatingTemplateId === template.id}
+                        >
+                          {duplicatingTemplateId === template.id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-2 6h2a2 2 0 002-2V10a2 2 0 00-2-2h-2m-6 8h8a2 2 0 002-2v-2a2 2 0 00-2-2H10a2 2 0 00-2 2v2a2 2 0 002 2z" />
+                            </svg>
+                          )}
                         </button>
                         <button
                           onClick={(e) => {
