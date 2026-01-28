@@ -45,6 +45,10 @@ function InfluencerConnectContent() {
     useState({}); // 인플루언서별 커스텀 키워드 {influencerId: ['키워드1', '키워드2']}
   const [aiGenerating, setAiGenerating] = useState({}); // AI 생성 중 상태 {influencerId: true/false}
   const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
+  const AI_COMPLIMENT_LIMIT = 100;
+  const [aiComplimentRemaining, setAiComplimentRemaining] = useState(
+    AI_COMPLIMENT_LIMIT
+  ); // "AI로 칭찬 생성" 사용 가능 횟수(페이지 로드 기준)
 
   // 커스텀 키워드 저장 포맷 호환:
   // - 최신: "A::키워드" (카테고리 포함)
@@ -1311,12 +1315,14 @@ function InfluencerConnectContent() {
                                               <button
                                                 type="button"
                                                 disabled={
-                                                  (!selectedKeywordsByInfluencer[
+                                                  aiComplimentRemaining <= 0 ||
+                                                  ((selectedKeywordsByInfluencer[
                                                     connection.influencerId
-                                                  ]?.length &&
-                                                  !customKeywordsByInfluencer[
-                                                    connection.influencerId
-                                                  ]?.length) ||
+                                                  ]?.length || 0) +
+                                                    (customKeywordsByInfluencer[
+                                                      connection.influencerId
+                                                    ]?.length || 0) ===
+                                                    0) ||
                                                   aiGenerating[
                                                     connection.influencerId
                                                   ]
@@ -1341,6 +1347,17 @@ function InfluencerConnectContent() {
                                                     );
                                                     return;
                                                   }
+                                                  if (aiComplimentRemaining <= 0) {
+                                                    alert(
+                                                      "AI로 칭찬 생성 횟수를 모두 사용했습니다."
+                                                    );
+                                                    return;
+                                                  }
+
+                                                  // 클릭할 때마다 1회 차감 (최소 0)
+                                                  setAiComplimentRemaining((prev) =>
+                                                    Math.max(0, prev - 1)
+                                                  );
 
                                                   setAiGenerating((prev) => ({
                                                     ...prev,
@@ -1404,12 +1421,15 @@ function InfluencerConnectContent() {
                                                   }
                                                 }}
                                                 className={`px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap flex items-center space-x-1 ${
-                                                  selectedKeywordsByInfluencer[
+                                                  ((selectedKeywordsByInfluencer[
                                                     connection.influencerId
-                                                  ]?.length &&
-                                                  !aiGenerating[
-                                                    connection.influencerId
-                                                  ]
+                                                  ]?.length || 0) +
+                                                    (customKeywordsByInfluencer[
+                                                      connection.influencerId
+                                                    ]?.length || 0) >
+                                                    0) &&
+                                                  !aiGenerating[connection.influencerId] &&
+                                                  aiComplimentRemaining > 0
                                                     ? "bg-purple-500 text-white hover:bg-purple-600"
                                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                                 }`}
@@ -1443,6 +1463,9 @@ function InfluencerConnectContent() {
                                                   <span>AI로 칭찬 생성</span>
                                                 )}
                                               </button>
+                                              <span className="text-xs text-gray-400">
+                                                {aiComplimentRemaining}/{AI_COMPLIMENT_LIMIT}
+                                              </span>
                                               <button
                                                 type="button"
                                                 onClick={async (e) => {
