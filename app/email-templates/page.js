@@ -486,17 +486,21 @@ export default function EmailTemplates() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
                             </svg>
                             <span className="text-xs">연결된 인플루언서 없음</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleInfluencerConnect(template)
-                              }}
-                              className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
-                            >
-                              연결
-                            </button>
                           </div>
                         )}
+
+                        {/* 연결/수정 버튼: 연결 여부에 따라 라벨만 변경 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleInfluencerConnect(template)
+                          }}
+                          className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
+                        >
+                          {template.connections && template.connections.length > 0
+                            ? '수정'
+                            : '연결'}
+                        </button>
                       </div>
                     </div>
 
