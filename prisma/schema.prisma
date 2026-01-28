@@ -16,6 +16,8 @@ model User {
   profileImage         String?
   supabaseId           String                         @unique
   isProfileComplete    Boolean                        @default(false)
+  // AI 맞춤형 칭찬 생성 누적 사용 횟수 (유저당 100회 제한, 리셋 없음)
+  aiComplimentGenerateCount Int                       @default(0)
   createdAt            DateTime                       @default(now())
   updatedAt            DateTime                       @updatedAt
   brandName            String?
