@@ -48,7 +48,70 @@ function InfluencerConnectContent() {
   const AI_COMPLIMENT_LIMIT = 100;
   const [aiComplimentRemaining, setAiComplimentRemaining] = useState(
     AI_COMPLIMENT_LIMIT
-  ); // "AI로 칭찬 생성" 사용 가능 횟수(페이지 로드 기준)
+  ); // "AI로 칭찬 생성" 사용 가능 횟수
+  const aiQuotaHydratedRef = useRef(false);
+
+  // 옵션 A: localStorage에 남은 횟수 저장 (새로고침해도 유지)
+  useEffect(() => {
+    if (!dbUser?.id) return;
+    aiQuotaHydratedRef.current = false;
+
+    try {
+      // 사용자 기준으로 카운트 공유 (템플릿이 달라도 동일 카운터)
+      const key = `aiComplimentRemaining:${dbUser.id}`;
+      const raw = localStorage.getItem(key);
+
+      if (raw == null) {
+        // (마이그레이션) 과거 템플릿별 키가 있으면, 가장 적게 남은 값을 우선 적용
+        let migrated = null;
+        try {
+          const prefix = `aiComplimentRemaining:${dbUser.id}:`;
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i);
+            if (!k || !k.startsWith(prefix)) continue;
+            const v = localStorage.getItem(k);
+            if (v == null) continue;
+            const parsed = parseInt(v, 10);
+            if (!Number.isFinite(parsed)) continue;
+            const normalized = Math.min(
+              AI_COMPLIMENT_LIMIT,
+              Math.max(0, parsed)
+            );
+            migrated =
+              migrated == null ? normalized : Math.min(migrated, normalized);
+          }
+        } catch (e) {
+          // ignore
+        }
+
+        const initial = migrated ?? AI_COMPLIMENT_LIMIT;
+        localStorage.setItem(key, String(initial));
+        setAiComplimentRemaining(initial);
+      } else {
+        const parsed = parseInt(raw, 10);
+        const normalized = Number.isFinite(parsed)
+          ? Math.min(AI_COMPLIMENT_LIMIT, Math.max(0, parsed))
+          : AI_COMPLIMENT_LIMIT;
+        setAiComplimentRemaining(normalized);
+      }
+    } catch (e) {
+      // localStorage 접근 불가(사파리 프라이빗 등) 시에는 메모리 상태만 사용
+    } finally {
+      aiQuotaHydratedRef.current = true;
+    }
+  }, [dbUser?.id]);
+
+  useEffect(() => {
+    if (!dbUser?.id) return;
+    if (!aiQuotaHydratedRef.current) return;
+
+    try {
+      const key = `aiComplimentRemaining:${dbUser.id}`;
+      localStorage.setItem(key, String(aiComplimentRemaining));
+    } catch (e) {
+      // ignore
+    }
+  }, [aiComplimentRemaining, dbUser?.id]);
 
   // 커스텀 키워드 저장 포맷 호환:
   // - 최신: "A::키워드" (카테고리 포함)
