@@ -1375,7 +1375,13 @@ function InfluencerConnectContent() {
                                               )}
                                             </div>
                                             <div className="flex space-x-2">
-                                              <span className="text-xs text-gray-400">
+                                              <span
+                                                className={`text-xs ${
+                                                  aiComplimentRemaining <= 10
+                                                    ? "text-red-500"
+                                                    : "text-gray-400"
+                                                }`}
+                                              >
                                                 {aiComplimentRemaining}/{AI_COMPLIMENT_LIMIT}
                                               </span>
                                               <button
