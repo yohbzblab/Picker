@@ -1499,10 +1499,10 @@ function InfluencerConnectContent() {
 
                                   <div>
                                     <h5 className="text-sm font-medium text-gray-900 mb-2">
-                                      사용자 변수 설정
+                                      맞춤형 항목 설정
                                     </h5>
                                     <div className="text-xs text-gray-600 mb-3">
-                                      이 인플루언서에 대한 개별 변수 값을 설정할
+                                      이 인플루언서에 대한 개별 항목 값을 설정할
                                       수 있습니다.
                                     </div>
 
@@ -1606,7 +1606,7 @@ function InfluencerConnectContent() {
                                       </div>
                                     ) : (
                                       <div className="bg-white p-3 rounded border text-xs text-gray-500">
-                                        이 템플릿에는 설정 가능한 사용자 변수가
+                                        이 템플릿에는 설정 가능한 맞춤형 항목이
                                         없습니다.
                                       </div>
                                     )}
