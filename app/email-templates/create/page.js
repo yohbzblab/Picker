@@ -643,7 +643,7 @@ function CreateEmailTemplateContent() {
               </h1>
             </div>
             <p className="text-gray-600">
-              메일 템플릿을 {editId ? '수정' : '작성'}하고, 변수로 개인화할 수 있어요.
+              메일 템플릿을 {editId ? '수정' : '작성'}하고, 맞춤형 항목으로 개인화할 수 있어요.
             </p>
           </div>
 
