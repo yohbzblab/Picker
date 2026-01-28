@@ -46,6 +46,16 @@ function InfluencerConnectContent() {
   const [aiGenerating, setAiGenerating] = useState({}); // AI 생성 중 상태 {influencerId: true/false}
   const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
 
+  // 커스텀 키워드 저장 포맷 호환:
+  // - 최신: "A::키워드" (카테고리 포함)
+  // - 레거시: "키워드" (카테고리 없음)
+  const decodeCustomKeyword = useCallback((encoded) => {
+    if (typeof encoded !== "string") return "";
+    // e.g. "B::부지런하다"
+    if (/^[A-F]::/.test(encoded)) return encoded.slice(3);
+    return encoded;
+  }, []);
+
   // 템플릿의 사용자 변수 기본값 정규화:
   // - 과거 데이터에 들어가 있을 수 있는 '기본값' 더미 문자열을 빈 문자열로 치환
   // - 간단한 구조({key: [default]}) 뿐 아니라 일부 레거시 구조도 방어적으로 처리
@@ -1135,12 +1145,26 @@ function InfluencerConnectContent() {
                                             keywords,
                                             customKeywords
                                           ) => {
+                                            const decodedCustomKeywords = (
+                                              customKeywords || []
+                                            )
+                                              .map(decodeCustomKeyword)
+                                              .filter(Boolean);
+
+                                            // 커스텀 키워드도 "선택된 키워드"에 포함되도록 병합
+                                            const mergedKeywords = Array.from(
+                                              new Set([
+                                                ...(keywords || []),
+                                                ...decodedCustomKeywords,
+                                              ])
+                                            );
+
                                             // 선택된 키워드 로컬 상태 저장
                                             setSelectedKeywordsByInfluencer(
                                               (prev) => ({
                                                 ...prev,
                                                 [connection.influencerId]:
-                                                  keywords,
+                                                  mergedKeywords,
                                               })
                                             );
                                             // 커스텀 키워드 로컬 상태 저장
@@ -1159,7 +1183,7 @@ function InfluencerConnectContent() {
                                               const updatedUserVariables = {
                                                 ...(connection.userVariables ||
                                                   {}),
-                                                "선택된 키워드": keywords,
+                                                "선택된 키워드": mergedKeywords,
                                                 "커스텀 키워드": customKeywords || [],
                                               };
 
