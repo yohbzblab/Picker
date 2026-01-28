@@ -428,7 +428,7 @@ export default function EmailTemplates() {
                   </div>
                   </div>
 
-                  {/* 두 번째 줄: 제목, 연결된 캠페인, 연결된 인플루언서 정보 */}
+                  {/* 두 번째 줄: 제목, 연결된 인플루언서, 연결된 캠페인 정보 */}
                   <div className="flex flex-col gap-3 mb-4">
                     {/* 제목 */}
                     <div className="">
@@ -443,43 +443,6 @@ export default function EmailTemplates() {
                       >
                         {template.subject}
                       </p>
-                    </div>
-
-                    {/* 연결된 캠페인 정보 */}
-                    <div className="">
-                      <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
-                      {template.surveyTemplate ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium truncate">
-                            {template.surveyTemplate.title}
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDisconnectFromSurvey(template)
-                            }}
-                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
-                            title="캠페인 연결 해제"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-400">연결된 캠페인 없음</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCampaignConnect(template)
-                            }}
-                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
-                          >
-                            연결
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* 연결된 인플루언서 정보 */}
@@ -526,6 +489,43 @@ export default function EmailTemplates() {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* 연결된 캠페인 정보 */}
+                    <div className="">
+                      <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
+                      {template.surveyTemplate ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium truncate">
+                            {template.surveyTemplate.title}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDisconnectFromSurvey(template)
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
+                            title="캠페인 연결 해제"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-400">연결된 캠페인 없음</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCampaignConnect(template)
+                            }}
+                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
+                          >
+                            연결
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
