@@ -6,10 +6,10 @@ import { useRouter } from 'next/navigation'
 import { useEffect, useState, useRef, useCallback } from 'react'
 
 export default function EmailTemplates() {
-  const { user, dbUser, loading: authLoading } = useAuth()
+  const { user, dbUser, dbUserError, ensureDbUser, signOut, loading: authLoading } = useAuth()
   const router = useRouter()
   const [templates, setTemplates] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loadingTemplates, setLoadingTemplates] = useState(false)
   const [duplicatingTemplateId, setDuplicatingTemplateId] = useState(null)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [isSlideMenuOpen, setIsSlideMenuOpen] = useState(false)
@@ -28,10 +28,10 @@ export default function EmailTemplates() {
   }, [user, authLoading, router])
 
   useEffect(() => {
-    if (dbUser) {
+    if (dbUser?.id) {
       loadData()
     }
-  }, [dbUser])
+  }, [dbUser?.id])
 
   // 컴포넌트 언마운트 시 스크롤 복원
   useEffect(() => {
@@ -43,7 +43,7 @@ export default function EmailTemplates() {
 
   const loadData = async () => {
     try {
-      setLoading(true)
+      setLoadingTemplates(true)
 
       const response = await fetch(`/api/email-templates?userId=${dbUser.id}`)
 
@@ -81,7 +81,7 @@ export default function EmailTemplates() {
     } catch (error) {
       console.error('Error loading data:', error)
     } finally {
-      setLoading(false)
+      setLoadingTemplates(false)
     }
   }
 
@@ -306,11 +306,15 @@ export default function EmailTemplates() {
     document.body.style.overflow = 'unset'
   }
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-white">
         <Navbar />
-        <main className="min-h-screen bg-white"></main>
+        <main className="min-h-screen bg-white">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="text-sm text-gray-600">로딩 중...</div>
+          </div>
+        </main>
       </div>
     )
   }
@@ -320,6 +324,59 @@ export default function EmailTemplates() {
       <div className="min-h-screen bg-white">
         <Navbar />
         <main className="min-h-screen bg-white"></main>
+      </div>
+    )
+  }
+
+  // user는 있는데 dbUser를 못 불러오면(= /api/users 실패 등) 무한 흰 화면이 되지 않도록 안내 UI 표시
+  if (!dbUser) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="min-h-screen bg-white">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="border border-gray-200 rounded-lg p-5 bg-white">
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">
+                계정 정보를 불러오지 못했어요
+              </h2>
+              <p className="text-sm text-gray-700">
+                서버에서 사용자(DB) 정보를 가져오는 중 오류가 발생했을 수 있어요.
+              </p>
+              {dbUserError && (
+                <pre className="mt-3 text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg p-3 overflow-auto">
+                  {String(dbUserError)}
+                </pre>
+              )}
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => ensureDbUser?.(true)}
+                  className="px-4 py-2 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-700"
+                >
+                  다시 시도
+                </button>
+                <button
+                  onClick={() => signOut?.()}
+                  className="px-4 py-2 rounded-lg bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200"
+                >
+                  로그아웃
+                </button>
+              </div>
+            </div>
+          </div>
+        </main>
+      </div>
+    )
+  }
+
+  if (loadingTemplates) {
+    return (
+      <div className="min-h-screen bg-white">
+        <Navbar />
+        <main className="min-h-screen bg-white">
+          <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+            <div className="text-sm text-gray-600">메일 템플릿 불러오는 중...</div>
+          </div>
+        </main>
       </div>
     )
   }

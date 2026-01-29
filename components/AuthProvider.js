@@ -58,6 +58,7 @@ export default function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [dbUser, setDbUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [dbUserError, setDbUserError] = useState(null);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
@@ -118,6 +119,7 @@ export default function AuthProvider({ children }) {
 
   const handleUserRegistration = useCallback(async (supabaseUser, skipCache = false) => {
     try {
+      setDbUserError(null);
       let existingUser;
 
       // 캐시에서 먼저 확인 (skipCache가 false이고 캐시가 유효한 경우)
@@ -161,13 +163,15 @@ export default function AuthProvider({ children }) {
           const createUserData = await createUserResponse.json();
           existingUser = createUserData.user;
         } else {
-          const errorData = await createUserResponse.json();
+          const errorData = await createUserResponse.json().catch(() => ({}));
           console.error("Error creating user:", errorData);
+          setDbUserError(errorData?.details || errorData?.error || "DB 사용자 생성에 실패했습니다.");
           return;
         }
       } else {
-        const errorData = await getUserResponse.json();
+        const errorData = await getUserResponse.json().catch(() => ({}));
         console.error("Error fetching user:", errorData);
+        setDbUserError(errorData?.details || errorData?.error || "DB 사용자 조회에 실패했습니다.");
         return;
       }
 
@@ -177,8 +181,15 @@ export default function AuthProvider({ children }) {
       return existingUser;
     } catch (error) {
       console.error("Error handling user registration:", error);
+      setDbUserError(error?.message || "DB 사용자 동기화 중 오류가 발생했습니다.");
     }
   }, [saveToCache]);
+
+  // user는 있는데 dbUser가 없을 때, 페이지에서 수동으로 재시도할 수 있게 노출
+  const ensureDbUser = useCallback(async (force = false) => {
+    if (!user) return null;
+    return await handleUserRegistration(user, force);
+  }, [handleUserRegistration, user]);
 
   // 전화번호 인증 게이트: 기존/신규 유저 포함, phoneVerified=false면 verify 페이지로 강제
   useEffect(() => {
@@ -425,11 +436,13 @@ export default function AuthProvider({ children }) {
     user,
     dbUser,
     loading,
+    dbUserError,
     signInWithGoogle,
     signOut,
     checkTokenValidity,
     refreshDbUser,
-  }), [user, dbUser, loading, signInWithGoogle, signOut, checkTokenValidity, refreshDbUser]);
+    ensureDbUser,
+  }), [user, dbUser, loading, dbUserError, signInWithGoogle, signOut, checkTokenValidity, refreshDbUser, ensureDbUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
