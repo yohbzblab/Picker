@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { findUserBySupabaseId, createUser } from '@/lib/userService'
+import { findUserBySupabaseId, createUser, updateUser } from '@/lib/userService'
 
 export async function POST(request) {
   try {
@@ -70,6 +70,41 @@ export async function GET(request) {
     return NextResponse.json({ user })
   } catch (error) {
     console.error('Error in GET /api/users:', error)
+    return NextResponse.json(
+      { error: 'Internal server error', details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(request) {
+  try {
+    const body = await request.json()
+    const { userId, phone, phoneVerified } = body || {}
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    }
+
+    const data = {}
+    if (phone !== undefined) data.phone = phone
+    if (phoneVerified !== undefined) {
+      data.phoneVerified = Boolean(phoneVerified)
+      data.phoneVerifiedAt = Boolean(phoneVerified) ? new Date() : null
+    }
+
+    const user = await updateUser(parseInt(userId), data)
+    return NextResponse.json({ user })
+  } catch (error) {
+    // Prisma unique constraint
+    if (error?.code === 'P2002') {
+      return NextResponse.json(
+        { error: '이미 다른 계정에서 사용 중인 전화번호입니다.' },
+        { status: 409 }
+      )
+    }
+
+    console.error('Error in PATCH /api/users:', error)
     return NextResponse.json(
       { error: 'Internal server error', details: error.message },
       { status: 500 }

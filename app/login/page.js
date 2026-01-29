@@ -6,16 +6,20 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
-  const { user, loading, signInWithGoogle } = useAuth();
+  const { user, dbUser, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [showDebugInfo, setShowDebugInfo] = useState(false);
   const [envInfo, setEnvInfo] = useState({});
 
   useEffect(() => {
     if (!loading && user) {
-      router.push("/dashboard");
+      if (dbUser?.phoneVerified === false) {
+        router.push("/verify-phone");
+      } else {
+        router.push("/dashboard");
+      }
     }
-  }, [user, loading, router]);
+  }, [user, dbUser, loading, router]);
 
   // URL 쿼리 파라미터에서 오류 확인
   useEffect(() => {

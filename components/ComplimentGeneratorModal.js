@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useAuth } from '@/components/AuthProvider'
 
 // 키워드 데이터 (CSV 기반)
 const KEYWORD_DATA = {
@@ -120,6 +121,7 @@ const getRandomCompliment = () => {
 }
 
 export default function ComplimentGeneratorModal({ isOpen, onClose, influencerName, onComplete }) {
+  const { dbUser } = useAuth()
   const [activeQuestionId, setActiveQuestionId] = useState('A')
   const [selectedKeywords, setSelectedKeywords] = useState({
     A: [],
@@ -206,15 +208,17 @@ export default function ComplimentGeneratorModal({ isOpen, onClose, influencerNa
         body: JSON.stringify({
           keywords: allKeywords,
           dmVersion: 'v1',
-          customDmPrompt: ''
+          customDmPrompt: '',
+          userId: dbUser?.id
         })
       })
 
+      const data = await response.json().catch(() => ({}))
       if (!response.ok) {
-        throw new Error('API 요청 실패')
+        const msg = data?.error || 'AI 칭찬 생성에 실패했습니다.'
+        setError(msg)
+        return
       }
-
-      const data = await response.json()
       console.log('API 응답:', data)
 
       // 부모 컴포넌트에 message 전달
@@ -224,17 +228,8 @@ export default function ComplimentGeneratorModal({ isOpen, onClose, influencerNa
 
       onClose()
     } catch (err) {
-      console.error('맞춤형 칭찬 생성 오류 (폴백 사용):', err)
-
-      // CORS 등 오류 시 폴백 칭찬 사용
-      const fallbackCompliment = getRandomCompliment()
-      console.log('폴백 칭찬 사용:', fallbackCompliment)
-
-      if (onComplete) {
-        onComplete(fallbackCompliment)
-      }
-
-      onClose()
+      console.error('맞춤형 칭찬 생성 오류:', err)
+      setError(err?.message || 'AI 칭찬 생성 중 오류가 발생했습니다.')
     } finally {
       setIsLoading(false)
     }

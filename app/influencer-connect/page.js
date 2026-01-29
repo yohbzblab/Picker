@@ -45,6 +45,79 @@ function InfluencerConnectContent() {
     useState({}); // 인플루언서별 커스텀 키워드 {influencerId: ['키워드1', '키워드2']}
   const [aiGenerating, setAiGenerating] = useState({}); // AI 생성 중 상태 {influencerId: true/false}
   const [savedComplimentIds, setSavedComplimentIds] = useState({}); // 저장 완료 표시 {influencerId: 'saved' | 'modified'}
+  const AI_COMPLIMENT_LIMIT = 100;
+  const [aiComplimentRemaining, setAiComplimentRemaining] = useState(null); // 서버(DB) 기준 남은 횟수
+  const [aiQuotaLoading, setAiQuotaLoading] = useState(false);
+
+  useEffect(() => {
+    if (!dbUser?.id) return;
+
+    let cancelled = false;
+    setAiQuotaLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/compliment/quota?userId=${dbUser.id}`);
+        const data = await res.json();
+        if (cancelled) return;
+        if (res.ok && typeof data?.remaining === "number") {
+          setAiComplimentRemaining(data.remaining);
+        }
+      } catch (e) {
+        // ignore (서버가 강제하므로 UI는 fallback 가능)
+      } finally {
+        if (!cancelled) setAiQuotaLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dbUser?.id]);
+
+  // 커스텀 키워드 저장 포맷 호환:
+  // - 최신: "A::키워드" (카테고리 포함)
+  // - 레거시: "키워드" (카테고리 없음)
+  const decodeCustomKeyword = useCallback((encoded) => {
+    if (typeof encoded !== "string") return "";
+    // e.g. "B::부지런하다"
+    if (/^[A-F]::/.test(encoded)) return encoded.slice(3);
+    return encoded;
+  }, []);
+
+  // 템플릿의 사용자 변수 기본값 정규화:
+  // - 과거 데이터에 들어가 있을 수 있는 '기본값' 더미 문자열을 빈 문자열로 치환
+  // - 간단한 구조({key: [default]}) 뿐 아니라 일부 레거시 구조도 방어적으로 처리
+  const normalizeUserVariables = useCallback((vars) => {
+    if (!vars || typeof vars !== 'object') return vars
+
+    const normalized = {}
+    Object.entries(vars).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        const v0 = value[0] ?? ''
+        normalized[key] = [(v0 === '기본값') ? '' : v0]
+        return
+      }
+
+      if (typeof value === 'string') {
+        normalized[key] = value === '기본값' ? '' : value
+        return
+      }
+
+      // 레거시 그룹 구조: { group: { variables: { varKey: { defaultValue }}}}
+      if (value && typeof value === 'object' && value.variables) {
+        Object.entries(value.variables).forEach(([varKey, varData]) => {
+          const dv = (varData && typeof varData === 'object') ? (varData.defaultValue ?? '') : ''
+          normalized[varKey] = [(dv === '기본값') ? '' : dv]
+        })
+        return
+      }
+
+      // 알 수 없는 구조는 빈 문자열로 처리
+      normalized[key] = ['']
+    })
+
+    return normalized
+  }, [])
 
   // 캠페인 탭 클릭 핸들러
   const handleCampaignTabClick = () => {
@@ -152,7 +225,11 @@ function InfluencerConnectContent() {
 
       if (templateResponse.ok) {
         const templateData = await templateResponse.json();
-        setTemplate(templateData.template);
+        const tpl = templateData.template;
+        setTemplate({
+          ...tpl,
+          userVariables: normalizeUserVariables(tpl?.userVariables),
+        });
       } else {
         alert("템플릿을 찾을 수 없습니다.");
         router.push("/email-templates");
@@ -801,7 +878,7 @@ function InfluencerConnectContent() {
                 </p>
               </div>
 
-              {/* 메일 생성하기 버튼 */}
+              {/* 메일 미리보기 버튼 */}
               {connectedInfluencers.length > 0 && (
                 <div className="flex items-center space-x-4">
                   <button
@@ -823,7 +900,7 @@ function InfluencerConnectContent() {
                         d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
                       />
                     </svg>
-                    <span>메일 생성하기</span>
+                    <span>메일 미리보기</span>
                   </button>
                 </div>
               )}
@@ -1096,12 +1173,26 @@ function InfluencerConnectContent() {
                                             keywords,
                                             customKeywords
                                           ) => {
+                                            const decodedCustomKeywords = (
+                                              customKeywords || []
+                                            )
+                                              .map(decodeCustomKeyword)
+                                              .filter(Boolean);
+
+                                            // 커스텀 키워드도 "선택된 키워드"에 포함되도록 병합
+                                            const mergedKeywords = Array.from(
+                                              new Set([
+                                                ...(keywords || []),
+                                                ...decodedCustomKeywords,
+                                              ])
+                                            );
+
                                             // 선택된 키워드 로컬 상태 저장
                                             setSelectedKeywordsByInfluencer(
                                               (prev) => ({
                                                 ...prev,
                                                 [connection.influencerId]:
-                                                  keywords,
+                                                  mergedKeywords,
                                               })
                                             );
                                             // 커스텀 키워드 로컬 상태 저장
@@ -1120,7 +1211,7 @@ function InfluencerConnectContent() {
                                               const updatedUserVariables = {
                                                 ...(connection.userVariables ||
                                                   {}),
-                                                "선택된 키워드": keywords,
+                                                "선택된 키워드": mergedKeywords,
                                                 "커스텀 키워드": customKeywords || [],
                                               };
 
@@ -1245,15 +1336,34 @@ function InfluencerConnectContent() {
                                               )}
                                             </div>
                                             <div className="flex space-x-2">
+                                              <span
+                                                className={`text-xs ${
+                                                  typeof aiComplimentRemaining ===
+                                                    "number" &&
+                                                  aiComplimentRemaining <= 10
+                                                    ? "text-red-500"
+                                                    : "text-gray-400"
+                                                }`}
+                                              >
+                                                {typeof aiComplimentRemaining ===
+                                                "number"
+                                                  ? aiComplimentRemaining
+                                                  : "—"}
+                                                /{AI_COMPLIMENT_LIMIT}
+                                              </span>
                                               <button
                                                 type="button"
                                                 disabled={
-                                                  (!selectedKeywordsByInfluencer[
+                                                  (typeof aiComplimentRemaining ===
+                                                    "number" &&
+                                                    aiComplimentRemaining <= 0) ||
+                                                  ((selectedKeywordsByInfluencer[
                                                     connection.influencerId
-                                                  ]?.length &&
-                                                  !customKeywordsByInfluencer[
-                                                    connection.influencerId
-                                                  ]?.length) ||
+                                                  ]?.length || 0) +
+                                                    (customKeywordsByInfluencer[
+                                                      connection.influencerId
+                                                    ]?.length || 0) ===
+                                                    0) ||
                                                   aiGenerating[
                                                     connection.influencerId
                                                   ]
@@ -1278,6 +1388,16 @@ function InfluencerConnectContent() {
                                                     );
                                                     return;
                                                   }
+                                                  if (
+                                                    typeof aiComplimentRemaining ===
+                                                      "number" &&
+                                                    aiComplimentRemaining <= 0
+                                                  ) {
+                                                    alert(
+                                                      "AI로 칭찬 생성 횟수를 모두 사용했습니다."
+                                                    );
+                                                    return;
+                                                  }
 
                                                   setAiGenerating((prev) => ({
                                                     ...prev,
@@ -1298,17 +1418,31 @@ function InfluencerConnectContent() {
                                                             keywords: allKeywords,
                                                             dmVersion: "v1",
                                                             customDmPrompt: "",
+                                                            userId: dbUser?.id,
                                                           }),
                                                         }
                                                       );
 
-                                                    if (!response.ok)
-                                                      throw new Error(
-                                                        "API 요청 실패"
-                                                      );
-
                                                     const data =
-                                                      await response.json();
+                                                      await response
+                                                        .json()
+                                                        .catch(() => ({}));
+
+                                                    if (
+                                                      typeof data?.remaining ===
+                                                      "number"
+                                                    ) {
+                                                      setAiComplimentRemaining(
+                                                        data.remaining
+                                                      );
+                                                    }
+
+                                                    if (!response.ok) {
+                                                      throw new Error(
+                                                        data?.error ||
+                                                          "API 요청 실패"
+                                                      );
+                                                    }
                                                     if (data.message) {
                                                       setCompliments(
                                                         (prev) => ({
@@ -1341,12 +1475,17 @@ function InfluencerConnectContent() {
                                                   }
                                                 }}
                                                 className={`px-3 py-2 text-sm rounded-lg transition-colors whitespace-nowrap flex items-center space-x-1 ${
-                                                  selectedKeywordsByInfluencer[
+                                                  ((selectedKeywordsByInfluencer[
                                                     connection.influencerId
-                                                  ]?.length &&
-                                                  !aiGenerating[
-                                                    connection.influencerId
-                                                  ]
+                                                  ]?.length || 0) +
+                                                    (customKeywordsByInfluencer[
+                                                      connection.influencerId
+                                                    ]?.length || 0) >
+                                                    0) &&
+                                                  !aiGenerating[connection.influencerId] &&
+                                                  (typeof aiComplimentRemaining !==
+                                                    "number" ||
+                                                    aiComplimentRemaining > 0)
                                                     ? "bg-purple-500 text-white hover:bg-purple-600"
                                                     : "bg-gray-200 text-gray-400 cursor-not-allowed"
                                                 }`}
@@ -1436,10 +1575,10 @@ function InfluencerConnectContent() {
 
                                   <div>
                                     <h5 className="text-sm font-medium text-gray-900 mb-2">
-                                      사용자 변수 설정
+                                      맞춤형 항목 설정
                                     </h5>
                                     <div className="text-xs text-gray-600 mb-3">
-                                      이 인플루언서에 대한 개별 변수 값을 설정할
+                                      이 인플루언서에 대한 개별 항목 값을 설정할
                                       수 있습니다.
                                     </div>
 
@@ -1543,7 +1682,7 @@ function InfluencerConnectContent() {
                                       </div>
                                     ) : (
                                       <div className="bg-white p-3 rounded border text-xs text-gray-500">
-                                        이 템플릿에는 설정 가능한 사용자 변수가
+                                        이 템플릿에는 설정 가능한 맞춤형 항목이
                                         없습니다.
                                       </div>
                                     )}
@@ -1880,7 +2019,7 @@ function InfluencerConnectContent() {
                                   ? value[0]
                                   : typeof value === "string"
                                     ? value
-                                    : "기본값";
+                                    : "";
                               return (
                                 <div
                                   key={variableName}
@@ -1889,7 +2028,7 @@ function InfluencerConnectContent() {
                                   <div className="flex items-center justify-between">
                                     <span className="text-xs font-medium text-purple-800">{`{{${variableName}}}`}</span>
                                     <span className="text-xs text-purple-600">
-                                      기본값: {defaultValue}
+                                      기본값: {defaultValue || "미설정"}
                                     </span>
                                   </div>
                                 </div>

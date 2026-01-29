@@ -16,6 +16,8 @@ export default function InfluencerManagement() {
   const [fields, setFields] = useState([])
   const [influencers, setInfluencers] = useState([])
   const [loading, setLoading] = useState(true)
+  const [isReceivingEmails, setIsReceivingEmails] = useState(false)
+  const [emailReloadToken, setEmailReloadToken] = useState(0)
   const [editingField, setEditingField] = useState(null)
   const [expandedInfluencers, setExpandedInfluencers] = useState(new Set())
   const [showBulkImportModal, setShowBulkImportModal] = useState(false)
@@ -163,6 +165,41 @@ export default function InfluencerManagement() {
       console.error('Error loading data:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleReceiveNewEmails = async () => {
+    if (!dbUser) return
+    if (!confirm('새 메일을 불러올까요?')) return
+
+    setIsReceivingEmails(true)
+    try {
+      const response = await fetch('/api/emails/simple-influencer-filter', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          userId: dbUser.id
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        throw new Error(data?.error || data?.details || '새 메일 로딩에 실패했습니다.')
+      }
+
+      const saved = data?.stats?.saved ?? 0
+      alert(`새 메일 로딩이 완료되었습니다. ${saved}개의 메일을 저장했어요.`)
+
+      // 확장된 카드의 "최근 메일"을 새로고침하기 위한 토큰
+      setEmailReloadToken(prev => prev + 1)
+    } catch (error) {
+      console.error('새 메일 로딩 실패:', error)
+      alert(error?.message || '새 메일 로딩 중 오류가 발생했습니다.')
+    } finally {
+      setIsReceivingEmails(false)
     }
   }
 
@@ -940,7 +977,19 @@ export default function InfluencerManagement() {
           <InfluencerTabs />
 
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">인플루언서 관리하기</h1>
+            <div className="flex items-center justify-between gap-4 mb-2">
+              <div className="flex items-center gap-3 min-w-0">
+                <h1 className="text-3xl font-bold text-gray-900 truncate">인플루언서 관리하기</h1>
+                <button
+                  onClick={handleReceiveNewEmails}
+                  disabled={!dbUser || isReceivingEmails}
+                  className="shrink-0 inline-flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  title="새 메일 로딩"
+                >
+                  {isReceivingEmails ? '로딩 중...' : '새 메일 로딩'}
+                </button>
+              </div>
+            </div>
             <p className="text-gray-600">인플루언서 정보를 관리하고 분석할 수 있습니다.</p>
           </div>
 
@@ -1295,6 +1344,7 @@ export default function InfluencerManagement() {
                     influencer={influencer}
                     fields={fields}
                     isExpanded={isExpanded}
+                    emailReloadToken={emailReloadToken}
                     onToggleExpansion={() => toggleInfluencerExpansion(influencer.id)}
                     onEdit={() => router.push(`/influencer-management/edit/${influencer.id}`)}
                     onDisconnect={() => handleDisconnectInfluencer(influencer.id)}
@@ -1462,7 +1512,7 @@ export default function InfluencerManagement() {
   )
 }
 
-function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onEdit, onDisconnect, fetchInfluencerEmails, fetchSentEmails, renderCell, visibleColumns, isDeleteMode, isSelected, onToggleSelection }) {
+function InfluencerCard({ influencer, fields, isExpanded, emailReloadToken, onToggleExpansion, onEdit, onDisconnect, fetchInfluencerEmails, fetchSentEmails, renderCell, visibleColumns, isDeleteMode, isSelected, onToggleSelection }) {
   const router = useRouter()
   const [recentEmails, setRecentEmails] = useState([])
   const [sentEmails, setSentEmails] = useState([])
@@ -1488,7 +1538,7 @@ function InfluencerCard({ influencer, fields, isExpanded, onToggleExpansion, onE
       loadEmails()
       loadCampaignData()
     }
-  }, [isExpanded, influencer.id])
+  }, [isExpanded, influencer.id, emailReloadToken])
 
   const loadEmails = async () => {
     setEmailsLoading(true)

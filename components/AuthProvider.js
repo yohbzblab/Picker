@@ -94,6 +94,23 @@ export default function AuthProvider({ children }) {
     authCache.set(CACHE_KEYS.LAST_CHECK, Date.now());
   }, []);
 
+  const refreshDbUser = useCallback(async () => {
+    try {
+      if (!dbUser?.id) return null
+      const res = await fetch(`/api/users?userId=${dbUser.id}`)
+      if (!res.ok) return null
+      const data = await res.json()
+      if (!data?.user) return null
+
+      setDbUser(data.user)
+      saveToCache(user, data.user)
+      tokenManager.setUserData({ supabaseUser: user, dbUser: data.user })
+      return data.user
+    } catch (e) {
+      return null
+    }
+  }, [dbUser?.id, saveToCache, user]);
+
   // 캐시를 무효화하는 함수
   const invalidateCache = useCallback(() => {
     authCache.clear();
@@ -163,6 +180,20 @@ export default function AuthProvider({ children }) {
     }
   }, [saveToCache]);
 
+  // 전화번호 인증 게이트: 기존/신규 유저 포함, phoneVerified=false면 verify 페이지로 강제
+  useEffect(() => {
+    if (!isHydrated) return
+    if (loading) return
+    if (!user || !dbUser) return
+
+    const allowPaths = ['/login', '/', '/auth', '/verify-phone']
+    const isAllowed = allowPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
+
+    if (dbUser.phoneVerified === false && !isAllowed) {
+      router.push('/verify-phone')
+    }
+  }, [dbUser, isHydrated, loading, pathname, router, user]);
+
   // 클라이언트 사이드 hydration 처리 및 즉시 토큰 확인
   useEffect(() => {
     setIsHydrated(true);
@@ -179,6 +210,19 @@ export default function AuthProvider({ children }) {
       setIsInitialLoad(false);
     }
   }, []);
+
+  // 안전장치: user는 있는데 dbUser가 비어있는 경우(캐시 손상/부분 저장 등),
+  // 서버에서 dbUser를 재조회해서 흰 화면(loading 고정) 상태를 방지
+  useEffect(() => {
+    if (!isHydrated) return
+    if (loading) return
+    if (!user) return
+    if (dbUser) return
+
+    // user(id)가 있는 상태에서만 재조회
+    if (!user?.id) return
+    handleUserRegistration(user, true)
+  }, [isHydrated, loading, user, dbUser, handleUserRegistration]);
 
   useEffect(() => {
     // 클라이언트 사이드에서만 실행하고, 한 번만 실행
@@ -283,11 +327,14 @@ export default function AuthProvider({ children }) {
           dbUser: dbUserData
         });
 
-        // 로그인 페이지나 홈페이지에서만 대시보드로 리다이렉트
+        // 로그인 페이지나 홈페이지에서만 리다이렉트
         const currentPath = window.location.pathname;
         if (currentPath === '/login' || currentPath === '/' || currentPath === '/auth/callback') {
-          // console.log('Redirecting to dashboard from:', currentPath); // 디버깅용
-          router.push("/dashboard");
+          if (dbUserData?.phoneVerified === false) {
+            router.push("/verify-phone");
+          } else {
+            router.push("/dashboard");
+          }
         } else {
           // console.log('Not redirecting, current path:', currentPath); // 디버깅용
         }
@@ -381,7 +428,8 @@ export default function AuthProvider({ children }) {
     signInWithGoogle,
     signOut,
     checkTokenValidity,
-  }), [user, dbUser, loading, signInWithGoogle, signOut, checkTokenValidity]);
+    refreshDbUser,
+  }), [user, dbUser, loading, signInWithGoogle, signOut, checkTokenValidity, refreshDbUser]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

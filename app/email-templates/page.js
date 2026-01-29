@@ -10,6 +10,7 @@ export default function EmailTemplates() {
   const router = useRouter()
   const [templates, setTemplates] = useState([])
   const [loading, setLoading] = useState(true)
+  const [duplicatingTemplateId, setDuplicatingTemplateId] = useState(null)
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [isSlideMenuOpen, setIsSlideMenuOpen] = useState(false)
   const [templateConnections, setTemplateConnections] = useState([])
@@ -112,6 +113,73 @@ export default function EmailTemplates() {
     } catch (error) {
       console.error('Error deleting template:', error)
       alert('템플릿 삭제 중 오류가 발생했습니다.')
+    }
+  }
+
+  const getDuplicateName = (originalName) => {
+    const base = `${originalName} (복제)`
+    const existingNames = new Set((templates || []).map(t => t.name))
+    if (!existingNames.has(base)) return base
+    let i = 2
+    while (existingNames.has(`${base} ${i}`)) i++
+    return `${base} ${i}`
+  }
+
+  const handleDuplicateTemplate = async (template) => {
+    if (!dbUser?.id || !template?.id) return
+    setDuplicatingTemplateId(template.id)
+
+    try {
+      // 원본 템플릿 상세(+첨부파일) 로드
+      const detailRes = await fetch(`/api/email-templates/${template.id}?userId=${dbUser.id}`)
+      if (!detailRes.ok) {
+        alert('템플릿 정보를 불러오지 못했습니다.')
+        return
+      }
+      const detailData = await detailRes.json()
+      const original = detailData.template
+
+      // 첨부파일 메타데이터만 복제 (파일 자체는 복사하지 않음)
+      const attachments = (original.attachments || []).map(a => ({
+        filename: a.filename,
+        originalName: a.originalName,
+        supabasePath: a.supabasePath,
+        publicUrl: a.publicUrl,
+        fileSize: a.fileSize,
+        mimeType: a.mimeType
+      }))
+
+      // 새 템플릿 생성
+      const createRes = await fetch('/api/email-templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: dbUser.id,
+          name: getDuplicateName(original.name || template.name || '새 템플릿'),
+          subject: original.subject || '',
+          content: original.content || '',
+          variables: original.variables || [],
+          userVariables: original.userVariables || {},
+          conditionalRules: original.conditionalRules || {},
+          attachments,
+          // 캠페인 연결은 복제하지 않음 (필요하면 복제본에서 새로 연결)
+          surveyTemplateId: null
+        })
+      })
+
+      if (!createRes.ok) {
+        const err = await createRes.json().catch(() => ({}))
+        alert(err.error || '템플릿 복제에 실패했습니다.')
+        return
+      }
+
+      await loadData()
+      alert('템플릿이 복제되었습니다.')
+    } catch (error) {
+      console.error('Error duplicating template:', error)
+      alert('템플릿 복제 중 오류가 발생했습니다.')
+    } finally {
+      setDuplicatingTemplateId(null)
     }
   }
 
@@ -324,6 +392,29 @@ export default function EmailTemplates() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
+                            handleDuplicateTemplate(template)
+                          }}
+                          className="text-gray-400 hover:text-purple-600 p-1.5 disabled:opacity-50"
+                          title="복제"
+                          disabled={duplicatingTemplateId === template.id}
+                        >
+                          {duplicatingTemplateId === template.id ? (
+                            <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                              {/* 상단: 채워진 라운드 사각형 */}
+                              <rect x="3" y="2" width="12" height="12" rx="2.5" fill="currentColor" />
+                              {/* 하단: 라운드 사각형 아웃라인 */}
+                              <rect x="9" y="8" width="12" height="12" rx="2.5" stroke="currentColor" strokeWidth="2.6" />
+                            </svg>
+                          )}
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
                             handleDeleteTemplate(template.id)
                           }}
                           className="text-gray-400 hover:text-red-600 p-1.5"
@@ -337,7 +428,7 @@ export default function EmailTemplates() {
                   </div>
                   </div>
 
-                  {/* 두 번째 줄: 제목, 연결된 캠페인, 연결된 인플루언서 정보 */}
+                  {/* 두 번째 줄: 제목, 연결된 인플루언서, 연결된 캠페인 정보 */}
                   <div className="flex flex-col gap-3 mb-4">
                     {/* 제목 */}
                     <div className="">
@@ -352,43 +443,6 @@ export default function EmailTemplates() {
                       >
                         {template.subject}
                       </p>
-                    </div>
-
-                    {/* 연결된 캠페인 정보 */}
-                    <div className="">
-                      <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
-                      {template.surveyTemplate ? (
-                        <div className="flex items-center space-x-2">
-                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium truncate">
-                            {template.surveyTemplate.title}
-                          </div>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleDisconnectFromSurvey(template)
-                            }}
-                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
-                            title="캠페인 연결 해제"
-                          >
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="flex items-center space-x-2">
-                          <span className="text-xs text-gray-400">연결된 캠페인 없음</span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              handleCampaignConnect(template)
-                            }}
-                            className="bg-blue-500 text-white px-2 py-1 rounded text-xs font-medium hover:bg-blue-600 transition-colors"
-                          >
-                            연결
-                          </button>
-                        </div>
-                      )}
                     </div>
 
                     {/* 연결된 인플루언서 정보 */}
@@ -434,7 +488,57 @@ export default function EmailTemplates() {
                             <span className="text-xs">연결된 인플루언서 없음</span>
                           </div>
                         )}
+
+                        {/* 연결/수정 버튼: 연결 여부에 따라 라벨만 변경 */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleInfluencerConnect(template)
+                          }}
+                          className="bg-purple-100 text-purple-700 px-2 py-1 rounded text-xs font-medium hover:bg-purple-200 transition-colors"
+                        >
+                          {template.connections && template.connections.length > 0
+                            ? '수정'
+                            : '연결'}
+                        </button>
                       </div>
+                    </div>
+
+                    {/* 연결된 캠페인 정보 */}
+                    <div className="">
+                      <p className="text-sm font-medium text-gray-700 mb-1">연결된 캠페인</p>
+                      {template.surveyTemplate ? (
+                        <div className="flex items-center space-x-2">
+                          <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium truncate">
+                            {template.surveyTemplate.title}
+                          </div>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDisconnectFromSurvey(template)
+                            }}
+                            className="text-red-500 hover:text-red-700 p-1 flex-shrink-0"
+                            title="캠페인 연결 해제"
+                          >
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-gray-400">연결된 캠페인 없음</span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCampaignConnect(template)
+                            }}
+                            className="bg-sky-100 text-blue-600 px-2 py-1 rounded text-xs font-medium hover:bg-sky-200 transition-colors"
+                          >
+                            연결
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -594,7 +698,7 @@ export default function EmailTemplates() {
                       e.stopPropagation()
                       handleEditTemplate(selectedTemplate)
                     }}
-                    className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
+                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
                   >
                     템플릿 수정
                   </button>
@@ -603,7 +707,7 @@ export default function EmailTemplates() {
                       e.stopPropagation()
                       handleInfluencerConnect(selectedTemplate)
                     }}
-                    className="flex-1 bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition-colors text-sm font-medium"
+                    className="flex-1 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors text-sm font-medium"
                   >
                     인플루언서 연결
                   </button>

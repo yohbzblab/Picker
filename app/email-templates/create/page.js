@@ -63,11 +63,12 @@ function CreateEmailTemplateContent() {
     Object.entries(variables).forEach(([groupName, group]) => {
       if (group && group.variables) {
         Object.entries(group.variables).forEach(([variableKey, variable]) => {
-          migrated[variableKey] = [variable.defaultValue || '기본값']
+          // 기본값은 "기본값" 같은 더미 문자열이 아니라 빈 문자열로 유지
+          migrated[variableKey] = [variable.defaultValue || '']
         })
       } else {
         // 직접 변수가 저장된 경우 (이전 형식)
-        migrated[groupName] = Array.isArray(group) ? group : [group || '기본값']
+        migrated[groupName] = Array.isArray(group) ? group : [group || '']
       }
     })
 
@@ -230,12 +231,12 @@ function CreateEmailTemplateContent() {
         }))
         setAttachments(attachmentData)
       } else {
-        alert('템플릿을 불러올 수 없습니다.')
+        alert('템플릿을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.')
         router.push('/email-templates')
       }
     } catch (error) {
       console.error('Error loading template:', error)
-      alert('템플릿 로딩 중 오류가 발생했습니다.')
+      alert('템플릿을 불러오는 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
       router.push('/email-templates')
     } finally {
       setLoading(false)
@@ -419,14 +420,14 @@ function CreateEmailTemplateContent() {
     // 파일 크기 검증 (각 파일당 10MB, 전체 25MB 제한)
     for (const file of fileArray) {
       if (file.size > 10 * 1024 * 1024) {
-        alert(`파일 "${file.name}"의 크기가 10MB를 초과합니다.`)
+        alert(`"${file.name}" 파일은 10MB 이하만 업로드할 수 있어요.`)
         return
       }
     }
 
     const totalSize = [...attachments, ...fileArray].reduce((sum, file) => sum + (file.size || 0), 0)
     if (totalSize > 25 * 1024 * 1024) {
-      alert('첨부파일의 총 크기가 25MB를 초과할 수 없습니다.')
+      alert('첨부 파일의 총 용량은 25MB를 넘을 수 없어요.')
       return
     }
 
@@ -477,7 +478,7 @@ function CreateEmailTemplateContent() {
       }
     } catch (error) {
       console.error('파일 업로드 오류:', error)
-      alert(error.message || '파일 업로드 중 오류가 발생했습니다.')
+      alert(error.message || '파일 업로드에 실패했어요. 잠시 후 다시 시도해 주세요.')
 
       // 업로드 실패한 파일들을 업로드 중 목록에서 제거
       setUploadingFiles(prev => prev.filter(f => !uploadingFileIds.includes(f.id)))
@@ -502,7 +503,7 @@ function CreateEmailTemplateContent() {
     e.preventDefault()
 
     if (!formData.name || !formData.subject || !formData.content) {
-      alert('모든 필드를 입력해주세요.')
+      alert('템플릿 이름, 메일 제목, 메일 내용을 모두 입력해 주세요.')
       return
     }
 
@@ -534,11 +535,11 @@ function CreateEmailTemplateContent() {
       if (response.ok) {
         router.push('/email-templates')
       } else {
-        alert('템플릿 저장에 실패했습니다.')
+        alert('저장에 실패했어요. 잠시 후 다시 시도해 주세요.')
       }
     } catch (error) {
       console.error('Error saving template:', error)
-      alert('템플릿 저장 중 오류가 발생했습니다.')
+      alert('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.')
     } finally {
       setSaving(false)
     }
@@ -587,6 +588,11 @@ function CreateEmailTemplateContent() {
     router.push('/email-templates')
   }
 
+  const handleGoToInfluencerConnect = () => {
+    if (!editId) return
+    router.push(`/influencer-connect?templateId=${editId}`)
+  }
+
   // useRef를 사용하여 안정적인 함수 참조 생성
   const subjectInsertFnRef = useRef(null)
   const contentInsertFnRef = useRef(null)
@@ -606,7 +612,7 @@ function CreateEmailTemplateContent() {
       <div className="min-h-screen bg-white">
         <Navbar />
         <main className="min-h-screen bg-white flex items-center justify-center">
-          <div className="text-lg text-gray-600">로딩 중...</div>
+          <div className="text-lg text-gray-600">불러오는 중…</div>
         </main>
       </div>
     )
@@ -628,21 +634,33 @@ function CreateEmailTemplateContent() {
       <main className="flex-1 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 h-full flex flex-col">
           <div className="mb-8">
-            <div className="flex items-center space-x-4 mb-4">
-              <button
-                onClick={handleCancel}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                </svg>
-              </button>
-              <h1 className="text-3xl font-bold text-gray-900">
-                {editId ? '템플릿 수정' : '새 템플릿 만들기'}
-              </h1>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={handleCancel}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+                <h1 className="text-3xl font-bold text-gray-900">
+                  {editId ? '메일 템플릿 수정' : '메일 템플릿 만들기'}
+                </h1>
+              </div>
+
+              {editId && (
+                <button
+                  type="button"
+                  onClick={handleGoToInfluencerConnect}
+                  className="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                >
+                  인플루언서 연결
+                </button>
+              )}
             </div>
             <p className="text-gray-600">
-              인플루언서와의 소통을 위한 메일 템플릿을 {editId ? '수정' : '생성'}할 수 있습니다.
+              메일 템플릿을 {editId ? '수정' : '작성'}하고, 맞춤형 항목으로 개인화할 수 있어요.
             </p>
           </div>
 
@@ -660,7 +678,7 @@ function CreateEmailTemplateContent() {
                       value={formData.name}
                       onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
-                      placeholder="예: 초기 협업 제안"
+                      placeholder="예: 1차 협업 제안"
                       required
                     />
                   </div>
@@ -671,14 +689,14 @@ function CreateEmailTemplateContent() {
                     </label>
                     {loading ? (
                       <div className="border border-gray-300 rounded-lg p-3 min-h-[50px] flex items-center justify-center text-gray-500">
-                        템플릿을 불러오는 중...
+                        불러오는 중…
                       </div>
                     ) : (
                       <input
                         type="text"
                         value={formData.subject}
                         onChange={(e) => handleSubjectChange(e.target.value)}
-                        placeholder="예: 협업 제안드립니다"
+                        placeholder="예: {{name}}님, 협업 제안드려요"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     )}
@@ -690,14 +708,14 @@ function CreateEmailTemplateContent() {
                     </label>
                     {loading ? (
                       <div className="border border-gray-300 rounded-lg p-3 min-h-[200px] flex items-center justify-center text-gray-500">
-                        템플릿을 불러오는 중...
+                        불러오는 중…
                       </div>
                     ) : (
                       <RichTextEditor
                         key={`content-editor-${editId || 'new'}`}
                         value={formData.content}
                         onChange={handleContentChange}
-                        placeholder="메일 내용을 입력하세요"
+                        placeholder="메일 본문을 작성하세요"
                         onInsertVariable={handleContentInsertVariable}
                         templateId={editId}
                       />
@@ -733,10 +751,10 @@ function CreateEmailTemplateContent() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
                       </svg>
                       <p className="text-gray-600 mb-1">
-                        <span className="font-medium">클릭하여 파일 선택</span> 또는 드래그하여 업로드
+                        <span className="font-medium">클릭</span> 또는 <span className="font-medium">드래그</span>로 파일 업로드
                       </p>
                       <p className="text-xs text-gray-500">
-                        파일당 최대 10MB, 총 25MB까지 가능합니다
+                        파일당 최대 10MB · 총 25MB
                       </p>
 
                       <input
@@ -758,7 +776,7 @@ function CreateEmailTemplateContent() {
                               <span className="text-sm font-medium text-blue-800">{file.name}</span>
                               <span className="text-xs text-blue-600">({formatFileSize(file.size)})</span>
                             </div>
-                            <span className="text-xs text-blue-600">업로드 중...</span>
+                            <span className="text-xs text-blue-600">업로드 중…</span>
                           </div>
                         ))}
                       </div>
@@ -767,7 +785,7 @@ function CreateEmailTemplateContent() {
                     {/* 첨부된 파일 목록 */}
                     {attachments.length > 0 && (
                       <div className="mt-3 space-y-2">
-                        <h4 className="text-sm font-medium text-gray-700">첨부된 파일 ({attachments.length})</h4>
+                        <h4 className="text-sm font-medium text-gray-700">첨부 파일 ({attachments.length})</h4>
                         {attachments.map((file) => (
                           <div key={file.id} className="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
                             <div className="flex items-center space-x-3">
@@ -785,7 +803,7 @@ function CreateEmailTemplateContent() {
                               type="button"
                               onClick={() => removeAttachment(file.id)}
                               className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded transition-colors"
-                              title="파일 제거"
+                              title="첨부 삭제"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -814,7 +832,7 @@ function CreateEmailTemplateContent() {
                   disabled={saving}
                   className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
                 >
-                  {saving ? '저장 중...' : (editId ? '수정' : '생성')}
+                  {saving ? '저장 중…' : (editId ? '변경사항 저장' : '템플릿 저장')}
                 </button>
               </div>
             </div>
@@ -834,7 +852,7 @@ function CreateEmailTemplateContent() {
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      실시간 미리보기
+                      미리보기
                     </button>
                     <button
                       type="button"
@@ -845,7 +863,7 @@ function CreateEmailTemplateContent() {
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                     >
-                      사용 가능한 변수
+                      맞춤형 항목
                     </button>
                   </nav>
                 </div>
@@ -855,20 +873,20 @@ function CreateEmailTemplateContent() {
                   {activeTab === 'preview' ? (
                     <div className="flex-1 flex flex-col">
                       <p className="text-sm text-gray-600 mb-4">
-                        변수는 샘플 데이터로 치환되어 표시됩니다
+                        항목은 샘플 값으로 표시 돼요. 실제 발송 시 자동으로 치환됩니다.
                       </p>
 
                       {/* 제목 미리보기 */}
                       <div className="mb-4">
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          제목 미리보기
+                          제목
                         </label>
                         <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 min-h-[42px] flex items-center">
                           <div className="text-gray-900 font-medium">
                             {formData.subject ? (
                               <div dangerouslySetInnerHTML={{ __html: replaceVariables(formData.subject) }} />
                             ) : (
-                              <span className="text-gray-400">제목을 입력해주세요</span>
+                              <span className="text-gray-400">제목을 입력해 주세요</span>
                             )}
                           </div>
                         </div>
@@ -878,7 +896,7 @@ function CreateEmailTemplateContent() {
                       <div className="mb-4">
                         <div className="flex items-center justify-between mb-2">
                           <label className="text-sm font-medium text-gray-700">
-                            내용 미리보기
+                            본문
                           </label>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-500">변수 강조</span>
@@ -903,7 +921,7 @@ function CreateEmailTemplateContent() {
                             {formData.content ? (
                               <div dangerouslySetInnerHTML={{ __html: replaceVariables(formData.content) }} />
                             ) : (
-                              <span className="text-gray-400">내용을 입력해주세요</span>
+                              <span className="text-gray-400">본문을 입력해 주세요</span>
                             )}
                           </div>
                         </div>
@@ -912,14 +930,14 @@ function CreateEmailTemplateContent() {
                       {/* 사용된 변수 입력 */}
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-2">
-                          변수 값 입력 (미리보기용)
+                          미리보기용 항목 값
                         </label>
                         <div className="space-y-3">
                           {(() => {
                             const usedVariables = getUsedVariables()
 
                             if (usedVariables.length === 0) {
-                              return <span className="text-gray-400 text-sm">변수가 없습니다</span>
+                              return <span className="text-gray-400 text-sm">사용된 변수가 없어요</span>
                             }
 
                             return usedVariables.map((variableName, index) => {
@@ -991,40 +1009,43 @@ function CreateEmailTemplateContent() {
                         </div>
                         {getUsedVariables().length > 0 && (
                           <p className="text-xs text-gray-500 mt-2">
-                            입력한 값들이 위 미리보기에 실시간으로 반영됩니다
+                            입력한 값이 위 미리보기에 바로 반영돼요.
                           </p>
                         )}
                       </div>
                     </div>
                   ) : (
                     <div className="flex-1 flex flex-col">
+                      <p className="text-sm text-gray-600 mb-4">
+                        맞춤형 항목을 클릭하면 현재 커서 위치(제목/본문)에 삽입돼요.
+                      </p>
                       <div className="mb-4">
                         <h4 className="text-sm font-medium text-gray-900 mb-3">
-                          사용 가능한 변수 (클릭하여 삽입)
+                          맞춤형 항목 삽입
                         </h4>
                       </div>
 
                       {loadingFields ? (
-                        <div className="text-sm text-gray-500">변수 목록을 불러오는 중...</div>
+                        <div className="text-sm text-gray-500">변수를 불러오는 중…</div>
                       ) : (
                         <div className="flex-1 space-y-4">
                           {/* 사용자 변수들 */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <h4 className="text-sm font-medium text-gray-700">사용자 변수</h4>
+                              <h4 className="text-sm font-medium text-gray-700">맞춤형 항목</h4>
                               <button
                                 type="button"
                                 onClick={() => openUserVariableModal()}
                                 onMouseDown={(e) => e.preventDefault()}
                                 className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded border hover:bg-gray-200 transition-colors"
-                                title="변수 관리"
+                                title="맞춤형 항목 관리"
                               >
                                 관리
                               </button>
                             </div>
                             <div className="space-y-2">
                               {Object.keys(userVariables).length === 0 ? (
-                                <p className="text-sm text-gray-500">사용자 변수가 없습니다. '관리' 버튼을 클릭해서 변수를 만드세요.</p>
+                                <p className="text-sm text-gray-500">맞춤형 항목이 없어요. ‘관리’에서 추가할 수 있어요.</p>
                               ) : (
                                 <div className="flex flex-wrap gap-2">
                                   {Object.entries(userVariables).map(([variableKey, variableValue]) => {
@@ -1046,7 +1067,7 @@ function CreateEmailTemplateContent() {
                                         onClick={() => handleVariableInsert(variableKey)}
                                         onMouseDown={(e) => e.preventDefault()}
                                         className="text-sm bg-purple-100 text-purple-800 px-3 py-1 rounded-full hover:bg-purple-200 transition-colors"
-                                        title={`{{${variableKey}}} - 기본값: ${displayValue || '기본값'}`}
+                                        title={`{{${variableKey}}} · 기본값: ${displayValue || '미설정'}`}
                                       >
                                         {variableKey}
                                       </button>
@@ -1072,7 +1093,7 @@ function CreateEmailTemplateContent() {
                               </button>
                             </div>
                             <p className="text-xs text-gray-500 mt-2">
-                              인플루언서별 맞춤형 칭찬 메시지가 삽입됩니다
+                              인플루언서별로 설정한 맞춤형 칭찬이 삽입돼요.
                             </p>
                           </div>
 
@@ -1100,7 +1121,7 @@ function CreateEmailTemplateContent() {
                           {/* 조건문 변수들 (숫자 타입 인플루언서 필드) */}
                           {influencerFields.filter(field => field.fieldType === 'NUMBER').length > 0 && (
                             <div>
-                              <h4 className="text-sm font-medium text-gray-700 mb-3">조건문 변수 (숫자 필드)</h4>
+                              <h4 className="text-sm font-medium text-gray-700 mb-3">조건적 맞춤형 항목(숫자)</h4>
                               <div className="space-y-3">
                                 {influencerFields.filter(field => field.fieldType === 'NUMBER').map((field) => (
                                   <div key={field.key} className="border border-gray-200 rounded-lg p-3">
@@ -1113,7 +1134,7 @@ function CreateEmailTemplateContent() {
                                         className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 transition-colors"
                                         title="조건 변수 관리"
                                       >
-                                        + 조건 추가
+                                        조건 추가
                                       </button>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
@@ -1131,7 +1152,7 @@ function CreateEmailTemplateContent() {
                                           </button>
                                         ))
                                       ) : (
-                                        <span className="text-sm text-gray-400">조건 변수가 없습니다</span>
+                                        <span className="text-sm text-gray-400">조건이 없어요</span>
                                       )}
                                     </div>
                                   </div>
@@ -1140,9 +1161,6 @@ function CreateEmailTemplateContent() {
                             </div>
                           )}
 
-                          <p className="text-sm text-gray-500 mt-4 p-3 bg-gray-50 rounded-lg">
-                            변수를 클릭하면 현재 포커스된 필드(제목 또는 내용)에 삽입됩니다.
-                          </p>
                         </div>
                       )}
                     </div>
@@ -1208,7 +1226,7 @@ export default function CreateEmailTemplate() {
       <div className="min-h-screen bg-white">
         <Navbar />
         <main className="min-h-screen bg-white flex items-center justify-center">
-          <div className="text-gray-500">로딩 중...</div>
+          <div className="text-gray-500">불러오는 중…</div>
         </main>
       </div>
     }>

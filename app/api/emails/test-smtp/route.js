@@ -87,6 +87,15 @@ export async function POST(request) {
           <p style="color: #999; font-size: 12px; text-align: center;">
             이 메일은 InstaConnect SMTP 테스트를 위해 자동으로 발송되었습니다.
           </p>
+
+          <br><br>
+          <hr style="border: none; border-top: 1px solid #e0e0e0; margin: 30px 0;">
+          <p style="font-size: 12px; color: #999; text-align: center;">
+            본 메일은 Picker에서 발송되었습니다.<br>
+            <a href="https://buzpicker.vercel.app" style="color: #6b46c1; text-decoration: none;">
+              맞춤형 메일 생성해보기
+            </a>
+          </p>
         </div>
       `
     };
