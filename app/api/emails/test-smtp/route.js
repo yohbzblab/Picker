@@ -21,13 +21,7 @@ export async function POST(request) {
       );
     }
 
-    // 이메일 유효성 검사
-    if (emailProvider === 'gmail' && !smtpUser.includes('@gmail.com')) {
-      return Response.json(
-        { error: 'Gmail 주소를 입력해주세요.' },
-        { status: 400 }
-      );
-    }
+    // Google Workspace 계정도 지원 (커스텀 도메인 허용)
 
     console.log(`Testing SMTP connection for ${emailProvider}...`);
 

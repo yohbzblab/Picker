@@ -35,15 +35,7 @@ export default function SmtpSettingsModal({
         return;
       }
 
-      // Gmail인 경우 @gmail.com 체크
-      if (
-        emailProvider === "gmail" &&
-        !currentSettings.smtpUser.includes("@gmail.com")
-      ) {
-        alert("Gmail 주소를 입력해주세요.");
-        setSavingSettings(false);
-        return;
-      }
+      // Google Workspace 계정도 지원 (커스텀 도메인 허용)
 
       const response = await fetch("/api/users/smtp-settings", {
         method: "PUT",
@@ -95,15 +87,7 @@ export default function SmtpSettingsModal({
         return;
       }
 
-      // Gmail인 경우 @gmail.com 체크
-      if (
-        emailProvider === "gmail" &&
-        !currentSettings.smtpUser.includes("@gmail.com")
-      ) {
-        alert("Gmail 주소를 입력해주세요.");
-        setTestingConnection(false);
-        return;
-      }
+      // Google Workspace 계정도 지원 (커스텀 도메인 허용)
 
       const response = await fetch("/api/emails/test-smtp", {
         method: "POST",
