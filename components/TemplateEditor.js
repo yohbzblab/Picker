@@ -6,7 +6,14 @@ import { VideoLinkInput } from '@/components/VideoEmbed'
 import { parseVideoUrl } from '@/utils/videoParser'
 
 // 변수 에디터 컴포넌트 - 변수 삽입 기능 포함
-export function VariableInput({ value, onChange, placeholder, onInsertVariable }) {
+export function VariableInput({
+  value,
+  onChange,
+  placeholder,
+  onInsertVariable,
+  className,
+  ...props
+}) {
   const inputRef = useRef(null)
 
   // 변수 삽입 함수
@@ -50,7 +57,11 @@ export function VariableInput({ value, onChange, placeholder, onInsertVariable }
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
+      className={
+        className ||
+        "w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-purple-500 focus:border-purple-500 text-black font-medium"
+      }
+      {...props}
     />
   )
 }

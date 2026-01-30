@@ -4,7 +4,7 @@ import { useAuth } from '@/components/AuthProvider'
 import Navbar from '@/components/Navbar'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState, useRef, useCallback, Suspense } from 'react'
-import { RichTextEditor } from '@/components/TemplateEditor'
+import { RichTextEditor, VariableInput } from '@/components/TemplateEditor'
 import { ConditionsModal, UserVariableModal } from '@/components/EmailTemplateComponents'
 
 function CreateEmailTemplateContent() {
@@ -692,11 +692,12 @@ function CreateEmailTemplateContent() {
                         불러오는 중…
                       </div>
                     ) : (
-                      <input
-                        type="text"
+                      <VariableInput
                         value={formData.subject}
-                        onChange={(e) => handleSubjectChange(e.target.value)}
+                        onChange={handleSubjectChange}
+                        onFocus={() => setActiveField('subject')}
                         placeholder="예: {{name}}님, 협업 제안드려요"
+                        onInsertVariable={handleSubjectInsertVariable}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                       />
                     )}
