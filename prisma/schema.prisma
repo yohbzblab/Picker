@@ -7,53 +7,52 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
 
 model User {
-  id                   Int                            @id @default(autoincrement())
-  email                String                         @unique
-  name                 String?
-  profileImage         String?
-  supabaseId           String                         @unique
-  isProfileComplete    Boolean                        @default(false)
+  id                        Int                            @id @default(autoincrement())
+  email                     String                         @unique
+  name                      String?
+  profileImage              String?
+  supabaseId                String                         @unique
+  isProfileComplete         Boolean                        @default(false)
   // AI 맞춤형 칭찬 생성 누적 사용 횟수 (유저당 100회 제한, 리셋 없음)
-  aiComplimentGenerateCount Int                       @default(0)
+  aiComplimentGenerateCount Int                            @default(0)
   // 전화번호 인증(어뷰징 방지용) - 유저당 1개 전화번호 연결, 기존 유저 포함 전원 적용
-  phone                String?                        @unique
-  phoneVerified        Boolean                        @default(false)
-  phoneVerifiedAt      DateTime?
-  createdAt            DateTime                       @default(now())
-  updatedAt            DateTime                       @updatedAt
-  brandName            String?
-  senderName           String?
-  smtpHost             String?
-  smtpPassword         String?
-  smtpPort             Int?
-  smtpSecure           Boolean?                       @default(false)
-  smtpUser             String?
-  emailProvider        String?                        @default("mailplug")
-  gmailSenderName      String?
-  gmailSmtpHost        String?                        @default("smtp.gmail.com")
-  gmailSmtpPassword    String?
-  gmailSmtpPort        Int?                           @default(587)
-  gmailSmtpUser        String?
-  mailplugSenderName   String?
-  mailplugSmtpHost     String?                        @default("smtp.mailplug.co.kr")
-  mailplugSmtpPassword String?
-  mailplugSmtpPort     Int?                           @default(465)
-  mailplugSmtpUser     String?
-  campaignBlocks       CampaignBlock[]
-  emailTemplates       EmailTemplate[]
-  emailsReceived       EmailReceived[]
-  emailsSent           EmailSent[]
-  influencers          Influencer[]
-  instagramAccounts    InstagramAccount[]
-  surveyConnections    SurveyInfluencerConnection[]
-  surveyTemplates      SurveyTemplate[]
-  templateAttachments  TemplateAttachment[]
-  templateImages       TemplateImage[]
-  templateConnections  TemplateInfluencerConnection[]
+  phone                     String?                        @unique
+  phoneVerified             Boolean                        @default(false)
+  phoneVerifiedAt           DateTime?
+  createdAt                 DateTime                       @default(now())
+  updatedAt                 DateTime                       @updatedAt
+  brandName                 String?
+  senderName                String?
+  smtpHost                  String?
+  smtpPassword              String?
+  smtpPort                  Int?
+  smtpSecure                Boolean?                       @default(false)
+  smtpUser                  String?
+  emailProvider             String?                        @default("mailplug")
+  gmailSenderName           String?
+  gmailSmtpHost             String?                        @default("smtp.gmail.com")
+  gmailSmtpPassword         String?
+  gmailSmtpPort             Int?                           @default(587)
+  gmailSmtpUser             String?
+  mailplugSenderName        String?
+  mailplugSmtpHost          String?                        @default("smtp.mailplug.co.kr")
+  mailplugSmtpPassword      String?
+  mailplugSmtpPort          Int?                           @default(465)
+  mailplugSmtpUser          String?
+  campaignBlocks            CampaignBlock[]
+  emailTemplates            EmailTemplate[]
+  emailsReceived            EmailReceived[]
+  emailsSent                EmailSent[]
+  influencers               Influencer[]
+  instagramAccounts         InstagramAccount[]
+  surveyConnections         SurveyInfluencerConnection[]
+  surveyTemplates           SurveyTemplate[]
+  templateAttachments       TemplateAttachment[]
+  templateImages            TemplateImage[]
+  templateConnections       TemplateInfluencerConnection[]
 
   @@map("users")
 }
