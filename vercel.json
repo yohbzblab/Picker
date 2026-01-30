@@ -1,4 +1,1 @@
-{
-  "buildCommand": "if [ \"$VERCEL_ENV\" = \"production\" ]; then npx prisma@6.17.0 migrate deploy; fi && npm run build"
-}
-
+{}
