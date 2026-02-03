@@ -2,6 +2,7 @@
 
 import Navbar from "@/components/Navbar";
 import { useAuth } from "@/components/AuthProvider";
+import { isPhoneVerificationBypassed } from "@/lib/phoneVerification";
 import { createClient } from "@/lib/supabase/client";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -34,11 +35,12 @@ export default function VerifyPhonePage() {
   }, [user, loading, router]);
 
   useEffect(() => {
-    // 이미 인증된 경우 즉시 통과
-    if (!loading && user && dbUser?.phoneVerified) {
+    // 이미 인증됐거나 예외 이메일이면 즉시 통과
+    const isBypassed = isPhoneVerificationBypassed({ user, dbUser });
+    if (!loading && user && (dbUser?.phoneVerified || isBypassed)) {
       router.push("/dashboard");
     }
-  }, [dbUser?.phoneVerified, loading, router, user]);
+  }, [dbUser?.phoneVerified, dbUser, loading, router, user]);
 
   const phoneE164 = useMemo(() => normalizePhone(phone), [phone]);
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
+import { isPhoneVerificationBypassed } from "@/lib/phoneVerification";
 import Footer from "@/components/Footer";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -13,7 +14,8 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) {
-      if (dbUser?.phoneVerified === false) {
+      const isBypassed = isPhoneVerificationBypassed({ user, dbUser });
+      if (dbUser?.phoneVerified === false && !isBypassed) {
         router.push("/verify-phone");
       } else {
         router.push("/dashboard");

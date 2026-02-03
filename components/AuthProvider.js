@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback, useMemo } 
 import { createClient } from "@/lib/supabase/client";
 import { useRouter, usePathname } from "next/navigation";
 import { tokenManager } from "@/lib/auth/token";
+import { isPhoneVerificationBypassed } from "@/lib/phoneVerification";
 
 const AuthContext = createContext({});
 
@@ -200,7 +201,8 @@ export default function AuthProvider({ children }) {
     const allowPaths = ['/login', '/', '/auth', '/verify-phone']
     const isAllowed = allowPaths.some(p => pathname === p || pathname.startsWith(p + '/'))
 
-    if (dbUser.phoneVerified === false && !isAllowed) {
+    const isBypassed = isPhoneVerificationBypassed({ user, dbUser });
+    if (dbUser.phoneVerified === false && !isAllowed && !isBypassed) {
       router.push('/verify-phone')
     }
   }, [dbUser, isHydrated, loading, pathname, router, user]);
@@ -341,7 +343,11 @@ export default function AuthProvider({ children }) {
         // 로그인 페이지나 홈페이지에서만 리다이렉트
         const currentPath = window.location.pathname;
         if (currentPath === '/login' || currentPath === '/' || currentPath === '/auth/callback') {
-          if (dbUserData?.phoneVerified === false) {
+          const isBypassed = isPhoneVerificationBypassed({
+            user: supabaseUser,
+            dbUser: dbUserData,
+          });
+          if (dbUserData?.phoneVerified === false && !isBypassed) {
             router.push("/verify-phone");
           } else {
             router.push("/dashboard");
