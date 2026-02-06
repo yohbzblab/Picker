@@ -25,7 +25,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Picker Viral</h1>
             </div>
             <div className="flex items-center">
               <button
@@ -52,7 +52,10 @@ export default function Home() {
               </h3>
 
               <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                <span className="text-purple-600">피커(Picker)</span> : 인플루언서 마케팅이 쉬워지는 방법
+                <span className="text-purple-600">
+                  피커바이럴(Picker Viral)
+                </span>{" "}
+                : 인플루언서 마케팅이 쉬워지는 방법
               </h2>
 
               <p className="text-lg text-gray-600 mb-4 max-w-3xl mx-auto">
@@ -105,7 +108,7 @@ export default function Home() {
                   <strong>모호했던 인플루언서 마케팅이,</strong>
                 </p>
                 <p className="text-2xl font-bold text-purple-600">
-                  <strong>이제 피커 원 툴이면 끝!</strong>
+                  <strong>이제 피커바이럴 원 툴이면 끝!</strong>
                 </p>
               </div>
             </div>
@@ -126,7 +129,7 @@ export default function Home() {
                       <div>
                         <p className="font-semibold text-gray-900">회신율 35+배 향상, 메일 전송 시간 75% 감소</p>
                         <p className="text-gray-600 mt-1">일반적으로 100통에 1통 회신,<br/>
-                        Picker 활용 시 20통에 7통 회신</p>
+                        피커바이럴 활용 시 20통에 7통 회신</p>
                         <p className="text-gray-600 mt-1">20통에 2시간 걸리던 첫 컨택 메일,<br/>
                         30분만에 작성 완료</p>
                       </div>

@@ -6,11 +6,12 @@
 
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import prismaPicker from '@/lib/prisma-picker';
+import { getPrismaPickerClient } from '@/lib/prisma-picker';
 import { createClient } from '@/lib/supabase/server';
 
 export async function POST(request) {
   try {
+    const prismaPicker = getPrismaPickerClient();
     // Get authenticated user
     const supabase = await createClient();
     const { data, error: authError } = await supabase.auth.getUser();

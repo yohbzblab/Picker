@@ -17,6 +17,9 @@ export default function Footer() {
           <p className="text-sm text-gray-600">
             <span className="font-medium">전화번호:</span> 070-8065-1350
           </p>
+          <p className="text-sm text-gray-500 pt-2">
+            © 2026 Buzzbee Lab. All rights reserved.
+          </p>
         </div>
       </div>
     </footer>

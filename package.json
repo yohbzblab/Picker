@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
-    "build": "npx prisma generate && npx prisma generate --schema=prisma/schema-picker.prisma && next build",
+    "build": "prisma generate && prisma generate --schema=prisma/schema-picker.prisma && next build",
     "migrate:deploy": "npx prisma migrate deploy",
     "start": "next start"
   },

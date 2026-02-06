@@ -41,7 +41,7 @@ export default function Navbar() {
               onClick={() => router.push('/dashboard')}
               className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors"
             >
-              Picker
+              Picker Viral
             </button>
           </div>
           <div className="flex items-center space-x-4">

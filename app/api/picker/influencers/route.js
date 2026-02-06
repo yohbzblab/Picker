@@ -6,10 +6,11 @@
  */
 
 import { NextResponse } from 'next/server';
-import prismaPicker from '@/lib/prisma-picker';
+import { getPrismaPickerClient } from '@/lib/prisma-picker';
 
 export async function GET(request) {
   try {
+    const prismaPicker = getPrismaPickerClient();
     const { searchParams } = new URL(request.url);
 
     // Get query parameters

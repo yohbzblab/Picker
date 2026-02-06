@@ -460,7 +460,9 @@ function EmailComposeContent() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Picker Viral
+                </h1>
               </div>
             </div>
           </div>
@@ -477,7 +479,9 @@ function EmailComposeContent() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between h-16">
               <div className="flex items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+                <h1 className="text-2xl font-bold text-gray-900">
+                  Picker Viral
+                </h1>
               </div>
             </div>
           </div>
@@ -497,7 +501,7 @@ function EmailComposeContent() {
                 onClick={() => router.push("/")}
                 className="text-2xl font-bold text-gray-900 hover:text-gray-700 transition-colors"
               >
-                Picker
+                Picker Viral
               </button>
             </div>
             <div className="flex items-center space-x-4">
@@ -1268,7 +1272,9 @@ export default function EmailCompose() {
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="flex justify-between h-16">
                 <div className="flex items-center">
-                  <h1 className="text-2xl font-bold text-gray-900">Picker</h1>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    Picker Viral
+                  </h1>
                 </div>
               </div>
             </div>

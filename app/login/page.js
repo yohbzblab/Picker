@@ -84,7 +84,7 @@ export default function LoginPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-gray-900">버즈비랩</h1>
+              <h1 className="text-2xl font-bold text-gray-900">Picker Viral</h1>
             </div>
             <div className="flex items-center">
               <button
@@ -123,7 +123,8 @@ export default function LoginPage() {
               </h3>
 
               <h2 className="text-4xl font-bold text-gray-900 mb-6">
-                <strong>피커(Picker) :</strong> 인플루언서 마케팅이 쉬워지는
+                <strong>피커바이럴(Picker Viral) :</strong> 인플루언서 마케팅이
+                쉬워지는
                 방법
               </h2>
 
@@ -220,7 +221,7 @@ export default function LoginPage() {
                   <strong>모호했던 인플루언서 마케팅이,</strong>
                 </p>
                 <p className="text-2xl font-bold text-purple-600">
-                  <strong>이제 피커 원 툴이면 끝!</strong>
+                  <strong>이제 피커바이럴 원 툴이면 끝!</strong>
                 </p>
               </div>
             </div>
@@ -247,8 +248,8 @@ export default function LoginPage() {
                     <div className="flex items-start mb-3">
                       <span className="text-purple-600 mr-3 mt-1">•</span>
                       <p className="text-gray-600">
-                        일반적으로 100통에 1통 회신, Picker 활용 시 20통에 7통
-                        회신
+                        일반적으로 100통에 1통 회신, 피커바이럴 활용 시 20통에
+                        7통 회신
                       </p>
                     </div>
                     <div className="flex items-start">
@@ -262,13 +263,13 @@ export default function LoginPage() {
                     {/* 데스크톱용 이미지 */}
                     <img
                       src="/landing.gif"
-                      alt="피커 인플루언서 컨택 시스템 데모"
+                      alt="피커바이럴 인플루언서 컨택 시스템 데모"
                       className="hidden md:block w-full max-w-4xl mx-auto rounded-lg shadow-lg"
                     />
                     {/* 모바일용 이미지 */}
                     <img
                       src="/01_MO.gif"
-                      alt="피커 인플루언서 컨택 시스템 데모"
+                      alt="피커바이럴 인플루언서 컨택 시스템 데모"
                       className="block md:hidden w-full max-w-4xl mx-auto rounded-lg shadow-lg"
                     />
                   </div>

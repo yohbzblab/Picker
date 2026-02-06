@@ -14,8 +14,28 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Picker",
-  description: "Instagram Analytics Service",
+  title:
+    "피커바이럴(Picker Viral) | 인플루언서 마케팅 자동화 솔루션 Influencer Marketing Automation Solution",
+  description:
+    "버즈비랩의 AI 기반 인플루언서 마케팅 자동화 솔루션 피커바이럴. 데이터 기반 인플루언서 선별과 바이럴 확산을 자동화하세요.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
+  ),
+  openGraph: {
+    title:
+      "피커바이럴(Picker Viral) | 인플루언서 마케팅 자동화 솔루션 Influencer Marketing Automation Solution",
+    description:
+      "버즈비랩의 AI 기반 인플루언서 마케팅 자동화 솔루션 피커바이럴. 데이터 기반 인플루언서 선별과 바이럴 확산을 자동화하세요.",
+    siteName: "Picker Viral",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title:
+      "피커바이럴(Picker Viral) | 인플루언서 마케팅 자동화 솔루션 Influencer Marketing Automation Solution",
+    description:
+      "버즈비랩의 AI 기반 인플루언서 마케팅 자동화 솔루션 피커바이럴. 데이터 기반 인플루언서 선별과 바이럴 확산을 자동화하세요.",
+  },
   other: {
     'facebook-domain-verification': '2iu4y6r9ntykuywmz91t8dqpeu11uu',
   },

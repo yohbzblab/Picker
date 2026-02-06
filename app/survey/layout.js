@@ -13,8 +13,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Survey - Picker",
+  title: "Survey - Picker Viral",
   description: "Instagram Analytics Service Survey",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"
+  ),
+  openGraph: {
+    title: "Survey - Picker Viral",
+    description: "Instagram Analytics Service Survey",
+    siteName: "Picker Viral",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Survey - Picker Viral",
+    description: "Instagram Analytics Service Survey",
+  },
 };
 
 export default function SurveyLayout({ children }) {
